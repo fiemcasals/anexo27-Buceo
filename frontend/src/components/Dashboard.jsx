@@ -246,7 +246,8 @@ const Dashboard = ({ onLogout }) => {
             <div className="col-md-8">
               <div className="card border-0 shadow-sm p-4">
                 <h5 className="fw-bold mb-4">Mis Últimos Estudios</h5>
-                <div className="table-responsive">
+                {/* Desktop Table */}
+                <div className="d-none d-md-block table-responsive">
                   <table className="table table-hover align-middle">
                     <thead>
                       <tr>
@@ -297,6 +298,53 @@ const Dashboard = ({ onLogout }) => {
                       {myStudies.length === 0 && <tr><td colSpan="4" className="text-center py-4 text-muted">No has cargado estudios aún.</td></tr>}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="d-block d-md-none">
+                  {myStudies.map((s) => (
+                    <div key={s.id} className="card border mb-3 rounded-4 shadow-sm">
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <h6 className="fw-bold mb-0 text-primary">{s.title}</h6>
+                          <span className="text-muted small"><i className="bi bi-calendar3 me-1"></i>{s.study_date}</span>
+                        </div>
+                        <div className="mb-3">
+                            <span className="small text-muted d-block mb-1 text-uppercase fw-bold">Estado del Dictamen:</span>
+                            {s.comments.length > 0 ? (
+                              <div>
+                                <span className={`badge ${s.comments[s.comments.length-1].status === 'REJECTED' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'} rounded-pill mb-2 px-3 py-2`}>
+                                  {s.comments[s.comments.length-1].status === 'REJECTED' ? 'Rechazado' : 'Visto Bueno'}
+                                </span>
+                                {s.comments[s.comments.length-1].content && (
+                                  <div>
+                                    <button 
+                                      className="btn btn-sm btn-outline-secondary rounded-pill w-100" 
+                                      style={{ fontSize: '0.8rem' }}
+                                      onClick={() => openViewCommentModal(s.comments[s.comments.length-1])}
+                                    >
+                                      <i className="bi bi-chat-text me-2"></i>
+                                      Ver Mensaje del Auditor
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="badge bg-light text-secondary border rounded-pill px-3 py-2">Pendiente de Revisión</span>
+                            )}
+                        </div>
+                        <div className="d-flex gap-2 border-top pt-3 mt-2">
+                          <a href={s.pdf_attachment} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary w-50 rounded-pill">
+                            <i className="bi bi-eye me-2"></i>Ver
+                          </a>
+                          <button className="btn btn-sm btn-outline-danger w-50 rounded-pill" onClick={() => handleDeleteStudy(s.id)}>
+                            <i className="bi bi-trash me-2"></i>Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {myStudies.length === 0 && <div className="text-center py-4 text-muted border rounded-4 bg-light">No has cargado estudios aún.</div>}
                 </div>
               </div>
             </div>
