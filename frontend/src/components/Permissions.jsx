@@ -221,7 +221,7 @@ const Permissions = ({ onLogout }) => {
                     <div className="col-lg-7">
                         <div className="card border-0 shadow-sm p-4 h-100">
                             <h5 className="fw-bold mb-4">Usuarios con Acceso</h5>
-                            <div className="table-responsive">
+                            <div className="d-none d-md-block table-responsive">
                                 <table className="table table-hover align-middle">
                                     <thead className="table-light">
                                         <tr>
@@ -288,6 +288,64 @@ const Permissions = ({ onLogout }) => {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="d-block d-md-none">
+                                {permissions.length === 0 && (
+                                    <div className="text-center py-5 text-muted border rounded-4 bg-light">
+                                        No has otorgado permisos aún.
+                                    </div>
+                                )}
+                                {permissions.map((p) => (
+                                    <div key={p.id} className="card border mb-3 rounded-4 shadow-sm">
+                                        <div className="card-body">
+                                            <div className="d-flex align-items-center mb-3">
+                                                <div className="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style={{width: '40px', height: '40px', fontSize: '1rem'}}>
+                                                    {p.grantee_details?.username?.[0].toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="fw-bold text-primary">{p.grantee_details?.email}</div>
+                                                    <div className="small text-muted">{p.grantee_details?.first_name} {p.grantee_details?.last_name}</div>
+                                                </div>
+                                            </div>
+                                            <div className="mb-3">
+                                                <span className="small text-muted d-block mb-1 text-uppercase fw-bold">Nivel de Acceso:</span>
+                                                <span className={`badge ${p.access_level === 'MODIFY' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'} rounded-pill px-3 py-2`}>
+                                                    {p.access_level === 'MODIFY' ? 'Médico' : 'Lector'}
+                                                </span>
+                                            </div>
+                                            <div className="mb-3">
+                                                <span className="small text-muted d-block mb-1 text-uppercase fw-bold">Contenido:</span>
+                                                <div className="small">
+                                                    {p.shared_items.includes('ALL') ? (
+                                                        <span className="text-primary fw-bold">Acceso Completo</span>
+                                                    ) : (
+                                                        <div className="d-flex flex-column gap-1">
+                                                            {p.shared_items.includes('PERSONAL_DATA') && <span className="badge bg-info text-white text-start text-wrap" style={{width: 'fit-content'}}>Datos Personales</span>}
+                                                            {p.shared_items.filter(i => i !== 'PERSONAL_DATA').map(idStr => {
+                                                                const study = studies.find(s => s.id === parseInt(idStr));
+                                                                return study ? (
+                                                                    <span key={idStr} className="badge bg-secondary text-start text-wrap" style={{width: 'fit-content', maxWidth: '250px'}} title={study.title}>
+                                                                        <i className="bi bi-file-earmark-medical me-1"></i>
+                                                                        {study.title}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span key={idStr} className="badge bg-light text-muted text-start text-wrap" style={{width: 'fit-content'}}>Estudio Eliminado (ID: {idStr})</span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="border-top pt-3 mt-2">
+                                                <button onClick={() => handleRevoke(p.id)} className="btn btn-outline-danger w-100 rounded-pill">
+                                                    <i className="bi bi-shield-slash me-2"></i>Revocar Acceso
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
