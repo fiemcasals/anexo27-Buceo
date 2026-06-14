@@ -25,6 +25,8 @@ body {
   min-width: 280px;
   box-shadow: 4px 0 10px rgba(0,0,0,0.1);
   transition: var(--transition);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .sidebar .nav-link {
@@ -49,6 +51,7 @@ body {
 /* Sidebar structure fixes */
 .sidebar .nav.flex-grow-1 {
   flex-grow: 0 !important;
+  flex-wrap: nowrap !important;
 }
 
 .sidebar .mt-auto {
