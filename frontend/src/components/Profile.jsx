@@ -185,7 +185,7 @@ const Profile = ({ onLogout }) => {
               </div>
             </div>
 
-            <div className="mt-5 d-flex gap-3">
+            <div className="mt-5 d-grid gap-2 d-md-flex justify-content-md-start">
               <button type="submit" className="btn btn-primary px-5 py-2 shadow-sm rounded-pill">
                 Guardar Cambios
               </button>
