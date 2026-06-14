@@ -36,6 +36,7 @@ const Bitacora = ({ onLogout }) => {
 
   const [generatedToken, setGeneratedToken] = useState(null);
   const [scanningRole, setScanningRole] = useState(null); 
+  const [isScanningDive, setIsScanningDive] = useState(false);
   
   // Diver Log Modal Form (Instructor Side)
   const [showLogModal, setShowLogModal] = useState(false);
@@ -270,6 +271,37 @@ const Bitacora = ({ onLogout }) => {
           </div>
         )}
 
+        {/* Modal QR Scanner for Diver */}
+        {isScanningDive && (
+          <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div className="bg-primary text-white p-3 d-flex justify-content-between align-items-center">
+                  <h6 className="m-0 fw-bold">Escanear QR de Inmersión</h6>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setIsScanningDive(false)}></button>
+                </div>
+                <div className="p-3 text-center">
+                  <p className="small text-muted mb-3">Apunta la cámara al QR generado por el Instructor para firmar y registrar el buceo en tu bitácora.</p>
+                  <Scanner 
+                    onScan={(result) => {
+                      if (result && result.length > 0) {
+                        const url = result[0].rawValue;
+                        if (url.includes('/bitacora/scan/')) {
+                          setIsScanningDive(false);
+                          window.location.href = url;
+                        } else {
+                          alert('QR Inválido. Asegúrate de escanear un QR de inmersión generado por este sistema.');
+                        }
+                      }
+                    }} 
+                    onError={(error) => alert(`Error de cámara: ${error.message || error}`)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Carga de Datos del Buzo */}
         {showLogModal && (
           <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1040, overflowY: 'auto' }}>
@@ -333,7 +365,12 @@ const Bitacora = ({ onLogout }) => {
 
         {activeTab === 'mis-buceos' && (
           <div className="card border-0 shadow-sm p-4">
-            <h5 className="fw-bold mb-4">Mi Historial de Buceos</h5>
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+              <h5 className="fw-bold mb-0">Mi Historial de Buceos</h5>
+              <button className="btn btn-primary rounded-pill px-4 shadow-sm" onClick={() => setIsScanningDive(true)}>
+                <i className="bi bi-qr-code-scan me-2"></i>Escanear QR de Buceo
+              </button>
+            </div>
             <div className="row g-4">
               {myDives.filter(l => l.is_completed).map(log => (
                 <div className="col-md-6" key={log.id}>
