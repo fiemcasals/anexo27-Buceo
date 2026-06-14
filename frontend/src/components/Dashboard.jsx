@@ -526,7 +526,8 @@ const Dashboard = ({ onLogout }) => {
                       type="file" 
                       className="form-control border-0 bg-light" 
                       onChange={(e) => setUploadFile(e.target.files[0])}
-                      accept=".pdf,image/*"
+                      accept="image/*,application/pdf"
+                      capture="environment"
                       required
                     />
                   </div>
