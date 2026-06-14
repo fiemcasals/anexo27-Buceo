@@ -46,6 +46,11 @@ const Profile = ({ onLogout }) => {
     }
   };
 
+  const closeMenu = () => {
+    const toggle = document.getElementById('menu-toggle');
+    if (toggle) toggle.checked = false;
+  };
+
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
@@ -85,19 +90,19 @@ const Profile = ({ onLogout }) => {
         </div>
         
         <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link d-flex align-items-center">
+          <Link to="/dashboard" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-grid me-3"></i>
             <span>Dashboard</span>
           </Link>
-          <Link to="/profile" className="nav-link active d-flex align-items-center">
+          <Link to="/profile" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-person-circle-fill me-3"></i>
             <span>Mi Perfil</span>
           </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center">
+          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-shield-lock me-3"></i>
             <span>Permisos</span>
           </Link>
-          <Link to="/bitacora" className="nav-link d-flex align-items-center">
+          <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-book me-3"></i>
             <span>Bitácora de Buceo</span>
           </Link>

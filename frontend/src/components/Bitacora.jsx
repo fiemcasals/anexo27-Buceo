@@ -102,6 +102,21 @@ const Bitacora = ({ onLogout }) => {
     }
   };
 
+  const handleDeleteAct = async (id) => {
+    if (!window.confirm('¿Eliminar esta inmersión?')) return;
+    try {
+      await api.delete(`/dive-activities/${id}/`);
+      fetchData();
+    } catch (error) {
+      alert('Error eliminando inmersión');
+    }
+  };
+
+  const closeMenu = () => {
+    const toggle = document.getElementById('menu-toggle');
+    if (toggle) toggle.checked = false;
+  };
+
   const openLogModal = (activityId) => {
     setSelectedActivityId(activityId);
     setLogData({
@@ -194,17 +209,17 @@ const Bitacora = ({ onLogout }) => {
         </div>
         
         <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link d-flex align-items-center">
-            <i className="bi bi-grid-fill me-3"></i><span>Dashboard</span>
+          <Link to="/dashboard" className="nav-link d-flex align-items-center" onClick={closeMenu}>
+            <i className="bi bi-grid me-3"></i><span>Dashboard</span>
           </Link>
-          <Link to="/profile" className="nav-link d-flex align-items-center">
+          <Link to="/profile" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-person-circle me-3"></i><span>Mi Perfil</span>
           </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center">
+          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-shield-lock me-3"></i><span>Permisos</span>
           </Link>
-          <Link to="/bitacora" className="nav-link active d-flex align-items-center">
-            <i className="bi bi-book me-3"></i><span>Bitácora de Buceo</span>
+          <Link to="/bitacora" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
+            <i className="bi bi-book-fill me-3"></i><span>Bitácora de Buceo</span>
           </Link>
         </nav>
 

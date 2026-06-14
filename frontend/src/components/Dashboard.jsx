@@ -175,6 +175,23 @@ const Dashboard = ({ onLogout }) => {
     setExpandedOwners(prev => ({ ...prev, [ownerId]: !prev[ownerId] }));
   };
 
+  const getMediaUrl = (url) => {
+    if (!url) return '#';
+    if (url.startsWith('http')) {
+      try {
+        return new URL(url).pathname;
+      } catch (e) {
+        return url;
+      }
+    }
+    return url;
+  };
+
+  const closeMenu = () => {
+    const toggle = document.getElementById('menu-toggle');
+    if (toggle) toggle.checked = false;
+  };
+
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       {/* Sidebar */}
@@ -187,19 +204,19 @@ const Dashboard = ({ onLogout }) => {
         </div>
         
         <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link active d-flex align-items-center">
+          <Link to="/dashboard" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-grid-fill me-3"></i>
             <span>Dashboard</span>
           </Link>
-          <Link to="/profile" className="nav-link d-flex align-items-center">
+          <Link to="/profile" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-person-circle me-3"></i>
             <span>Mi Perfil</span>
           </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center">
+          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-shield-lock me-3"></i>
             <span>Permisos</span>
           </Link>
-          <Link to="/bitacora" className="nav-link d-flex align-items-center">
+          <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-book me-3"></i>
             <span>Bitácora de Buceo</span>
           </Link>
@@ -286,7 +303,7 @@ const Dashboard = ({ onLogout }) => {
                             )}
                           </td>
                           <td className="py-3 border-0 text-end d-flex gap-2 justify-content-end">
-                            <a href={s.pdf_attachment} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary border-0">
+                            <a href={getMediaUrl(s.pdf_attachment)} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary border-0">
                               <i className="bi bi-eye"></i>
                             </a>
                             <button className="btn btn-sm btn-outline-danger border-0" onClick={() => handleDeleteStudy(s.id)}>
@@ -334,7 +351,7 @@ const Dashboard = ({ onLogout }) => {
                             )}
                         </div>
                         <div className="d-flex gap-2 border-top pt-3 mt-2">
-                          <a href={s.pdf_attachment} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary w-50 rounded-pill">
+                          <a href={getMediaUrl(s.pdf_attachment)} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary w-50 rounded-pill">
                             <i className="bi bi-eye me-2"></i>Ver
                           </a>
                           <button className="btn btn-sm btn-outline-danger w-50 rounded-pill" onClick={() => handleDeleteStudy(s.id)}>
@@ -438,7 +455,7 @@ const Dashboard = ({ onLogout }) => {
                                     <h6 className="fw-bold mb-1">{s.title}</h6>
                                     <span className="small text-muted">{s.study_date}</span>
                                   </div>
-                                  <a href={s.pdf_attachment} target="_blank" rel="noreferrer" className="btn btn-sm btn-light">
+                                  <a href={getMediaUrl(s.pdf_attachment)} target="_blank" rel="noreferrer" className="btn btn-sm btn-light">
                                     Ver Documento
                                   </a>
                                 </div>

@@ -63,6 +63,11 @@ const Permissions = ({ onLogout }) => {
         }
     };
 
+    const closeMenu = () => {
+        const toggle = document.getElementById('menu-toggle');
+        if (toggle) toggle.checked = false;
+    };
+
     const toggleItem = (item) => {
         if (item === 'ALL') {
             setSelectedItems(selectedItems.includes('ALL') ? [] : ['ALL']);
@@ -92,19 +97,19 @@ const Permissions = ({ onLogout }) => {
                 </div>
                 
                 <nav className="nav flex-column gap-2 flex-grow-1">
-                    <Link to="/dashboard" className="nav-link d-flex align-items-center">
+                    <Link to="/dashboard" className="nav-link d-flex align-items-center" onClick={closeMenu}>
                         <i className="bi bi-grid me-3"></i>
                         <span>Dashboard</span>
                     </Link>
-                    <Link to="/profile" className="nav-link d-flex align-items-center">
+                    <Link to="/profile" className="nav-link d-flex align-items-center" onClick={closeMenu}>
                         <i className="bi bi-person-circle me-3"></i>
                         <span>Mi Perfil</span>
                     </Link>
-                    <Link to="/permissions" className="nav-link active d-flex align-items-center">
+                    <Link to="/permissions" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
                         <i className="bi bi-shield-lock-fill me-3"></i>
                         <span>Permisos</span>
                     </Link>
-                    <Link to="/bitacora" className="nav-link d-flex align-items-center">
+                    <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
                         <i className="bi bi-book me-3"></i>
                         <span>Bitácora de Buceo</span>
                     </Link>
