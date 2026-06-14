@@ -149,8 +149,12 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+CORS_ALLOW_ALL_ORIGINS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://buceo.misitiowebpersonal.com.ar',
+    'https://*.misitiowebpersonal.com.ar',
+    'http://localhost:5173',
 ]
 
 # Authentication Backends
