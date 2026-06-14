@@ -92,9 +92,9 @@ act, created = DiveActivity.objects.get_or_create(
         'dive_type': 'Entrenamiento',
         'max_depth_meters': 18.5,
         'duration_minutes': 45,
-        'safety_diver': buzo2.id,
-        'medic': medico.id,
-        'supervisor': admin.id
+        'safety_diver': buzo2,
+        'medic': medico,
+        'supervisor': admin
     }
 )
 
