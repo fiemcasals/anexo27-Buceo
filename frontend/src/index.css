@@ -46,6 +46,15 @@ body {
   background-color: var(--primary-color);
 }
 
+/* Sidebar structure fixes */
+.sidebar .nav.flex-grow-1 {
+  flex-grow: 0 !important;
+}
+
+.sidebar .mt-auto {
+  margin-top: 3rem !important;
+}
+
 .card {
   border: none;
   border-radius: 12px;
