@@ -7,11 +7,11 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.conf import settings
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
-from users.models import UserProfile, ProfileFieldTemplate
+from users.models import UserProfile, ProfileFieldTemplate, Specialty
 from .serializers import (
     StudyBlockSerializer, CommentSerializer, PermissionSerializer,
     UserProfileSerializer, ProfileFieldTemplateSerializer,
-    DiveActivitySerializer, DiveLogSerializer
+    DiveActivitySerializer, DiveLogSerializer, SpecialtySerializer
 )
 from .report_pdf import generate_anexo_27
 
@@ -55,6 +55,16 @@ class ProfileFieldTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = ProfileFieldTemplateSerializer
     permission_classes = [permissions.IsAdminUser] # Only admins can manage templates
 
+class SpecialtyViewSet(viewsets.ModelViewSet):
+    """Todos leen el desplegable; solo el admin lo administra."""
+    queryset = Specialty.objects.all()
+    serializer_class = SpecialtySerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
 class StudyBlockViewSet(viewsets.ModelViewSet):
     queryset = StudyBlock.objects.all()
     serializer_class = StudyBlockSerializer
@@ -85,7 +95,9 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
                             continue
             
             q_shared = Q(user_id__in=grantor_ids) | Q(id__in=specific_ids)
-            return StudyBlock.objects.filter(q_own | q_shared).distinct()
+            return StudyBlock.objects.filter(q_own | q_shared).distinct().prefetch_related(
+                'comments__doctor__profile__specialty'
+            )
         except Exception as e:
             print(f"DEBUG: StudyBlock get_queryset error: {str(e)}")
             raise
@@ -125,14 +137,13 @@ class CommentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         if block.user != user:
-            has_permission = Permission.objects.filter(
-                grantor=block.user, 
-                grantee=user, 
-                access_level='MODIFY'
-            ).filter(
-                Q(shared_items__contains="ALL") | Q(shared_items__contains=str(block.id))
-            ).exists()
-            
+            has_permission = any(
+                perm.covers(block.id)
+                for perm in Permission.objects.filter(
+                    grantor=block.user, grantee=user, access_level='MODIFY'
+                )
+            )
+
             if not has_permission:
                 raise PermissionDenied("No tienes permisos de Médico Auditor para comentar en este estudio.")
                 
@@ -267,6 +278,26 @@ class DiveLogViewSet(viewsets.ModelViewSet):
 class SuperUserViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAdminUser]
 
+    @action(detail=False, methods=['get'], url_path='privileged')
+    def list_privileged(self, request):
+        results = []
+        superusers = User.objects.filter(is_superuser=True).exclude(pk=request.user.pk)
+        for u in superusers:
+            results.append({
+                'id': u.id, 'email': u.email,
+                'name': f"{u.first_name} {u.last_name}".strip() or u.username,
+                'role': 'superuser'
+            })
+        instructors = UserProfile.objects.filter(is_instructor=True).exclude(user=request.user)
+        for p in instructors:
+            if not p.user.is_superuser:
+                results.append({
+                    'id': p.user.id, 'email': p.user.email,
+                    'name': f"{p.user.first_name} {p.user.last_name}".strip() or p.user.username,
+                    'role': 'instructor'
+                })
+        return Response(results)
+
     @action(detail=False, methods=['post'])
     def promote(self, request):
         email = request.data.get('email')
@@ -290,3 +321,63 @@ class SuperUserViewSet(viewsets.ViewSet):
             return Response({"message": f"{email} ahora tiene permisos de Instructor."})
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=404)
+
+    @action(detail=False, methods=['post'], url_path='revoke')
+    def revoke(self, request):
+        email = request.data.get('email')
+        try:
+            user = User.objects.get(email=email)
+            user.is_superuser = False
+            user.is_staff = False
+            user.save()
+            return Response({"message": f"Permisos de superusuario revocados para {email}."})
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado."}, status=404)
+
+    @action(detail=False, methods=['post'], url_path='revoke-instructor')
+    def revoke_instructor(self, request):
+        email = request.data.get('email')
+        try:
+            user = User.objects.get(email=email)
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.is_instructor = False
+            profile.save()
+            return Response({"message": f"Permisos de instructor revocados para {email}."})
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado."}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='all-dive-logs')
+    def all_dive_logs(self, request):
+        from .serializers import DiveLogSerializer
+        logs = DiveLog.objects.filter(
+            is_completed=True, diver__isnull=False
+        ).select_related(
+            'diver', 'diver__profile', 'activity'
+        ).order_by('diver__email', '-activity__date')
+
+        grouped = {}
+        for log in logs:
+            diver = log.diver
+            uid = diver.id
+            if uid not in grouped:
+                profile = getattr(diver, 'profile', None)
+                grouped[uid] = {
+                    'user_id': uid,
+                    'email': diver.email,
+                    'first_name': diver.first_name,
+                    'last_name': diver.last_name,
+                    'profile': {
+                        'dni': profile.dni if profile else '',
+                        'age': profile.age if profile else None,
+                        'phone': profile.phone if profile else '',
+                        'rank': profile.rank if profile else '',
+                        'destination': profile.destination if profile else '',
+                        'weight': profile.weight if profile else None,
+                        'height': profile.height if profile else None,
+                    },
+                    'dive_logs': []
+                }
+            serializer = DiveLogSerializer(log, context={'request': request})
+            grouped[uid]['dive_logs'].append(serializer.data)
+
+        return Response(list(grouped.values()))

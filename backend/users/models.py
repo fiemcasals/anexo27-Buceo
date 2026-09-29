@@ -1,6 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+class Specialty(models.Model):
+    """Especialidad medica/enfermeria, administrada por el admin"""
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Specialties'
+
+    def __str__(self):
+        return self.name
+
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('USER', 'User'),
@@ -10,6 +21,12 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='USER')
     is_instructor = models.BooleanField(default=False)
+    PROFESSION_CHOICES = [
+        ('MEDICO', 'Médico'),
+        ('ENFERMERO', 'Enfermero'),
+    ]
+    profession = models.CharField(max_length=20, choices=PROFESSION_CHOICES, blank=True)
+    specialty = models.ForeignKey(Specialty, on_delete=models.SET_NULL, null=True, blank=True, related_name='profiles')
     profile_data = models.JSONField(default=dict, blank=True)
     
     # Base fields requested by user

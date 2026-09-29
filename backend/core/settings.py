@@ -72,7 +72,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -188,15 +188,18 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_ADAPTER = 'users.adapters.CustomAccountAdapter'
 
-FRONTEND_URL = 'http://localhost:5173'
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://buceo.misitiowebpersonal.com.ar')
 
-# SMTP Email Configuration (Real Email)
-# Reemplaza estas credenciales con un correo real (ej. Gmail App Password)
+REST_AUTH = {
+    'PASSWORD_RESET_SERIALIZER': 'users.serializers.CustomPasswordResetSerializer',
+}
+
+# SMTP Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'tu_correo@gmail.com' # <--- COLOCA TU CORREO AQUI
-EMAIL_HOST_PASSWORD = 'tu_contraseña_de_aplicacion' # <--- COLOCA TU CONTRASEÑA AQUI
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'mauriciocasals90@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'fbwlgygptwtgpxbk')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 

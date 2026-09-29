@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import Profile from './components/Profile';
 import Login from './components/Login';
 import Permissions from './components/Permissions';
+import Admin from './components/Admin';
 import ResetPassword from './components/ResetPassword';
 import Bitacora from './components/Bitacora';
 import CompleteDiveLog from './components/CompleteDiveLog';
@@ -42,6 +43,11 @@ function App() {
             path="/permissions" 
             element={isAuthenticated ? <Permissions onLogout={logout} /> : <Navigate to="/login" />} 
           />
+          <Route 
+            path="/admin" 
+            element={isAuthenticated ? <Admin onLogout={logout} /> : <Navigate to="/login" />} 
+          />
+          {/* Bitácora oculta de la navegación; las rutas quedan activas para reactivarla */}
           <Route 
             path="/bitacora" 
             element={isAuthenticated ? <Bitacora onLogout={logout} /> : <Navigate to="/login" />} 

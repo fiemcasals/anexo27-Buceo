@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import api from '../api';
+import Sidebar from './Sidebar';
 import { QRCodeSVG } from 'qrcode.react';
+
+const PROFESSION_LABELS = { MEDICO: 'Médico', ENFERMERO: 'Enfermero' };
 
 const Profile = ({ onLogout }) => {
   const [profile, setProfile] = useState({
@@ -14,13 +16,19 @@ const Profile = ({ onLogout }) => {
     destination: '',
     weight: '',
     height: '',
+    profession: '',
+    specialty: '',
     profile_data: {}
   });
+  const [specialties, setSpecialties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
 
   useEffect(() => {
     fetchProfile();
+    api.get('specialties/')
+      .then(res => setSpecialties(res.data))
+      .catch(err => console.error("Error fetching specialties", err));
   }, []);
 
   const fetchProfile = async () => {
@@ -38,6 +46,8 @@ const Profile = ({ onLogout }) => {
         destination: res.data.destination || '',
         weight: res.data.weight || '',
         height: res.data.height || '',
+        profession: res.data.profession || '',
+        specialty: res.data.specialty || '',
       });
     } catch (err) {
       console.error("Error fetching profile", err);
@@ -46,10 +56,6 @@ const Profile = ({ onLogout }) => {
     }
   };
 
-  const closeMenu = () => {
-    const toggle = document.getElementById('menu-toggle');
-    if (toggle) toggle.checked = false;
-  };
 
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -60,7 +66,7 @@ const Profile = ({ onLogout }) => {
     
     // Clean data: convert empty strings to null for numeric fields
     const cleanedProfile = { ...profile };
-    ['age', 'weight', 'height'].forEach(field => {
+    ['age', 'weight', 'height', 'specialty'].forEach(field => {
       if (cleanedProfile[field] === '') {
         cleanedProfile[field] = null;
       }
@@ -76,46 +82,36 @@ const Profile = ({ onLogout }) => {
     }
   };
 
+  // El QR se lee con cualquier cámara: la primera línea la usa el sistema para
+  // identificar a la persona, el resto es texto legible con sus datos de perfil.
+  const qrValue = () => {
+    const lines = [`USER_ID:${profile.user.id}`];
+    const add = (label, value, unit = '') => {
+      if (value !== '' && value !== null && value !== undefined) lines.push(`${label}: ${value}${unit}`);
+    };
+
+    const fullName = `${profile.first_name} ${profile.last_name}`.trim();
+    if (fullName) lines.push(fullName);
+    add('DNI', profile.dni);
+    add('Edad', profile.age, ' años');
+    add('Grado', profile.rank);
+    add('Destino', profile.destination);
+    add('Teléfono', profile.phone);
+    add('Peso', profile.weight, ' kg');
+    add('Altura', profile.height, ' cm');
+    if (profile.profession) lines.push(PROFESSION_LABELS[profile.profession] || profile.profession);
+    const specialty = specialties.find(x => String(x.id) === String(profile.specialty));
+    if (specialty) add('Especialidad', specialty.name);
+
+    return lines.join('\n');
+  };
+
   if (loading) return <div className="p-5 text-center">Cargando...</div>;
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       {/* Sidebar */}
-      <div className="sidebar p-4 d-flex flex-column">
-        <div className="d-flex align-items-center mb-5 ps-2">
-          <div className="bg-white rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '35px', height: '35px' }}>
-            <i className="bi bi-water text-primary fs-5"></i>
-          </div>
-          <h4 className="m-0 fw-bold">Anexo Buceo</h4>
-        </div>
-        
-        <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-grid me-3"></i>
-            <span>Dashboard</span>
-          </Link>
-          <Link to="/profile" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-person-circle-fill me-3"></i>
-            <span>Mi Perfil</span>
-          </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-shield-lock me-3"></i>
-            <span>Permisos</span>
-          </Link>
-          <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-book me-3"></i>
-            <span>Bitácora de Buceo</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto">
-          <button className="btn btn-outline-light w-100 d-flex align-items-center justify-content-center gap-2 py-2 opacity-75 border-0" 
-                  onClick={onLogout}>
-            <i className="bi bi-box-arrow-left"></i>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
-      </div>
+      <Sidebar active="/profile" onLogout={onLogout} isSuperUser={profile?.user?.is_superuser} />
 
       <div className="flex-grow-1 p-5 bg-light overflow-auto">
         <div className="d-flex justify-content-between align-items-center mb-5">
@@ -127,7 +123,7 @@ const Profile = ({ onLogout }) => {
             <span className="small fw-bold text-muted d-block mb-2">Tu QR Personal</span>
             <div className="bg-white p-2 rounded shadow-sm d-inline-block animate-hover border">
               {profile.user?.id ? (
-                <QRCodeSVG value={`USER_ID:${profile.user.id}`} size={80} />
+                <QRCodeSVG value={qrValue()} size={80} />
               ) : (
                 <div style={{width: 80, height: 80}} className="bg-light d-flex align-items-center justify-content-center small text-muted">No disp.</div>
               )}
@@ -141,8 +137,9 @@ const Profile = ({ onLogout }) => {
             <div className="modal-dialog modal-dialog-centered modal-lg d-flex justify-content-center">
               <div className="bg-white p-5 rounded-4 shadow-lg text-center" onClick={(e) => e.stopPropagation()}>
                 <h4 className="fw-bold mb-4">Tu Firma Digital</h4>
-                <QRCodeSVG value={`USER_ID:${profile.user.id}`} size={300} />
-                <p className="text-muted mt-4 mb-4">Muestra este código al instructor para firmar digitalmente.</p>
+                <QRCodeSVG value={qrValue()} size={300} level="M" />
+                <p className="text-muted mt-4 mb-2">Muestra este código al instructor para firmar digitalmente.</p>
+                <p className="small text-muted mb-4">Contiene tus datos de perfil: al escanearlo se leen tu nombre, DNI, grado, destino y medidas. Si algún dato falta, completalo en el formulario y guardá.</p>
                 <button className="btn btn-outline-secondary rounded-pill px-5" onClick={() => setShowQRModal(false)}>Cerrar</button>
               </div>
             </div>
@@ -179,6 +176,24 @@ const Profile = ({ onLogout }) => {
               <div className="col-md-12">
                 <label className="form-label fw-medium text-muted small">Destino</label>
                 <input type="text" name="destination" className="form-control form-control-lg border-0 bg-light" value={profile.destination} onChange={handleChange} placeholder="Base de operaciones / Destino actual" />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-medium text-muted small">¿Sos médico o enfermero?</label>
+                <select name="profession" className="form-select form-select-lg border-0 bg-light" value={profile.profession} onChange={handleChange}>
+                  <option value="">No corresponde</option>
+                  <option value="MEDICO">Médico</option>
+                  <option value="ENFERMERO">Enfermero</option>
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-medium text-muted small">Especialidad</label>
+                <select name="specialty" className="form-select form-select-lg border-0 bg-light" value={profile.specialty} onChange={handleChange}>
+                  <option value="">Sin especialidad</option>
+                  {specialties.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <div className="form-text">Si cargás una especialidad, verás la pestaña "Compartidos conmigo" en el Dashboard.</div>
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">Peso (kg)</label>

@@ -3,11 +3,13 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     UserProfileViewSet, ProfileFieldTemplateViewSet,
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
-    Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet
+    Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
+    SpecialtyViewSet
 )
 
 router = DefaultRouter()
 router.register(r'profiles', UserProfileViewSet, basename='profile')
+router.register(r'specialties', SpecialtyViewSet, basename='specialty')
 router.register(r'templates', ProfileFieldTemplateViewSet, basename='template')
 router.register(r'blocks', StudyBlockViewSet, basename='block')
 router.register(r'comments', CommentViewSet, basename='comment')

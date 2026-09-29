@@ -40,6 +40,16 @@ class Permission(models.Model):
     shared_items = models.JSONField(default=list) # List of StudyBlock IDs or ["ALL"]
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def covers(self, block_id):
+        """Si este permiso alcanza a un estudio puntual.
+
+        shared_items es un JSONField y SQLite no soporta lookups JSON,
+        asi que la comparacion se hace en Python.
+        """
+        if "ALL" in self.shared_items:
+            return True
+        return str(block_id) in [str(i) for i in self.shared_items]
+
     def __str__(self):
         return f"{self.grantor.username} -> {self.grantee.username} ({self.access_level})"
 

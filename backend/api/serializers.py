@@ -1,21 +1,27 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
-from users.models import UserProfile, ProfileFieldTemplate
+from users.models import UserProfile, ProfileFieldTemplate, Specialty
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_superuser']
 
+class SpecialtySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Specialty
+        fields = ['id', 'name']
+
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
+    specialty_name = serializers.ReadOnlyField(source='specialty.name', default=None)
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'age', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name']
+        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'age', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name', 'profession', 'specialty', 'specialty_name']
 
     def update(self, instance, validated_data):
         # Correct way to handle multiple pops from same nested dict if mapped by source
@@ -40,11 +46,28 @@ class ProfileFieldTemplateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CommentSerializer(serializers.ModelSerializer):
-    doctor_name = serializers.ReadOnlyField(source='doctor.username')
+    doctor_name = serializers.SerializerMethodField()
+    doctor_credential = serializers.SerializerMethodField()
+
     class Meta:
         model = Comment
-        fields = ['id', 'block', 'doctor', 'doctor_name', 'content', 'status', 'created_at', 'verified_signature']
+        fields = ['id', 'block', 'doctor', 'doctor_name', 'doctor_credential', 'content', 'status', 'created_at', 'verified_signature']
         read_only_fields = ['doctor']
+
+    def get_doctor_name(self, obj):
+        return obj.doctor.get_full_name() or obj.doctor.username
+
+    def get_doctor_credential(self, obj):
+        """Profesion y especialidad de quien firmo el dictamen."""
+        profile = getattr(obj.doctor, 'profile', None)
+        if not profile:
+            return ''
+        parts = []
+        if profile.profession:
+            parts.append(profile.get_profession_display())
+        if profile.specialty:
+            parts.append(profile.specialty.name)
+        return ' · '.join(parts)
 
 class StudyBlockSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
@@ -60,9 +83,8 @@ class StudyBlockSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or request.user == obj.user:
             return 'OWNER'
-        perms = Permission.objects.filter(grantor=obj.user, grantee=request.user)
-        for p in perms:
-            if "ALL" in p.shared_items or str(obj.id) in p.shared_items:
+        for p in Permission.objects.filter(grantor=obj.user, grantee=request.user):
+            if p.covers(obj.id):
                 return p.access_level
         return 'NONE'
 

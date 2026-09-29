@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import Sidebar from './Sidebar';
 
 const STUDY_OPTIONS = [
   "Electrocardiograma de esfuerzo. (solo para mayores de 40 años).",
@@ -36,6 +37,9 @@ const Dashboard = ({ onLogout }) => {
   // View Comment Modal State
   const [showViewCommentModal, setShowViewCommentModal] = useState(false);
   const [viewedComment, setViewedComment] = useState(null);
+
+  // Firma visible del dictamen: nombre y credencial de quien lo aprobo o rechazo
+  const signedBy = (c) => [c.doctor_name, c.doctor_credential].filter(Boolean).join(' · ');
 
   const openViewCommentModal = (comment) => {
     setViewedComment(comment);
@@ -143,6 +147,8 @@ const Dashboard = ({ onLogout }) => {
 
   if (loading && !profile) return <div className="p-5 text-center">Cargando...</div>;
 
+  // "Compartidos conmigo" solo para quien declaro una especialidad en su perfil
+  const hasSpecialty = !!profile?.specialty;
   const myStudies = studies.filter(s => s.user === profile?.user?.id);
   const sharedWithMe = studies.filter(s => s.user !== profile?.user?.id);
 
@@ -187,49 +193,11 @@ const Dashboard = ({ onLogout }) => {
     return url;
   };
 
-  const closeMenu = () => {
-    const toggle = document.getElementById('menu-toggle');
-    if (toggle) toggle.checked = false;
-  };
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       {/* Sidebar */}
-      <div className="sidebar p-4 d-flex flex-column">
-        <div className="d-flex align-items-center mb-5 ps-2">
-          <div className="bg-white rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '35px', height: '35px' }}>
-            <i className="bi bi-water text-primary fs-5"></i>
-          </div>
-          <h4 className="m-0 fw-bold">Anexo Buceo</h4>
-        </div>
-        
-        <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-grid-fill me-3"></i>
-            <span>Dashboard</span>
-          </Link>
-          <Link to="/profile" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-person-circle me-3"></i>
-            <span>Mi Perfil</span>
-          </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-shield-lock me-3"></i>
-            <span>Permisos</span>
-          </Link>
-          <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-book me-3"></i>
-            <span>Bitácora de Buceo</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto">
-          <button className="btn btn-outline-light w-100 d-flex align-items-center justify-content-center gap-2 py-2 opacity-75 border-0" 
-                  onClick={onLogout}>
-            <i className="bi bi-box-arrow-left"></i>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
-      </div>
+      <Sidebar active="/dashboard" onLogout={onLogout} isSuperUser={profile?.user?.is_superuser} />
 
       {/* Main Content */}
       <div className="flex-grow-1 p-5 bg-light overflow-auto">
@@ -238,12 +206,18 @@ const Dashboard = ({ onLogout }) => {
             <h2 className="fw-bold mb-1">¡Hola, {profile?.user?.first_name || profile?.user?.username}!</h2>
             <p className="text-muted">Bienvenido al panel central de estudios médicos.</p>
           </div>
+          <div className="d-flex gap-2 align-items-center">
+          <button className="btn btn-primary d-flex align-items-center gap-2" onClick={() => setShowUploadModal(true)}>
+            <i className="bi bi-cloud-arrow-up"></i>
+            Subir Estudio
+          </button>
           <span title="No disponible, implementación futura" style={{ cursor: 'not-allowed' }}>
             <button className="btn btn-secondary d-flex align-items-center gap-2" style={{ pointerEvents: 'none', opacity: 0.6 }} disabled>
               <i className="bi bi-file-pdf"></i>
               Generar Anexo 27
             </button>
           </span>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -252,13 +226,15 @@ const Dashboard = ({ onLogout }) => {
                   onClick={() => setActiveTab('mine')}>
             Mis Estudios ({myStudies.length})
           </button>
-          <button className={`nav-link rounded-pill border-0 px-4 ${activeTab === 'shared' ? 'bg-primary text-white' : 'text-muted'}`} 
-                  onClick={() => setActiveTab('shared')}>
-            Compartidos conmigo ({sharedWithMe.length})
-          </button>
+          {hasSpecialty && (
+            <button className={`nav-link rounded-pill border-0 px-4 ${activeTab === 'shared' ? 'bg-primary text-white' : 'text-muted'}`} 
+                    onClick={() => setActiveTab('shared')}>
+              Compartidos conmigo ({sharedWithMe.length})
+            </button>
+          )}
         </div>
 
-        {activeTab === 'mine' ? (
+        {(activeTab === 'mine' || !hasSpecialty) ? (
           <div className="row g-4">
             <div className="col-md-8">
               <div className="card border-0 shadow-sm p-4">
@@ -285,6 +261,10 @@ const Dashboard = ({ onLogout }) => {
                                 <span className={`badge ${s.comments[s.comments.length-1].status === 'REJECTED' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'} rounded-pill mb-1`}>
                                   {s.comments[s.comments.length-1].status === 'REJECTED' ? 'Rechazado' : 'Visto Bueno'}
                                 </span>
+                                <div className="small text-muted d-flex align-items-center gap-1">
+                                  <i className="bi bi-person-badge"></i>
+                                  {signedBy(s.comments[s.comments.length-1])}
+                                </div>
                                 {s.comments[s.comments.length-1].content && (
                                   <div className="mt-2">
                                     <button 
@@ -333,6 +313,10 @@ const Dashboard = ({ onLogout }) => {
                                 <span className={`badge ${s.comments[s.comments.length-1].status === 'REJECTED' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'} rounded-pill mb-2 px-3 py-2`}>
                                   {s.comments[s.comments.length-1].status === 'REJECTED' ? 'Rechazado' : 'Visto Bueno'}
                                 </span>
+                                <div className="small text-muted mb-2 d-flex align-items-center gap-1">
+                                  <i className="bi bi-person-badge"></i>
+                                  {signedBy(s.comments[s.comments.length-1])}
+                                </div>
                                 {s.comments[s.comments.length-1].content && (
                                   <div>
                                     <button 
@@ -465,7 +449,7 @@ const Dashboard = ({ onLogout }) => {
                                 {s.comments.map(c => (
                                   <div key={c.id} className="small mb-2 p-2 rounded bg-white border-start border-4 border-primary shadow-xs">
                                     <div className="d-flex justify-content-between">
-                                      <span className="fw-bold">{c.doctor_name}</span>
+                                      <span className="fw-bold">{signedBy(c)}</span>
                                       <span className={`badge ${c.status === 'REJECTED' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'}`}>
                                         {c.status === 'REJECTED' ? 'Rechazado' : 'Aprobado'}
                                       </span>
@@ -627,7 +611,12 @@ const Dashboard = ({ onLogout }) => {
                   <span className="small text-muted text-uppercase fw-bold d-block mb-2">Auditor Médico</span>
                   <div className="fw-medium d-flex align-items-center">
                     <i className="bi bi-person-badge text-primary me-2 fs-5"></i>
-                    Dr/a. {viewedComment.doctor_name}
+                    <div>
+                      <div>{viewedComment.doctor_name}</div>
+                      {viewedComment.doctor_credential && (
+                        <div className="small text-muted fw-normal">{viewedComment.doctor_credential}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="mb-2">
