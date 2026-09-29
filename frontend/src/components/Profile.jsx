@@ -113,7 +113,7 @@ const Profile = ({ onLogout }) => {
       {/* Sidebar */}
       <Sidebar active="/profile" onLogout={onLogout} isSuperUser={profile?.user?.is_superuser} />
 
-      <div className="flex-grow-1 p-5 bg-light overflow-auto">
+      <div className="main-content flex-grow-1 p-5 bg-light overflow-auto">
         <div className="d-flex justify-content-between align-items-center mb-5">
           <div>
             <h2 className="fw-bold mb-1">Configuración del Perfil</h2>

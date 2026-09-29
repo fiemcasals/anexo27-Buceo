@@ -180,9 +180,12 @@ body {
     animation: fadeIn 0.3s ease;
   }
 
-  .flex-grow-1 {
+  /* Solo el area principal de cada pantalla, no cualquier .flex-grow-1 anidado.
+     Lleva dos clases porque bootstrap.min.css se carga despues de este archivo
+     y su .p-5 {padding:3rem!important} le gana a un selector de una sola clase. */
+  .d-flex-wrapper .main-content {
     padding: 1.5rem !important;
-    padding-top: 80px !important; /* Space for the hamburger button */
+    padding-top: 80px !important; /* deja libre el boton de menu: 15px + 45px de alto */
     width: 100vw;
     max-width: 100vw;
     overflow-x: hidden;

@@ -102,7 +102,7 @@ const Admin = ({ onLogout }) => {
     return (
       <div className="d-flex" style={{ minHeight: '100vh' }}>
         <Sidebar active="/admin" onLogout={onLogout} isSuperUser={false} />
-        <div className="flex-grow-1 p-5 bg-light">
+        <div className="main-content flex-grow-1 p-5 bg-light">
           <div className="alert alert-warning">No tienes permisos para acceder al panel de administración.</div>
         </div>
       </div>
@@ -131,7 +131,7 @@ const Admin = ({ onLogout }) => {
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar active="/admin" onLogout={onLogout} isSuperUser={isSuperUser} />
 
-      <div className="flex-grow-1 p-5 bg-light overflow-auto">
+      <div className="main-content flex-grow-1 p-5 bg-light overflow-auto">
         <div className="mb-5">
           <h2 className="fw-bold mb-1">Panel de Administración</h2>
           <p className="text-muted">Especialidades del sistema y permisos de usuarios.</p>

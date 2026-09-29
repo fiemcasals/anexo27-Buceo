@@ -200,7 +200,7 @@ const Dashboard = ({ onLogout }) => {
       <Sidebar active="/dashboard" onLogout={onLogout} isSuperUser={profile?.user?.is_superuser} />
 
       {/* Main Content */}
-      <div className="flex-grow-1 p-5 bg-light overflow-auto">
+      <div className="main-content flex-grow-1 p-5 bg-light overflow-auto">
         <div className="d-flex justify-content-between align-items-center mb-5">
           <div>
             <h2 className="fw-bold mb-1">¡Hola, {profile?.user?.first_name || profile?.user?.username}!</h2>

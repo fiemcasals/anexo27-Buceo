@@ -87,7 +87,7 @@ const Permissions = ({ onLogout }) => {
             <Sidebar active="/permissions" onLogout={onLogout} />
 
             {/* Main Content */}
-            <div className="flex-grow-1 p-5 bg-light overflow-auto">
+            <div className="main-content flex-grow-1 p-5 bg-light overflow-auto">
                 <div className="d-flex justify-content-between align-items-center mb-5">
                     <div>
                         <h2 className="fw-bold mb-1">Configuración de Privacidad</h2>

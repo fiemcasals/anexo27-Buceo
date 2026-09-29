@@ -201,7 +201,7 @@ const Bitacora = ({ onLogout }) => {
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar active="/bitacora" onLogout={onLogout} isSuperUser={isSuperUser} />
 
-      <div className="flex-grow-1 p-5 bg-light overflow-auto position-relative">
+      <div className="main-content flex-grow-1 p-5 bg-light overflow-auto position-relative">
         <h2 className="fw-bold mb-4">Bitácora Digital</h2>
         
         <div className="nav nav-tabs border-0 mb-4 gap-2">
