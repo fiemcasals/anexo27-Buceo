@@ -1,6 +1,6 @@
 # Anexo Buceo — Instructivo de uso y verificación
 
-Versión 1.1 · Octubre 2026
+Versión 1.2 · Octubre 2026
 
 **Qué es el sistema.** Cada buzo carga sus estudios médicos desde la computadora o el
 celular y decide con quién los comparte. El personal de sanidad que los recibe abre la
@@ -74,8 +74,15 @@ Cada buzo hace estos pasos con su propia cuenta.
 1. Entrar a la dirección del sistema.
 2. Elegir **Regístrate aquí**.
 3. Escribir el correo, la contraseña, repetirla y confirmar.
+4. Leer las **condiciones de uso** que aparecen a continuación y elegir **Acepto**.
 
 **Esperado:** entra directamente a su panel, con el saludo y su nombre o correo arriba.
+
+Las condiciones aclaran que el sistema es un prototipo, que la información queda accesible
+para el administrador del sistema, que lo que se prefiera mantener bajo reserva puede
+entregarse personalmente en la unidad, y que usar el sistema no es obligatorio. Quien elija
+**Ahora no** vuelve a la pantalla de ingreso sin perder la cuenta, y las condiciones le
+aparecen otra vez la próxima vez que entre. Aceptadas una vez, no vuelven a mostrarse.
 
 Si la contraseña es demasiado simple o las dos no coinciden, el sistema avisa en rojo y no
 crea la cuenta: corregirla y volver a intentar.
@@ -222,14 +229,24 @@ revisar la carpeta de **spam**.
 
 ## 6. Cómo informar un problema
 
-Enviar estos seis datos; con eso el problema se puede reproducir sin volver a consultar:
+Desde el menú lateral, opción **Soporte**. El formulario tiene dos campos:
 
-1. **En qué paso** del instructivo ocurrió (por ejemplo, Paso 2.4).
-2. **Con qué cuenta** (el correo) y en qué rol: carga documentación, revisa, o administra.
-3. **Qué esperaba** que pasara.
-4. **Qué pasó** en realidad.
-5. **El mensaje de error textual**, copiado tal cual, y una captura de pantalla.
-6. **Fecha, hora, dispositivo y navegador**.
+1. **¿En qué paso te pasó?** — elegir el punto de la planilla de verificación donde ocurrió,
+   o **Otro / no está en la lista**.
+2. **¿Qué pasó?** — escribirlo con las propias palabras.
+
+El correo de quien reporta, el paso elegido y la fecha se envían solos: no hace falta
+aclararlos. Lo que sí conviene escribir en el cuadro de texto:
+
+- **Qué esperaba** que pasara y **qué pasó** en realidad.
+- **El mensaje de error textual**, copiado tal cual.
+- **Dispositivo y navegador** (por ejemplo, celular Android con Chrome).
+
+**Esperado:** al enviar aparece la confirmación *«Reporte enviado»*. El reporte llega al
+correo de quienes mantienen el sistema, que pueden responder directamente a quien lo mandó.
+
+El formulario no adjunta capturas de pantalla. Si la captura ayuda a entender el problema,
+guardarla y entregarla por los medios habituales de la unidad.
 
 ---
 
@@ -241,6 +258,8 @@ No son errores y no hace falta informarlos:
   etapa posterior.
 - El sistema no exige confirmar el correo al registrarse: la cuenta queda activa de
   inmediato.
+- Las condiciones de uso aparecen una sola vez, la primera vez que cada persona entra.
+  Quien ya tenía cuenta creada las ve la próxima vez que ingrese.
 - El correo de recuperación de contraseña puede demorar unos minutos o llegar a **spam**.
 - Las contraseñas cortas, sólo numéricas o muy comunes son rechazadas al registrarse.
 - La pestaña **Compartidos conmigo** sólo aparece con profesión y especialidad cargadas
