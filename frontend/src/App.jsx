@@ -9,6 +9,8 @@ import Admin from './components/Admin';
 import ResetPassword from './components/ResetPassword';
 import Bitacora from './components/Bitacora';
 import CompleteDiveLog from './components/CompleteDiveLog';
+import Support from './components/Support';
+import Terms from './components/Terms';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -18,6 +20,9 @@ function App() {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
   };
+
+  const guarded = (element) =>
+    isAuthenticated ? <Terms onLogout={logout}>{element}</Terms> : <Navigate to="/login" />;
 
   return (
     <Router>
@@ -33,28 +38,32 @@ function App() {
           <Route path="/password-reset/:uid/:token" element={<ResetPassword />} />
           <Route 
             path="/dashboard" 
-            element={isAuthenticated ? <Dashboard onLogout={logout} /> : <Navigate to="/login" />} 
+            element={guarded(<Dashboard onLogout={logout} />)} 
           />
           <Route 
             path="/profile" 
-            element={isAuthenticated ? <Profile onLogout={logout} /> : <Navigate to="/login" />} 
+            element={guarded(<Profile onLogout={logout} />)} 
           />
           <Route 
             path="/permissions" 
-            element={isAuthenticated ? <Permissions onLogout={logout} /> : <Navigate to="/login" />} 
+            element={guarded(<Permissions onLogout={logout} />)} 
+          />
+          <Route 
+            path="/soporte" 
+            element={guarded(<Support onLogout={logout} />)} 
           />
           <Route 
             path="/admin" 
-            element={isAuthenticated ? <Admin onLogout={logout} /> : <Navigate to="/login" />} 
+            element={guarded(<Admin onLogout={logout} />)} 
           />
           {/* Bitácora oculta de la navegación; las rutas quedan activas para reactivarla */}
           <Route 
             path="/bitacora" 
-            element={isAuthenticated ? <Bitacora onLogout={logout} /> : <Navigate to="/login" />} 
+            element={guarded(<Bitacora onLogout={logout} />)} 
           />
           <Route 
             path="/bitacora/scan/:token" 
-            element={isAuthenticated ? <CompleteDiveLog /> : <Navigate to="/login" />} 
+            element={guarded(<CompleteDiveLog />)} 
           />
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>

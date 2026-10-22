@@ -21,7 +21,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'age', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name', 'profession', 'specialty', 'specialty_name']
+        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'age', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name', 'profession', 'specialty', 'specialty_name', 'terms_accepted_at']
+        read_only_fields = ['terms_accepted_at']  # solo lo sella el endpoint accept-terms
 
     def update(self, instance, validated_data):
         # Correct way to handle multiple pops from same nested dict if mapped by source

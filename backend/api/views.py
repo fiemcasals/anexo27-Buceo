@@ -6,6 +6,8 @@ from django.db.models import Q
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.conf import settings
+from django.core.mail import EmailMessage
+from django.utils import timezone
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
 from users.models import UserProfile, ProfileFieldTemplate, Specialty
 from .serializers import (
@@ -33,6 +35,14 @@ class UserProfileViewSet(viewsets.ModelViewSet):
             
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='accept-terms')
+    def accept_terms(self, request):
+        """Sella la fecha en que la persona acepto las condiciones de uso."""
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile.terms_accepted_at = timezone.now()
+        profile.save(update_fields=['terms_accepted_at'])
+        return Response(self.get_serializer(profile).data)
 
     def get_queryset(self):
         user = self.request.user
@@ -381,3 +391,32 @@ class SuperUserViewSet(viewsets.ViewSet):
             grouped[uid]['dive_logs'].append(serializer.data)
 
         return Response(list(grouped.values()))
+
+
+class SupportViewSet(viewsets.ViewSet):
+    """Boton Soporte: el reporte sale por correo, no se guarda en la base."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request):
+        message = (request.data.get('message') or '').strip()
+        if not message:
+            return Response({"error": "Contanos qué pasó antes de enviar."}, status=400)
+
+        step = (request.data.get('step') or 'Otro / no está en la lista').strip()
+        fecha = timezone.localtime().strftime('%d/%m/%Y %H:%M')
+        email = request.user.email or request.user.username
+
+        EmailMessage(
+            subject=f"[Anexo Buceo] Soporte: {step}",
+            body=(
+                "Reporte enviado desde el botón Soporte de Anexo Buceo.\n\n"
+                f"Usuario: {email}\n"
+                f"Paso: {step}\n"
+                f"Fecha: {fecha}\n\n"
+                f"{message}\n"
+            ),
+            to=settings.SUPPORT_RECIPIENTS,
+            reply_to=[request.user.email] if request.user.email else None,
+        ).send()
+
+        return Response({"message": "Reporte enviado. ¡Gracias!"}, status=201)

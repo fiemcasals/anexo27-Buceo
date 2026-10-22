@@ -38,6 +38,9 @@ class UserProfile(models.Model):
     weight = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
 
+    # Fecha en que acepto las condiciones de uso; vacio = todavia no las acepto
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return f"{self.user.username}'s Profile"
 

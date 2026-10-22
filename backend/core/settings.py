@@ -151,8 +151,8 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://buceo.misitiowebpersonal.com.ar',
-    'https://*.misitiowebpersonal.com.ar',
+    'https://buceo.nuestrocamino.cloud',
+    'https://*.nuestrocamino.cloud',
     'http://localhost:5173',
 ]
 
@@ -187,8 +187,10 @@ ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_ADAPTER = 'users.adapters.CustomAccountAdapter'
+# sin esto allauth prefija el asunto con '[{site.name}] '; la plantilla ya nombra la escuela
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ''
 
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://buceo.misitiowebpersonal.com.ar')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://buceo.nuestrocamino.cloud')
 
 REST_AUTH = {
     'PASSWORD_RESET_SERIALIZER': 'users.serializers.CustomPasswordResetSerializer',
@@ -202,4 +204,9 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'mauriciocasals90@gmail.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'fbwlgygptwtgpxbk')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# A quienes les llega lo que se manda desde el boton Soporte
+SUPPORT_RECIPIENTS = os.environ.get(
+    'SUPPORT_RECIPIENTS', 'mauriciocasals90@gmail.com,mheborro@gmail.com'
+).split(',')
 

@@ -7,6 +7,7 @@ const ITEMS = [
   { to: '/profile', icon: 'person-circle', label: 'Mi Perfil' },
   { to: '/permissions', icon: 'shield-lock', label: 'Permisos' },
   // { to: '/bitacora', icon: 'book', label: 'Bitácora de Buceo' },
+  { to: '/soporte', icon: 'life-preserver', label: 'Soporte' },
   { to: '/admin', icon: 'sliders', label: 'Administración', adminOnly: true },
 ];
 
