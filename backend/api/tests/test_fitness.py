@@ -106,6 +106,21 @@ class RequiredSetTests(TestCase):
         p = _diver(birth_year=1987, window=_july_2027())
         self.assertEqual(fitness.required_codes(p), tuple("abcdefgh"))
 
+    def test_a_window_crossing_new_year_uses_the_year_of_its_last_day(self):
+        # 30/12/2026 al 2/1/2027, y el buzo cambia de edad entre los dos años:
+        # 39 en 2026, 40 en 2027. El año que obliga es el del último día del
+        # rango, porque el estudio tiene que estar vigente todos los días del
+        # rango (§15.16, §15.17: lo que suma exigencia, nunca la resta). El
+        # borde es inclusivo: `end_date` es un día de la ventana.
+        crossing = HabilitationWindow.objects.create(
+            cycle=2026, slot="SECOND",
+            start_date=date(2026, 12, 30), end_date=date(2027, 1, 2))
+        self.assertEqual(fitness.habilitation_year(crossing), 2027)
+        p = _diver(birth_year=1987, window=crossing)
+        self.assertEqual(p.age_in_year(2026), 39)   # el otro año del rango
+        self.assertEqual(p.age_in_year(2027), 40)
+        self.assertEqual(fitness.required_codes(p), tuple("abcdefgh"))
+
     def test_no_window_means_nothing_can_be_required(self):
         self.assertEqual(fitness.required_codes(_diver(birth_year=1988)), ())
 
@@ -397,10 +412,12 @@ class DiverSummaryTests(TestCase):
         # g y h quedan sin cargar.
         return fitness.diver_summary(p, TODAY)
 
-    def _summary_all_uploaded_one_rejected(self):
+    def _summary_all_uploaded_one_rejected_and_one_expired(self):
         p = self._base_diver()
         _upload(p, "b", VALID_FOR_EVERY_POINT, dictamenes=[("REJECTED", "DOCTOR")])
-        for code in "cdefgh":
+        # Vence el 19/11/2026 y la ventana cierra el 20: aprobado pero vencido.
+        _upload(p, "c", date(2025, 11, 19), dictamenes=[("APPROVED", "DOCTOR")])
+        for code in "defgh":
             _upload(p, code, VALID_FOR_EVERY_POINT,
                     dictamenes=[("APPROVED", "DOCTOR")])
         return fitness.diver_summary(p, TODAY)
@@ -446,7 +463,11 @@ class DiverSummaryTests(TestCase):
 
     def test_presented_counts_rejected_and_expired_as_presented(self):
         # "Documentación completa" significa todo subido, no todo aprobado (§8.1).
-        self.assertEqual(self._summary_all_uploaded_one_rejected().presented, 7)
+        s = self._summary_all_uploaded_one_rejected_and_one_expired()
+        # El fixture tiene de verdad uno de cada, que es lo que dice el nombre.
+        self.assertEqual(_slot_of(s, "b").state, StudyState.REJECTED)
+        self.assertEqual(_slot_of(s, "c").state, StudyState.EXPIRED)
+        self.assertEqual(s.presented, 7)
 
     def test_last_doctor_review_ignores_nurse_dictamenes(self):
         s = self._summary_reviewed_by_doctor_then_nurse()
