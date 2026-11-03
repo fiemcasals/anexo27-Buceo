@@ -33,6 +33,27 @@ class HabilitationWindowTests(TestCase):
         # Solo falla por el rango: los demás campos son válidos.
         self.assertEqual(set(ctx.exception.message_dict), {"__all__"})
 
+    def test_database_rejects_an_inverted_range(self):
+        # El respaldo vale para cualquier vía que se salte full_clean().
+        with self.assertRaises(IntegrityError):
+            HabilitationWindow.objects.create(
+                cycle=2026, slot="SECOND",
+                start_date=date(2026, 12, 5), end_date=date(2026, 12, 1),
+            )
+
+    def test_duplicate_slot_has_a_spanish_message(self):
+        _november_2026()
+        dup = HabilitationWindow(
+            cycle=2026, slot="FIRST",
+            start_date=date(2026, 11, 25), end_date=date(2026, 11, 27),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            dup.full_clean()
+        self.assertIn(
+            "Ya existe una fecha con ese lugar en el ciclo.",
+            ctx.exception.messages,
+        )
+
     def test_one_window_per_slot_per_cycle(self):
         _november_2026()
         with self.assertRaises(IntegrityError):

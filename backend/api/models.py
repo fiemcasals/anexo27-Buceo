@@ -137,7 +137,15 @@ class HabilitationWindow(models.Model):
     class Meta:
         ordering = ['start_date']
         constraints = [
-            models.UniqueConstraint(fields=['cycle', 'slot'], name='unique_window_slot_per_cycle'),
+            models.UniqueConstraint(
+                fields=['cycle', 'slot'], name='unique_window_slot_per_cycle',
+                violation_error_message='Ya existe una fecha con ese lugar en el ciclo.',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(end_date__gte=models.F('start_date')),
+                name='window_end_not_before_start',
+                violation_error_message='La fecha de fin no puede ser anterior a la de inicio.',
+            ),
         ]
 
     def clean(self):
