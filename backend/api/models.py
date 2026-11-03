@@ -58,7 +58,7 @@ class Comment(models.Model):
     block = models.ForeignKey(StudyBlock, on_delete=models.CASCADE, related_name='comments')
     # Nombre histórico: también lo usa un enfermero; reviewer_role dice quién dictaminó.
     doctor = models.ForeignKey(User, on_delete=models.CASCADE)
-    reviewer_role = models.CharField(max_length=10, choices=REVIEWER_ROLES, default='DOCTOR')
+    reviewer_role = models.CharField(max_length=10, choices=REVIEWER_ROLES)
     # Obligatorio sólo en los rechazos (ver clean()).
     content = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')

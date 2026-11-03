@@ -92,3 +92,7 @@ class DictamenTests(TestCase):
         self.assertEqual(d.doctor, self.reviewer)
         self.assertEqual(d.reviewer_role, "NURSE")
         self.assertIsNotNone(d.created_at)
+
+    def test_a_dictamen_without_reviewer_role_is_refused(self):
+        errors = self._errors(self._dictamen(status="APPROVED"))
+        self.assertEqual(list(errors), ["reviewer_role"])

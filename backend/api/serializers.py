@@ -43,7 +43,7 @@ class CommentSerializer(serializers.ModelSerializer):
     doctor_name = serializers.ReadOnlyField(source='doctor.username')
     class Meta:
         model = Comment
-        fields = ['id', 'block', 'doctor', 'doctor_name', 'content', 'status', 'created_at', 'verified_signature']
+        fields = ['id', 'block', 'doctor', 'doctor_name', 'reviewer_role', 'content', 'status', 'rejection_reason', 'created_at', 'verified_signature']
         read_only_fields = ['doctor']
 
 class StudyBlockSerializer(serializers.ModelSerializer):
