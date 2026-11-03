@@ -76,8 +76,10 @@ class StudyState(Enum):
 class DiverState(Enum):
     """Estado global de un buzo frente a su fecha de habilitación.
 
-    Son los seis del §7, uno por uno: el listado del médico muestra esta fila
-    tal cual, sin volver a derivarla de los estados de cada punto.
+    Los seis de la tabla del §7, uno por uno — el listado del médico muestra
+    esta fila tal cual, sin volver a derivarla de los estados de cada punto —
+    más ``UNKNOWN_AGE``, que el §7 no lista porque da la fecha de nacimiento por
+    cargada y acá es nullable.
     """
 
     NO_WINDOW = "NO_WINDOW"            # no eligió fecha: no hay contra qué medir
@@ -89,6 +91,9 @@ class DiverState(Enum):
     APTO = "APTO"                      # todo exigido aprobado por el médico y vigente
 
 
+#: Los dos conjuntos de puntos que piden una corrección: el buzo tiene que
+#: volver a cargarlos. Son disjuntos, y su total es ``DiverSummary.problems``.
+#:
 #: Puntos rechazados: el buzo tiene que leer el motivo para poder arreglarlos.
 REJECTED_STATES = frozenset({StudyState.REJECTED})
 #: Puntos cuya fecha no sirve para esta ventana. ``DATE_INVALID`` se pliega acá
@@ -96,9 +101,6 @@ REJECTED_STATES = frozenset({StudyState.REJECTED})
 #: documento que no cubre el rango, igual que uno vencido, y como el vencido no
 #: lleva un motivo que alguien tenga que leer.
 EXPIRED_STATES = frozenset({StudyState.EXPIRED, StudyState.DATE_INVALID})
-#: Puntos que piden una corrección: el buzo tiene que volver a cargarlos. Es la
-#: unión de los dos anteriores, y son disjuntos.
-PROBLEM_STATES = REJECTED_STATES | EXPIRED_STATES
 #: Puntos que todavía no están presentados.
 INCOMPLETE_STATES = frozenset({StudyState.MISSING, StudyState.BEFORE_WINDOW})
 #: Puntos presentados que esperan el dictamen del médico.
