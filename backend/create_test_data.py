@@ -21,7 +21,7 @@ import datetime
 from django.contrib.auth.models import User
 
 from api import catalog, fitness
-from api.models import Comment, HabilitationWindow, StudyBlock
+from api.models import Comment, DiveActivity, DiveLog, HabilitationWindow, StudyBlock
 from users.models import UserProfile
 
 PASSWORD = '12345'
@@ -50,6 +50,10 @@ PEOPLE = {
     # cumple 40 DESPUES de la habilitacion, pero la edad es resta de anios.
     'cumple40':    ('Raul', 'Acosta', 'USER', 'MY', datetime.date(1986, 12, 30), '30000001', 'Base Naval'),
     'mayor':       ('Carlos', 'Ortiz', 'USER', 'SM', datetime.date(1978, 4, 1), '30000002', 'Base Naval'),
+    # Fecha mal tipeada: estudio fechado despues del fin del rango.
+    'fechaerronea': ('Marta', 'Paz', 'USER', 'CB', datetime.date(1996, 8, 8), '20000006', 'Base Naval'),
+    # Instructor: no presenta estudios en este seed (sin ventana).
+    'instructor':  ('Carlos', 'Instructor', 'USER', 'CY', datetime.date(1980, 10, 10), '50000001', 'Base Naval'),
     # Sin ventana elegida / sin fecha de nacimiento.
     'sinfecha':    ('Ana', 'Duarte', 'USER', 'CB', datetime.date(1995, 6, 6), '40000001', 'Base Naval'),
     'sinnacim':    ('Pedro', 'Sosa', 'USER', 'CI', None, '40000002', 'Base Naval'),
@@ -75,9 +79,10 @@ for username, (first, last, role, rank, birth, dni, destination) in PEOPLE.items
     )
     UserProfile.objects.update_or_create(user=user, defaults={
         'role': role, 'rank': rank, 'birth_date': birth, 'dni': dni,
+        'is_instructor': username == 'instructor',
         'destination': destination, 'phone': f'+54 9 11 5555 {dni[-4:]}',
         # Medico, enfermero y admin no presentan estudios: no eligen fecha.
-        'habilitation_window': (None if role != 'USER' or username == 'sinfecha'
+        'habilitation_window': (None if role != 'USER' or username in ('sinfecha', 'instructor')
                                 else first_window),
     })
     users[username] = user
@@ -142,9 +147,26 @@ fully_approved('preaprobado', [c for c in UNDER_40 if c != 'f'])
 pre_approve(upload('preaprobado', 'f'))
 # Mayor de 40 que no presento el electrocardiograma de esfuerzo (punto a).
 fully_approved('mayor', [c for c in OVER_40 if c != 'a'])
+# DATE_INVALID: el punto f lleva fecha posterior al fin del rango (ano mal
+# tipeado). Sin dictamen a proposito: la fecha manda sobre cualquier dictamen.
+fully_approved('fechaerronea', [c for c in UNDER_40 if c != 'f'])
+upload('fechaerronea', 'f', datetime.date(2027, 3, 10))
 # Sin ventana elegida y sin fecha de nacimiento: con algo cargado cada uno.
 fully_approved('sinfecha', ['b', 'c'])
 fully_approved('sinnacim', ['b', 'c'])
+
+# --- Bitacora de buceo (funcionalidad aparte de la aptitud) -------------------
+activity = DiveActivity.objects.create(
+    instructor=users['instructor'], date=TODAY,
+    location_coords='38° 00 S 57° 33 W', location_type='Mar Abierto',
+    dive_type='Entrenamiento', max_depth_meters=18.5, duration_minutes=45,
+    safety_diver=users['faltantes'], medic=doctor, supervisor=users['admin'],
+)
+DiveLog.objects.create(
+    activity=activity, diver=users['apto'], is_completed=True,
+    equipment_type='Circuito Abierto', gas_type='Aire', suit_type='Humedo 7mm',
+    weight_kgs=8.5, start_pressure_bar=200, end_pressure_bar=50,
+)
 
 # --- Verificacion con el motor -----------------------------------------------
 print('\nFecha de habilitacion sembrada:', first_window)
