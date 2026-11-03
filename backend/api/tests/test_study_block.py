@@ -63,6 +63,26 @@ class StudyBlockTests(TestCase):
     def test_title_comes_from_the_catalog_not_from_free_text(self):
         self.assertEqual(self._block(code="f").title, catalog.get("f").text)
 
+    def test_saving_an_off_catalog_code_refuses_instead_of_storing_a_blank(self):
+        # El serializador valida las choices, asi que la API esta a salvo; la
+        # consola y la siembra no. Un codigo fuera del catalogo es un error de
+        # programacion, no un dato del usuario: corresponde levantar.
+        with self.assertRaises(ValueError) as cm:
+            StudyBlock.objects.create(
+                user=self.diver, study_code="z", study_date=date(2026, 1, 1)
+            )
+        self.assertIn("z", str(cm.exception))
+        self.assertFalse(StudyBlock.objects.filter(study_code="z").exists())
+
+    def test_every_catalog_code_still_saves(self):
+        # El contrapunto: la guarda no puede bloquear los ocho codigos reales.
+        for code in catalog.CODES:
+            with self.subTest(code=code):
+                block = StudyBlock.objects.create(
+                    user=self.diver, study_code=code, study_date=date(2026, 1, 1)
+                )
+                self.assertEqual(block.title, catalog.get(code).text)
+
     def test_study_code_must_be_one_of_the_eight(self):
         with self.assertRaises(ValidationError) as cm:
             StudyBlock(

@@ -85,7 +85,13 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
                             continue
             
             q_shared = Q(user_id__in=grantor_ids) | Q(id__in=specific_ids)
-            return StudyBlock.objects.filter(q_own | q_shared).distinct()
+            queryset = StudyBlock.objects.filter(q_own | q_shared).distinct()
+            # §6: el estudio reemplazado no es visible en la vista normal. El
+            # historial se pide a propósito, con ?historico=1; cualquier otro
+            # valor deja la vista normal. Sin pantalla: el plan 2 la construye.
+            if self.request.query_params.get('historico') != '1':
+                queryset = queryset.filter(is_current=True)
+            return queryset
         except Exception as e:
             print(f"DEBUG: StudyBlock get_queryset error: {str(e)}")
             raise

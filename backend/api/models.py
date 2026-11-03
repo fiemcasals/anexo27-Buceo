@@ -27,8 +27,15 @@ class StudyBlock(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if self.study_code in catalog.CODES:
-            self.title = catalog.get(self.study_code).text
+        # Un código fuera del catálogo no es un dato del usuario — el
+        # serializador valida las choices — sino un error de programación de la
+        # consola o de la siembra. Antes guardaba un title vacío en silencio.
+        if self.study_code not in catalog.CODES:
+            raise ValueError(
+                f'study_code {self.study_code!r} no es uno de los ocho puntos '
+                f'de la directiva: {"".join(catalog.CODES)}.'
+            )
+        self.title = catalog.get(self.study_code).text
         with transaction.atomic():
             if self._state.adding and self.is_current:
                 StudyBlock.objects.filter(
