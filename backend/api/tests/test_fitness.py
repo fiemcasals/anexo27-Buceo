@@ -269,6 +269,17 @@ class SlotStateTests(TestCase):
             StudyState.DATE_INVALID,
         )
 
+    def test_the_end_date_cap_alone_rejects_a_study_after_a_closed_window(self):
+        # Ventana de julio de 2027 (cerró el 14/07) y hoy es el 1/08: el estudio
+        # del 20/07 ya no está en el futuro, así que el tope de hoy lo dejaría
+        # pasar. Sólo `end_date` lo rechaza; con `min(...) -> today` este test cae.
+        self.assertEqual(
+            self._state("b", study_date=date(2027, 7, 20),
+                        today=date(2027, 8, 1),
+                        dictamen=("APPROVED", "DOCTOR"), window=_july_2027()),
+            StudyState.DATE_INVALID,
+        )
+
     def test_a_study_dated_today_is_trusted(self):
         # El tope es estricto: hoy sirve, mañana no. Sin esto, el arreglo
         # anterior podría rechazar el estudio que el buzo acaba de hacerse.
