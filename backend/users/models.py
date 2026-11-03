@@ -45,6 +45,11 @@ class UserProfile(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     rank = models.CharField(max_length=2, choices=RANK_CHOICES, blank=True) # Grado
     destination = models.CharField(max_length=100, blank=True) # Destino
+    # Nullable: sin fecha elegida el buzo no puede estar apto, y no siempre es culpa suya.
+    habilitation_window = models.ForeignKey(
+        'api.HabilitationWindow', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='divers',
+    )
     weight = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
 

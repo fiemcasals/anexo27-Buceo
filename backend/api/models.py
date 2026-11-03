@@ -1,3 +1,5 @@
+from datetime import timedelta
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
@@ -108,3 +110,49 @@ class DiveLog(models.Model):
 
     def __str__(self):
         return f"Log - {'Completed' if self.is_completed else 'Pending'}"
+
+
+class HabilitationWindow(models.Model):
+    """Fecha de habilitación: un rango de días dentro de un ciclo anual.
+
+    Cada ciclo tiene hasta tres (1.ª, 2.ª y complementaria), que se cargan de a
+    una: un ciclo incompleto es el estado normal. Toda vigencia se mide contra
+    este rango, y el estudio debe estar vigente todos los días, o sea hasta
+    `end_date`.
+    """
+    FIRST = 'FIRST'
+    SECOND = 'SECOND'
+    COMPLEMENTARY = 'COMPLEMENTARY'
+    SLOT_CHOICES = [
+        (FIRST, '1.ª fecha'),
+        (SECOND, '2.ª fecha'),
+        (COMPLEMENTARY, 'Complementaria'),
+    ]
+
+    cycle = models.PositiveIntegerField()
+    slot = models.CharField(max_length=13, choices=SLOT_CHOICES)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        ordering = ['start_date']
+        constraints = [
+            models.UniqueConstraint(fields=['cycle', 'slot'], name='unique_window_slot_per_cycle'),
+        ]
+
+    def clean(self):
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError('La fecha de fin no puede ser anterior a la de inicio.')
+
+    @property
+    def anexo27_earliest_date(self):
+        """Primer día en que el Anexo 27 sigue vigente para todo el rango."""
+        return self.end_date - timedelta(days=30)
+
+    def __str__(self):
+        label = self.get_slot_display()
+        if self.start_date == self.end_date:
+            rango = f"{self.start_date:%d/%m/%Y}"
+        else:
+            rango = f"{self.start_date:%d/%m/%Y} al {self.end_date:%d/%m/%Y}"
+        return f"{label} {self.cycle}: {rango}"
