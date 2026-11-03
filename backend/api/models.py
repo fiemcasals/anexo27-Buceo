@@ -41,15 +41,42 @@ class StudyBlock(models.Model):
 
 class Comment(models.Model):
     STATUS_CHOICES = [
+        ('PRE_APPROVED', 'Pre-revisado'),
         ('APPROVED', 'Aprobado'),
         ('REJECTED', 'Rechazado con Observación'),
     ]
+    REJECTION_REASONS = [
+        ('OUT_OF_TERM', 'Estudio fuera del plazo de la directiva'),
+        ('UNFIT_VALUES', 'Valores no aptos para realizar la actividad'),
+        ('ILLEGIBLE', 'Documento ilegible'),
+        ('OTHER', 'Otros'),
+    ]
+    REVIEWER_ROLES = [
+        ('DOCTOR', 'Médico'),
+        ('NURSE', 'Enfermero auxiliar'),
+    ]
     block = models.ForeignKey(StudyBlock, on_delete=models.CASCADE, related_name='comments')
+    # Nombre histórico: también lo usa un enfermero; reviewer_role dice quién dictaminó.
     doctor = models.ForeignKey(User, on_delete=models.CASCADE)
-    content = models.TextField()
+    reviewer_role = models.CharField(max_length=10, choices=REVIEWER_ROLES, default='DOCTOR')
+    # Obligatorio sólo en los rechazos (ver clean()).
+    content = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
+    rejection_reason = models.CharField(max_length=20, choices=REJECTION_REASONS, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     verified_signature = models.BooleanField(default=True)
+
+    def clean(self):
+        errors = {}
+        if self.status == 'REJECTED':
+            if not self.rejection_reason:
+                errors['rejection_reason'] = 'Todo rechazo requiere un motivo.'
+            if not self.content.strip():
+                errors['content'] = 'Todo rechazo requiere un detalle para el buzo.'
+        elif self.rejection_reason:
+            errors['rejection_reason'] = 'Sólo un rechazo lleva motivo.'
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return f"Comment by {self.doctor.username} on {self.block.title}"
