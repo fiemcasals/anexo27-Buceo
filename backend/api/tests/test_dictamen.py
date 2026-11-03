@@ -1,6 +1,7 @@
 from datetime import date
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from api.models import Comment, StudyBlock
 
@@ -96,3 +97,81 @@ class DictamenTests(TestCase):
     def test_a_dictamen_without_reviewer_role_is_refused(self):
         errors = self._errors(self._dictamen(status="APPROVED"))
         self.assertEqual(list(errors), ["reviewer_role"])
+
+    def test_a_dictamen_without_status_is_refused(self):
+        errors = self._errors(self._dictamen(reviewer_role="DOCTOR"))
+        self.assertEqual(list(errors), ["status"])
+
+    def test_a_nurse_cannot_approve(self):
+        errors = self._errors(self._dictamen(status="APPROVED", reviewer_role="NURSE"))
+        self.assertEqual(list(errors), ["status"])
+
+    def test_a_doctor_cannot_pre_approve(self):
+        errors = self._errors(self._dictamen(status="PRE_APPROVED", reviewer_role="DOCTOR"))
+        self.assertEqual(list(errors), ["status"])
+
+    def test_either_role_may_reject(self):
+        for role in ("DOCTOR", "NURSE"):
+            self._dictamen(
+                status="REJECTED", reviewer_role=role,
+                content="Falta la firma.", rejection_reason="OTHER",
+            ).full_clean()
+
+
+class DictamenDatabaseConstraintTests(TestCase):
+    """objects.create() skips clean(); only the database can refuse these."""
+
+    def setUp(self):
+        self.reviewer = User.objects.create(username="medico")
+        self.block = StudyBlock.objects.create(
+            user=User.objects.create(username="buzo1"),
+            study_code="f", study_date=date(2026, 10, 18),
+        )
+
+    def _assert_refused_by(self, constraint_name, **kwargs):
+        with self.assertRaises(IntegrityError) as ctx, transaction.atomic():
+            Comment.objects.create(block=self.block, doctor=self.reviewer, **kwargs)
+        self.assertIn(constraint_name, str(ctx.exception))
+
+    def test_a_nurse_cannot_write_an_approval(self):
+        self._assert_refused_by(
+            "verdict_matches_reviewer_role",
+            status="APPROVED", reviewer_role="NURSE",
+        )
+
+    def test_a_doctor_cannot_write_a_pre_approval(self):
+        self._assert_refused_by(
+            "verdict_matches_reviewer_role",
+            status="PRE_APPROVED", reviewer_role="DOCTOR",
+        )
+
+    def test_a_rejection_without_reason_is_refused(self):
+        self._assert_refused_by(
+            "rejection_has_reason_and_detail",
+            status="REJECTED", reviewer_role="NURSE", content="Ilegible.",
+        )
+
+    def test_a_rejection_without_detail_is_refused(self):
+        self._assert_refused_by(
+            "rejection_has_reason_and_detail",
+            status="REJECTED", reviewer_role="DOCTOR", rejection_reason="OTHER",
+        )
+
+    def test_an_approval_with_a_reason_is_refused(self):
+        self._assert_refused_by(
+            "rejection_has_reason_and_detail",
+            status="APPROVED", reviewer_role="DOCTOR", rejection_reason="OTHER",
+        )
+
+    def test_the_legal_combinations_are_stored(self):
+        for status, role, extra in [
+            ("APPROVED", "DOCTOR", {}),
+            ("PRE_APPROVED", "NURSE", {}),
+            ("REJECTED", "NURSE", {"content": "x", "rejection_reason": "OTHER"}),
+            ("REJECTED", "DOCTOR", {"content": "x", "rejection_reason": "OTHER"}),
+        ]:
+            Comment.objects.create(
+                block=self.block, doctor=self.reviewer,
+                status=status, reviewer_role=role, **extra,
+            )
+        self.assertEqual(Comment.objects.count(), 4)

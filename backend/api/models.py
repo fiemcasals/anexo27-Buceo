@@ -61,13 +61,47 @@ class Comment(models.Model):
     reviewer_role = models.CharField(max_length=10, choices=REVIEWER_ROLES)
     # Obligatorio sólo en los rechazos (ver clean()).
     content = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     rejection_reason = models.CharField(max_length=20, choices=REJECTION_REASONS, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     verified_signature = models.BooleanField(default=True)
 
+    class Meta:
+        constraints = [
+            # Sólo el médico declara apto; el enfermero pre-aprueba; ambos pueden rechazar.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status='REJECTED')
+                    | models.Q(status='PRE_APPROVED', reviewer_role='NURSE')
+                    | models.Q(status='APPROVED', reviewer_role='DOCTOR')
+                ),
+                name='verdict_matches_reviewer_role',
+                violation_error_message=(
+                    'La aprobación corresponde sólo al médico y la '
+                    'pre-aprobación sólo al enfermero auxiliar.'
+                ),
+            ),
+            # Todo rechazo lleva motivo y detalle; nada más lleva motivo.
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(status='REJECTED')
+                     & ~models.Q(rejection_reason='') & ~models.Q(content=''))
+                    | (~models.Q(status='REJECTED') & models.Q(rejection_reason=''))
+                ),
+                name='rejection_has_reason_and_detail',
+                violation_error_message=(
+                    'Todo rechazo requiere motivo y detalle, y sólo un '
+                    'rechazo lleva motivo.'
+                ),
+            ),
+        ]
+
     def clean(self):
         errors = {}
+        if self.status == 'APPROVED' and self.reviewer_role == 'NURSE':
+            errors['status'] = 'La aprobación corresponde sólo al médico.'
+        elif self.status == 'PRE_APPROVED' and self.reviewer_role == 'DOCTOR':
+            errors['status'] = 'La pre-aprobación corresponde sólo al enfermero auxiliar.'
         if self.status == 'REJECTED':
             if not self.rejection_reason:
                 errors['rejection_reason'] = 'Todo rechazo requiere un motivo.'
