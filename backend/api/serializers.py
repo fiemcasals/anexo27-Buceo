@@ -46,6 +46,20 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'block', 'doctor', 'doctor_name', 'reviewer_role', 'content', 'status', 'rejection_reason', 'created_at', 'verified_signature']
         read_only_fields = ['doctor']
 
+    def validate(self, attrs):
+        # Spec §15.9: nadie dictamina sobre sus propios estudios. Comment.clean()
+        # lo cubre para el admin y el shell, pero DRF no llama a clean(); y no
+        # hay CheckConstraint posible (haría falta un join). `doctor` lo pone la
+        # vista, así que el revisor es el usuario autenticado.
+        block = attrs.get('block') or getattr(self.instance, 'block', None)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if block is not None and user is not None and block.user_id == user.pk:
+            raise serializers.ValidationError(
+                {'block': 'Nadie puede dictaminar sobre sus propios estudios.'}
+            )
+        return attrs
+
 class StudyBlockSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
     user_details = UserSerializer(source='user', read_only=True)

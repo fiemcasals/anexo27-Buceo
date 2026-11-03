@@ -131,13 +131,15 @@ class CommentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         if block.user != user:
-            has_permission = Permission.objects.filter(
-                grantor=block.user, 
-                grantee=user, 
-                access_level='MODIFY'
-            ).filter(
-                Q(shared_items__contains="ALL") | Q(shared_items__contains=str(block.id))
-            ).exists()
+            # Se filtra en Python: SQLite no soporta `shared_items__contains`
+            # sobre un JSONField (levantaba NotSupportedError, un 500), y es la
+            # misma comparación que hace StudyBlockSerializer.get_access_level.
+            grants = Permission.objects.filter(
+                grantor=block.user, grantee=user, access_level='MODIFY')
+            has_permission = any(
+                "ALL" in g.shared_items or str(block.id) in map(str, g.shared_items)
+                for g in grants
+            )
             
             if not has_permission:
                 raise PermissionDenied("No tienes permisos de Médico Auditor para comentar en este estudio.")

@@ -10,7 +10,7 @@ from datetime import date
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient, APITestCase
 
-from api.models import Permission, StudyBlock
+from api.models import Comment, Permission, StudyBlock
 
 URL = "/api/blocks/"
 
@@ -79,3 +79,63 @@ class StudyBlockVisibilityTests(APITestCase):
         response = client.get(f"{URL}?historico=1")
         self.assertEqual({row["id"] for row in response.json()},
                          {self.current.pk, self.replaced.pk})
+
+
+class CommentSelfDictamenApiTests(APITestCase):
+    """§15.9 en la única vía de escritura viva: POST /api/comments/."""
+
+    URL = "/api/comments/"
+
+    def setUp(self):
+        self.doctor = User.objects.create(username="medico")
+        self.other = User.objects.create(username="buzo1")
+        self.client = APIClient()
+        self.client.force_authenticate(self.doctor)
+
+    def _block(self, user):
+        return StudyBlock.objects.create(
+            user=user, study_code="b", study_date=date(2026, 10, 18))
+
+    def _post(self, block):
+        return self.client.post(self.URL, {
+            "block": block.id, "status": "APPROVED", "reviewer_role": "DOCTOR",
+        }, format="json")
+
+    def test_ruling_on_ones_own_study_is_refused_with_400_on_block(self):
+        response = self._post(self._block(self.doctor))
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(list(response.json()), ["block"])
+        self.assertEqual(
+            response.json()["block"],
+            ["Nadie puede dictaminar sobre sus propios estudios."])
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_a_doctor_ruling_on_another_divers_study_still_works(self):
+        block = self._block(self.other)
+        Permission.objects.create(
+            grantor=self.other, grantee=self.doctor,
+            access_level="MODIFY", shared_items=["ALL"])
+        response = self._post(block)
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Comment.objects.get().doctor, self.doctor)
+
+    def test_the_serializer_without_a_request_does_not_crash(self):
+        from api.serializers import CommentSerializer
+        serializer = CommentSerializer(data={
+            "block": self._block(self.doctor).id,
+            "status": "APPROVED", "reviewer_role": "DOCTOR"})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_a_reviewer_without_a_grant_is_refused_with_403(self):
+        response = self._post(self._block(self.other))
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_a_grant_for_another_study_does_not_cover_this_one(self):
+        block = self._block(self.other)
+        elsewhere = self._block(self.other)
+        Permission.objects.create(
+            grantor=self.other, grantee=self.doctor,
+            access_level="MODIFY", shared_items=[elsewhere.id])
+        self.assertEqual(self._post(block).status_code, 403)
+        self.assertEqual(self._post(elsewhere).status_code, 201)
