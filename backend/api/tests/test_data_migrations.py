@@ -16,7 +16,7 @@ mitad es qué quedó en las filas.
 se entera.
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from importlib import import_module
 from unittest import mock
 
@@ -66,7 +66,7 @@ class MigrationTestCase(TransactionTestCase):
     def _user(self, username):
         return self.old_apps.get_model("auth", "User").objects.create(
             username=username, password="x", is_superuser=False,
-            is_staff=False, is_active=True, date_joined="2026-01-01 00:00:00",
+            is_staff=False, is_active=True, date_joined=datetime(2026, 1, 1, tzinfo=timezone.utc),
         )
 
 
