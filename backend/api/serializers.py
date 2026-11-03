@@ -53,7 +53,7 @@ class StudyBlockSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudyBlock
-        fields = ['id', 'user', 'user_details', 'title', 'description', 'created_at', 'study_date', 'pdf_attachment', 'comments', 'access_level']
+        fields = ['id', 'user', 'user_details', 'study_code', 'is_current', 'title', 'description', 'created_at', 'study_date', 'pdf_attachment', 'comments', 'access_level']
         read_only_fields = ['user']
 
     def get_access_level(self, obj):

@@ -4,14 +4,27 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 from django.contrib.auth.models import User
+from . import catalog
 
 class StudyBlock(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_blocks')
+    study_code = models.CharField(max_length=1, choices=[(c, c) for c in catalog.CODES])
+    is_current = models.BooleanField(default=True)
+    # Filled from the catalog in save(); never typed by the diver.
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     study_date = models.DateField()
     pdf_attachment = models.FileField(upload_to='studies/%Y/%m/%d/')
+
+    def save(self, *args, **kwargs):
+        if self.study_code in catalog.CODES:
+            self.title = catalog.get(self.study_code).text
+        if self._state.adding and self.is_current:
+            StudyBlock.objects.filter(
+                user=self.user, study_code=self.study_code, is_current=True
+            ).update(is_current=False)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
