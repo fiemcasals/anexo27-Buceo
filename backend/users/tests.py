@@ -27,6 +27,15 @@ class UserProfileTests(TestCase):
         with self.assertRaises(IntegrityError):
             _profile("d", dni="30111222")
 
+    def test_profiles_without_dni_coexist(self):
+        # Camino de get_or_create(user=...) en /api/profiles/me/: sin DNI.
+        a = UserProfile.objects.get_or_create(user=User.objects.create(username="f"))[0]
+        b = UserProfile.objects.get_or_create(user=User.objects.create(username="g"))[0]
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertIsNone(a.dni)
+        self.assertIsNone(b.dni)
+
     def test_nurse_is_a_role(self):
         self.assertIn("NURSE", dict(UserProfile.ROLE_CHOICES))
 

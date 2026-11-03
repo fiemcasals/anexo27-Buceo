@@ -11,25 +11,25 @@ class UserProfile(models.Model):
     # Lista cerrada de grados, en orden jerarquico.
     RANK_CHOICES = [
         ('Oficiales', [
-            ('GD', 'General de División'),
-            ('GB', 'General de Brigada'),
-            ('CY', 'Coronel Mayor'),
-            ('CR', 'Coronel'),
-            ('TC', 'Teniente Coronel'),
-            ('MY', 'Mayor'),
-            ('CT', 'Capitán'),
-            ('TP', 'Teniente Primero'),
-            ('TT', 'Teniente'),
-            ('ST', 'Subteniente'),
+            ('GD', 'GD'),
+            ('GB', 'GB'),
+            ('CY', 'CY'),
+            ('CR', 'CR'),
+            ('TC', 'TC'),
+            ('MY', 'MY'),
+            ('CT', 'CT'),
+            ('TP', 'TP'),
+            ('TT', 'TT'),
+            ('ST', 'ST'),
         ]),
         ('Suboficiales', [
-            ('SM', 'Suboficial Mayor'),
-            ('SP', 'Suboficial Principal'),
-            ('SA', 'Suboficial Ayudante'),
-            ('SI', 'Suboficial Primero'),
-            ('SG', 'Sargento'),
-            ('CI', 'Cabo Primero'),
-            ('CB', 'Cabo'),
+            ('SM', 'SM'),
+            ('SP', 'SP'),
+            ('SA', 'SA'),
+            ('SI', 'SI'),
+            ('SG', 'SG'),
+            ('CI', 'CI'),
+            ('CB', 'CB'),
         ]),
     ]
     RANK_VALUES = tuple(value for _, group in RANK_CHOICES for value, _ in group)
@@ -39,7 +39,7 @@ class UserProfile(models.Model):
     profile_data = models.JSONField(default=dict, blank=True)
     
     # Base fields requested by user
-    dni = models.CharField(max_length=20, unique=True)
+    dni = models.CharField(max_length=20, unique=True, null=True, blank=True)
     # Nullable a proposito: sin fecha de nacimiento no se puede derivar la edad.
     birth_date = models.DateField(null=True, blank=True)
     phone = models.CharField(max_length=20, blank=True)
