@@ -110,6 +110,47 @@ class DictamenTests(TestCase):
         errors = self._errors(self._dictamen(status="PRE_APPROVED", reviewer_role="DOCTOR"))
         self.assertEqual(list(errors), ["status"])
 
+    # --- §15.9: nadie dictamina sobre sus propios estudios --------------------
+
+    def _own_study_dictamen(self, **kwargs):
+        """Dictamen de un revisor sobre un estudio suyo.
+
+        El médico de la unidad es uno solo y puede ser además buzo: entonces
+        firma sus propios estudios y el motor lo reporta APTO.
+        """
+        own = StudyBlock.objects.create(
+            user=self.reviewer, study_code="b", study_date=date(2026, 10, 18),
+        )
+        return Comment(block=own, doctor=self.reviewer, **kwargs)
+
+    def test_nobody_may_rule_on_their_own_study(self):
+        errors = self._errors(self._own_study_dictamen(
+            status="APPROVED", reviewer_role="DOCTOR",
+        ))
+        # Sólo este error: el resto del dictamen es válido, así que el test no
+        # puede pasar por un campo obligatorio ajeno a la regla.
+        self.assertEqual(list(errors), ["doctor"])
+        self.assertEqual(
+            errors["doctor"], ["Nadie puede dictaminar sobre sus propios estudios."]
+        )
+
+    def test_a_nurse_may_not_pre_approve_their_own_study_either(self):
+        errors = self._errors(self._own_study_dictamen(
+            status="PRE_APPROVED", reviewer_role="NURSE",
+        ))
+        self.assertEqual(list(errors), ["doctor"])
+
+    def test_rejecting_ones_own_study_is_refused_too(self):
+        errors = self._errors(self._own_study_dictamen(
+            status="REJECTED", reviewer_role="DOCTOR",
+            content="Ilegible.", rejection_reason="ILLEGIBLE",
+        ))
+        self.assertEqual(list(errors), ["doctor"])
+
+    def test_ruling_on_someone_elses_study_stays_allowed(self):
+        # El contrapunto: la regla no puede bloquear el caso normal.
+        self._dictamen(status="APPROVED", reviewer_role="DOCTOR").full_clean()
+
     def test_either_role_may_reject(self):
         for role in ("DOCTOR", "NURSE"):
             self._dictamen(

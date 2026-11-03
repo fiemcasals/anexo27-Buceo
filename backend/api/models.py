@@ -98,6 +98,13 @@ class Comment(models.Model):
 
     def clean(self):
         errors = {}
+        # Spec §15.9: nadie dictamina sobre sus propios estudios. La unidad tiene
+        # un solo médico y puede ser además buzo; sin esto se declara apto solo.
+        # Va acá y no en una CheckConstraint porque comparar el revisor contra el
+        # dueño del estudio exige un join, que SQLite no admite dentro de un
+        # CHECK. El spec pide la validación, no la interfaz, y esta es la capa.
+        if self.block_id and self.doctor_id == self.block.user_id:
+            errors['doctor'] = 'Nadie puede dictaminar sobre sus propios estudios.'
         if self.status == 'APPROVED' and self.reviewer_role == 'NURSE':
             errors['status'] = 'La aprobación corresponde sólo al médico.'
         elif self.status == 'PRE_APPROVED' and self.reviewer_role == 'DOCTOR':
