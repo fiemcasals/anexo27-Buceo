@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,6 +17,10 @@ from .serializers import (
 )
 from .report_pdf import generate_anexo_27
 
+# Los errores de validacion se registran, no se imprimen: un print va a stdout
+# y contamina la salida de los tests y del servidor.
+logger = logging.getLogger(__name__)
+
 class UserProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
@@ -26,7 +32,7 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         if request.method in ['PUT', 'PATCH']:
             serializer = self.get_serializer(profile, data=request.data, partial=(request.method == 'PATCH'))
             if not serializer.is_valid():
-                print(f"DEBUG: Profile update validation error: {serializer.errors}")
+                logger.debug("Perfil: validacion rechazada: %s", serializer.errors)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data)
@@ -93,14 +99,14 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(is_current=True)
             return queryset
         except Exception as e:
-            print(f"DEBUG: StudyBlock get_queryset error: {str(e)}")
+            logger.exception("Estudios: fallo al armar el queryset")
             raise
 
     def create(self, request, *args, **kwargs):
         try:
             return super().create(request, *args, **kwargs)
         except ValidationError as e:
-            print(f"DEBUG: StudyBlock validation error: {e.detail}")
+            logger.debug("Estudios: validacion rechazada: %s", e.detail)
             raise
 
     def perform_create(self, serializer):
@@ -150,7 +156,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         try:
             return super().create(request, *args, **kwargs)
         except ValidationError as e:
-            print(f"DEBUG: Comment validation error: {e.detail}")
+            logger.debug("Dictamen: validacion rechazada: %s", e.detail)
             raise
 
 class PermissionViewSet(viewsets.ModelViewSet):
@@ -183,7 +189,7 @@ class PermissionViewSet(viewsets.ModelViewSet):
         try:
             return super().create(request, *args, **kwargs)
         except ValidationError as e:
-            print(f"DEBUG: Permission validation error: {e.detail}")
+            logger.debug("Permiso: validacion rechazada: %s", e.detail)
             raise
 
 from django.utils import timezone
