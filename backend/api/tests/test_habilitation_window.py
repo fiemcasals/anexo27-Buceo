@@ -1,5 +1,6 @@
 from datetime import date
 from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError
 from django.db.utils import IntegrityError
 from django.test import TestCase
 from api.models import HabilitationWindow
@@ -78,16 +79,41 @@ class HabilitationWindowTests(TestCase):
         from django.contrib import admin
         self.assertIn(HabilitationWindow, admin.site._registry)
 
-    def test_diver_enrolment_is_optional_and_cleared_when_window_is_deleted(self):
+    def _enrolled_diver(self, window, username="buzo"):
         from django.contrib.auth.models import User
         from users.models import UserProfile
-        w = _november_2026()
-        user = User.objects.create_user("buzo", password="x")
+        user = User.objects.create_user(username, password="x")
         profile, _ = UserProfile.objects.get_or_create(user=user)
-        self.assertIsNone(profile.habilitation_window)
-        profile.habilitation_window = w
+        self.assertIsNone(profile.habilitation_window)   # la inscripción es opcional
+        profile.habilitation_window = window
         profile.save()
+        return profile
+
+    def test_deleting_a_window_with_divers_on_it_is_refused(self):
+        # El administrador acá es un oficial de la unidad, y perder 50
+        # inscripciones sin rastro es peor que recibir "corregí las fechas".
+        # Además el §4.1 dice que las fechas se completan después, o sea que el
+        # flujo real es editar, no borrar y recrear.
+        w = _november_2026()
+        profile = self._enrolled_diver(w)
         self.assertEqual(list(w.divers.all()), [profile])
-        w.delete()
+        with self.assertRaises(ProtectedError):
+            w.delete()
+        self.assertTrue(HabilitationWindow.objects.filter(pk=w.pk).exists())
         profile.refresh_from_db()
-        self.assertIsNone(profile.habilitation_window)
+        self.assertEqual(profile.habilitation_window, w)
+
+    def test_deleting_a_window_with_nobody_on_it_still_works(self):
+        # Borrar una ventana recién creada por error sigue funcionando, que es
+        # justo cuando borrar es inofensivo.
+        w = _november_2026()
+        w.delete()
+        self.assertFalse(HabilitationWindow.objects.filter(pk=w.pk).exists())
+
+    def test_a_window_is_deletable_once_its_divers_un_enrol(self):
+        w = _november_2026()
+        profile = self._enrolled_diver(w)
+        profile.habilitation_window = None
+        profile.save()
+        w.delete()
+        self.assertFalse(HabilitationWindow.objects.filter(pk=w.pk).exists())

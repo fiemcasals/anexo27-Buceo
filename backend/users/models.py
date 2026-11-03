@@ -49,9 +49,13 @@ class UserProfile(models.Model):
     rank = models.CharField(max_length=2, choices=RANK_CHOICES, blank=True) # Grado
     destination = models.CharField(max_length=100, blank=True) # Destino
     # Nullable: sin fecha elegida el buzo no puede estar apto, y no siempre es culpa suya.
+    # PROTECT y no SET_NULL: borrar una ventana con buzos inscriptos los
+    # des-inscribia en silencio y sin rastro. El administrador aca es un oficial
+    # de la unidad, y el §4.1 dice que las fechas se completan despues, o sea que
+    # el flujo real es editar. Una ventana sin nadie inscripto se borra igual.
     habilitation_window = models.ForeignKey(
         'api.HabilitationWindow', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='divers',
+        on_delete=models.PROTECT, related_name='divers',
     )
     weight = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
