@@ -271,6 +271,28 @@ class SlotStateTests(TestCase):
         self.assertEqual(slot.state, StudyState.APPROVED)
         self.assertEqual(slot.block.pk, current.pk)
 
+    def test_a_slot_whose_only_block_is_demoted_counts_as_missing(self):
+        # Discrimina sin depender del orden en que lleguen las filas: hay una
+        # sola, y es histórica. Sigue valiendo si StudyBlock gana un ordering.
+        p = _diver(birth_year=1988, window=self.window)
+        stale = _upload(p, "e", date(2026, 10, 18),
+                        dictamenes=[("APPROVED", "DOCTOR")])
+        StudyBlock.objects.filter(pk=stale.pk).update(is_current=False)
+        slot = _slot_of(fitness.diver_summary(p, TODAY), "e")
+        self.assertEqual(slot.state, StudyState.MISSING)
+        self.assertIsNone(slot.block)
+
+    def test_a_study_both_rejected_and_expired_reports_expired(self):
+        # La fecha manda sobre el dictamen: vencido el 19, no cubre el 20.
+        p = _diver(birth_year=1988, window=self.window)
+        _upload(p, "b", date(2025, 11, 19), dictamenes=[("REJECTED", "DOCTOR")])
+        slot = _slot_of(fitness.diver_summary(p, TODAY), "b")
+        self.assertEqual(slot.state, StudyState.EXPIRED)
+        # Y el motivo no se pierde: queda a la vista al lado del vencimiento.
+        self.assertEqual(slot.last_dictamen.status, "REJECTED")
+        self.assertEqual(slot.last_dictamen.rejection_reason, "OTHER")
+        self.assertEqual(slot.last_dictamen.content, "Falta la firma.")
+
     def test_the_slot_carries_the_block_and_its_last_dictamen(self):
         p = _diver(birth_year=1988, window=self.window)
         block = _upload(p, "f", date(2026, 10, 18),
@@ -406,6 +428,19 @@ class DiverSummaryTests(TestCase):
         self.assertEqual(s.approved, 7)
         self.assertEqual(s.presented, 7)
         self.assertEqual(s.state, DiverState.APTO)
+
+    def test_last_doctor_review_counts_a_point_the_age_rule_left_out(self):
+        # El médico revisó el esfuerzo que este buzo de 38 no debía presentar,
+        # y es el único dictamen suyo: que el punto no se exija no borra el
+        # registro de que lo miró.
+        p = self._base_diver()
+        _upload(p, "a", VALID_FOR_EVERY_POINT,
+                dictamenes=[("APPROVED", "DOCTOR")], reviewed_on=date(2026, 10, 14))
+        _upload(p, "b", VALID_FOR_EVERY_POINT,
+                dictamenes=[("PRE_APPROVED", "NURSE")], reviewed_on=date(2026, 10, 28))
+        s = fitness.diver_summary(p, TODAY)
+        self.assertEqual(_slot_of(s, "a").state, StudyState.NOT_REQUIRED)
+        self.assertEqual(s.last_doctor_review, date(2026, 10, 14))
 
     def test_the_counters_split_the_required_points_by_state(self):
         p = self._base_diver()

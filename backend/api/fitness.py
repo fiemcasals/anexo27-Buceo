@@ -136,7 +136,7 @@ def habilitation_year(window: HabilitationWindow) -> int:
     return window.end_date.year
 
 
-def expires_on(study_code: str, study_date: date) -> date:
+def validity_ends_on(study_code: str, study_date: date) -> date:
     """Último día en que un estudio de ese punto y esa fecha sigue vigente."""
     return study_date + timedelta(days=catalog.get(study_code).validity_days)
 
@@ -232,7 +232,8 @@ def _slot_status(code: str, block: StudyBlock | None,
                            required=required, today=today),
         block=block,
         last_dictamen=dictamen,
-        expires_on=None if block is None else expires_on(code, block.study_date),
+        expires_on=(None if block is None
+                    else validity_ends_on(code, block.study_date)),
     )
 
 
@@ -253,7 +254,7 @@ def _study_state(code: str, block: StudyBlock | None, dictamen: Comment | None,
     # sirve ni aprobado.
     if block.study_date > window.end_date:
         return StudyState.DATE_INVALID
-    if expires_on(code, block.study_date) < window.end_date:
+    if validity_ends_on(code, block.study_date) < window.end_date:
         return StudyState.EXPIRED
     if dictamen is None:
         return StudyState.IN_REVIEW
