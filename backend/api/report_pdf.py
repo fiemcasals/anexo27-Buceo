@@ -29,7 +29,7 @@ def generate_anexo_27(output, user):
     p.drawString(100, height - 210, "Estudios y Notaciones Médicas")
     
     y_position = height - 240
-    blocks = StudyBlock.objects.filter(user=user)
+    blocks = StudyBlock.objects.filter(user=user, is_current=True)
     
     for block in blocks:
         if y_position < 100:
