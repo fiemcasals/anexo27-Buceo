@@ -1,122 +1,165 @@
-from django.contrib.auth.models import User
-from users.models import UserProfile
-from api.models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+"""Datos de prueba del dominio de aptitud medica.
+
+Ejecutar desde backend/ (NO con `manage.py shell < archivo`: la consola
+interactiva pierde las variables entre bloques separados por lineas en blanco):
+
+    PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python.exe manage.py shell \
+        -c "exec(open('create_test_data.py', encoding='utf-8').read())"
+
+Es re-ejecutable: BORRA y vuelve a crear los usuarios sembrados (se reconocen
+por su username; el borrado arrastra perfiles, estudios y dictamenes) y hace
+upsert de la fecha de habilitacion. Nada que no sea de esta lista se toca.
+
+El ciclo 2026 queda INCOMPLETO a proposito: solo la 1.a fecha esta confirmada
+(18 al 20 de noviembre). La 2.a y la complementaria no existen todavia.
+
+Cada buzo ejercita un estado distinto del motor (api/fitness.py). Los estados
+se derivan al final y se imprimen, para verificar que son los buscados.
+"""
 import datetime
 
-def create_user(username, email, password, role='BUZO', is_superuser=False, is_instructor=False, first_name='', last_name=''):
-    user, created = User.objects.get_or_create(username=username, defaults={'email': email, 'first_name': first_name, 'last_name': last_name})
-    if created:
-        user.set_password(password)
-        user.is_superuser = is_superuser
-        user.is_staff = is_superuser
-        user.save()
-        print(f"✅ Usuario creado: {email} (Pass: {password})")
-    else:
-        print(f"⚠️ Usuario ya existe: {email}")
+from django.contrib.auth.models import User
 
-    # Asegurar que tenga perfil
-    profile, p_created = UserProfile.objects.get_or_create(user=user)
-    profile.role = role
-    profile.is_instructor = is_instructor
-    profile.save()
-    return user
+from api import catalog, fitness
+from api.models import Comment, HabilitationWindow, StudyBlock
+from users.models import UserProfile
 
-print("\n🚀 INICIANDO CREACIÓN DE DATOS DE PRUEBA 🚀\n")
+PASSWORD = '12345'
+CYCLE = 2026
+TODAY = datetime.date.today()
 
-# 1. Crear Usuarios
-admin = create_user('admin', 'admin@buceo.com', '12345', role='ADMIN', is_superuser=True, first_name='Admin', last_name='Sistema')
-instructor = create_user('instructor', 'instructor@buceo.com', '12345', is_instructor=True, first_name='Carlos', last_name='Instructor')
-medico = create_user('medico', 'medico@buceo.com', '12345', first_name='Dra. Elena', last_name='Medica')
-buzo1 = create_user('buzo1', 'buzo1@buceo.com', '12345', first_name='Juan', last_name='Perez')
-buzo2 = create_user('buzo2', 'buzo2@buceo.com', '12345', first_name='Maria', last_name='Gomez')
+# Estudios recientes: vigentes todo el rango 18-20/11/2026 (los de 365 dias deben
+# ser posteriores al 20/11/2025; el Anexo 27 debe ser del 21/10/2026 en adelante).
+RECENT = datetime.date(2026, 9, 15)
+RECENT_ANEXO27 = datetime.date(2026, 10, 28)
+# Vencido para esa fecha: 01/10/2025 + 365 dias = 01/10/2026 < 20/11/2026.
+STALE = datetime.date(2025, 10, 1)
 
-# 2. Rellenar datos de perfil básicos
-for p_user in [instructor, medico, buzo1, buzo2]:
-    prof = p_user.profile
-    prof.dni = f"123456{p_user.id}"
-    prof.age = 30 + p_user.id
-    prof.phone = f"+54 9 11 1234 {p_user.id}000"
-    prof.rank = 'Sargento' if p_user == buzo1 else 'Cabo'
-    prof.destination = 'Base Naval'
-    prof.weight = 75.5
-    prof.height = 175
-    prof.save()
+# username -> (nombre, apellido, rol, grado, nacimiento, DNI, destino)
+PEOPLE = {
+    'admin':   ('Admin', 'Sistema', 'ADMIN', '', None, '10000001', ''),
+    'medico':  ('Elena', 'Molina', 'DOCTOR', 'CT', datetime.date(1985, 3, 12), '10000002', 'Sanidad'),
+    'vera':    ('Marcos', 'Vera', 'NURSE', 'SG', datetime.date(1990, 7, 4), '10000003', 'Sanidad'),
+    # Menores de 40 en 2026: siete estudios.
+    'apto':        ('Juan', 'Perez', 'USER', 'CB', datetime.date(1996, 5, 20), '20000001', 'Base Naval'),
+    'faltantes':   ('Lucia', 'Gomez', 'USER', 'CI', datetime.date(1999, 2, 2), '20000002', 'Base Naval'),
+    'vencido':     ('Diego', 'Suarez', 'USER', 'SG', datetime.date(1994, 9, 9), '20000003', 'Base Naval'),
+    'rechazo':     ('Sofia', 'Rios', 'USER', 'TT', datetime.date(1997, 1, 15), '20000004', 'Base Naval'),
+    'preaprobado': ('Tomas', 'Luna', 'USER', 'CB', datetime.date(1998, 11, 30), '20000005', 'Base Naval'),
+    # 40 o mas en 2026: ocho estudios. Borde: 'cumple40' nace el 30/12/1986 y
+    # cumple 40 DESPUES de la habilitacion, pero la edad es resta de anios.
+    'cumple40':    ('Raul', 'Acosta', 'USER', 'MY', datetime.date(1986, 12, 30), '30000001', 'Base Naval'),
+    'mayor':       ('Carlos', 'Ortiz', 'USER', 'SM', datetime.date(1978, 4, 1), '30000002', 'Base Naval'),
+    # Sin ventana elegida / sin fecha de nacimiento.
+    'sinfecha':    ('Ana', 'Duarte', 'USER', 'CB', datetime.date(1995, 6, 6), '40000001', 'Base Naval'),
+    'sinnacim':    ('Pedro', 'Sosa', 'USER', 'CI', None, '40000002', 'Base Naval'),
+}
 
-# 3. Crear Estudios Médicos para Buzo 1
-print("\n📁 Creando Estudios Médicos...")
-study1, created = StudyBlock.objects.get_or_create(
-    user=buzo1, title="Audiometría Anual",
-    defaults={
-        'description': 'Estudio de audición de rutina',
-        'study_date': datetime.date.today(),
-        'pdf_attachment': ''
-    }
+# --- Limpieza: re-ejecutable ------------------------------------------------
+User.objects.filter(username__in=PEOPLE).delete()
+
+# --- Fecha de habilitacion: solo la 1.a del ciclo 2026 -----------------------
+first_window, _ = HabilitationWindow.objects.update_or_create(
+    cycle=CYCLE, slot=HabilitationWindow.FIRST,
+    defaults={'start_date': datetime.date(2026, 11, 18),
+              'end_date': datetime.date(2026, 11, 20)},
 )
 
-study2, created = StudyBlock.objects.get_or_create(
-    user=buzo1, title="Electrocardiograma",
-    defaults={
-        'description': 'Apto físico cardiológico',
-        'study_date': datetime.date.today(),
-        'pdf_attachment': ''
-    }
-)
+# --- Usuarios ----------------------------------------------------------------
+users = {}
+for username, (first, last, role, rank, birth, dni, destination) in PEOPLE.items():
+    user = User.objects.create_user(
+        username=username, email=f'{username}@buceo.com', password=PASSWORD,
+        first_name=first, last_name=last,
+        is_superuser=(role == 'ADMIN'), is_staff=(role == 'ADMIN'),
+    )
+    UserProfile.objects.update_or_create(user=user, defaults={
+        'role': role, 'rank': rank, 'birth_date': birth, 'dni': dni,
+        'destination': destination, 'phone': f'+54 9 11 5555 {dni[-4:]}',
+        # Medico, enfermero y admin no presentan estudios: no eligen fecha.
+        'habilitation_window': (None if role != 'USER' or username == 'sinfecha'
+                                else first_window),
+    })
+    users[username] = user
 
-# 4. Otorgar Permisos al Médico
-print("🔐 Otorgando permisos médicos...")
-Permission.objects.get_or_create(
-    grantor=buzo1, grantee=medico,
-    defaults={
-        'access_level': 'MODIFY',
-        'shared_items': ['ALL']
-    }
-)
+doctor, nurse = users['medico'], users['vera']
 
-# 5. Médico dictamina sobre el estudio
-print("✍️ Creando dictamen médico...")
-Comment.objects.get_or_create(
-    block=study1, doctor=medico,
-    defaults={
-        'content': 'El paciente se encuentra en óptimas condiciones auditivas para realizar inmersiones.',
-        'status': 'APPROVED'
-    }
-)
 
-# 6. Crear una Actividad de Buceo (Instructor)
-print("🌊 Creando Actividad de Buceo...")
-act, created = DiveActivity.objects.get_or_create(
-    instructor=instructor, date=datetime.date.today(),
-    defaults={
-        'location_coords': '38° 00 S 57° 33 W',
-        'location_type': 'Mar Abierto',
-        'dive_type': 'Entrenamiento',
-        'max_depth_meters': 18.5,
-        'duration_minutes': 45,
-        'safety_diver': buzo2,
-        'medic': medico,
-        'supervisor': admin
-    }
-)
+def upload(diver, code, study_date=RECENT):
+    """El buzo carga un estudio (queda como vigente)."""
+    if code == 'h' and study_date == RECENT:
+        study_date = RECENT_ANEXO27
+    return StudyBlock.objects.create(
+        user=users[diver], study_code=code, study_date=study_date,
+        pdf_attachment='',
+    )
 
-# 7. Asignar Buceo al Buzo 1 en la Bitácora
-print("📖 Registrando Bitácora de Buzo 1...")
-DiveLog.objects.get_or_create(
-    activity=act, diver=buzo1,
-    defaults={
-        'is_completed': True,
-        'equipment_type': 'Circuito Abierto',
-        'gas_type': 'Aire',
-        'suit_type': 'Húmedo 7mm',
-        'weight_kgs': 8.5,
-        'start_pressure_bar': 200,
-        'end_pressure_bar': 50
-    }
-)
 
-print("\n✨ ¡DATOS DE PRUEBA GENERADOS CON ÉXITO! ✨")
-print("Puedes iniciar sesión con cualquiera de los siguientes usuarios (Contraseña para todos: 12345):")
-print("- admin@buceo.com (Superusuario)")
-print("- instructor@buceo.com (Instructor)")
-print("- medico@buceo.com (Médico Auditor)")
-print("- buzo1@buceo.com (Buzo de prueba 1)")
-print("- buzo2@buceo.com (Buzo de prueba 2)\n")
+def approve(block):
+    return Comment.objects.create(block=block, doctor=doctor, reviewer_role='DOCTOR',
+                                  status='APPROVED')
+
+
+def pre_approve(block):
+    return Comment.objects.create(block=block, doctor=nurse, reviewer_role='NURSE',
+                                  status='PRE_APPROVED')
+
+
+def reject(block, reviewer, role, reason, detail):
+    return Comment.objects.create(block=block, doctor=reviewer, reviewer_role=role,
+                                  status='REJECTED', rejection_reason=reason,
+                                  content=detail)
+
+
+def fully_approved(diver, codes):
+    for code in codes:
+        approve(upload(diver, code))
+
+
+UNDER_40 = [c.code for c in catalog.required_for_age(30)]   # b..h
+OVER_40 = [c.code for c in catalog.required_for_age(40)]    # a..h
+
+# Apto: siete estudios, todos aprobados por el medico.
+fully_approved('apto', UNDER_40)
+# Apto con ocho (el borde de los 40).
+fully_approved('cumple40', OVER_40)
+# Faltantes: solo tres de siete presentados -> incompleto.
+fully_approved('faltantes', ['b', 'c', 'd'])
+# Vencido: el punto c es de octubre de 2025 y no cubre el rango, aun aprobado.
+fully_approved('vencido', [c for c in UNDER_40 if c != 'c'])
+approve(upload('vencido', 'c', STALE))
+# Rechazo: d rechazado por el medico; e pre-aprobado por el enfermero y luego
+# rechazado por el medico (la historia no se pisa: vale el ultimo dictamen).
+fully_approved('rechazo', [c for c in UNDER_40 if c not in ('d', 'e')])
+reject(upload('rechazo', 'd'), doctor, 'DOCTOR', 'ILLEGIBLE',
+       'Falta la placa de perfil; el archivo es ilegible.')
+block_e = upload('rechazo', 'e')
+pre_approve(block_e)
+reject(block_e, doctor, 'DOCTOR', 'UNFIT_VALUES',
+       'Hallazgo en senos paranasales que requiere evaluacion.')
+# Pre-aprobado: f espera la aprobacion del medico (no cuenta como apto).
+fully_approved('preaprobado', [c for c in UNDER_40 if c != 'f'])
+pre_approve(upload('preaprobado', 'f'))
+# Mayor de 40 que no presento el electrocardiograma de esfuerzo (punto a).
+fully_approved('mayor', [c for c in OVER_40 if c != 'a'])
+# Sin ventana elegida y sin fecha de nacimiento: con algo cargado cada uno.
+fully_approved('sinfecha', ['b', 'c'])
+fully_approved('sinnacim', ['b', 'c'])
+
+# --- Verificacion con el motor -----------------------------------------------
+print('\nFecha de habilitacion sembrada:', first_window)
+print('Contrasena de todos los usuarios:', PASSWORD, '\n')
+print(f"{'usuario':<12} {'rol':<7} {'edad':<5} {'exige':<6} {'estado':<12} "
+      f"{'pres':<5} {'apr':<4} {'rev':<4} {'pre':<4} prob")
+for username, person in PEOPLE.items():
+    if person[2] != 'USER':
+        continue  # solo los buzos tienen estado de aptitud
+    profile = UserProfile.objects.select_related(
+        'user', 'habilitation_window').get(user__username=username)
+    summary = fitness.diver_summary(profile, TODAY)
+    age = (None if profile.habilitation_window is None
+           else profile.age_in_year(fitness.habilitation_year(profile.habilitation_window)))
+    print(f"{username:<12} {profile.role:<7} {str(age):<5} "
+          f"{len(summary.required_codes):<6} {summary.state.value:<12} "
+          f"{summary.presented:<5} {summary.approved:<4} {summary.pending_review:<4} "
+          f"{summary.pre_reviewed:<4} {summary.problems}")
