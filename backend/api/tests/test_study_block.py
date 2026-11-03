@@ -1,6 +1,7 @@
 from datetime import date
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from api import catalog
 from api.models import StudyBlock
@@ -43,12 +44,21 @@ class StudyBlockTests(TestCase):
         someone_else.refresh_from_db()
         self.assertTrue(someone_else.is_current)
 
-    def test_resaving_the_current_one_does_not_demote_anything(self):
-        current = self._block()
-        current.description = "edited by the doctor"
-        current.save()
-        current.refresh_from_db()
-        self.assertTrue(current.is_current)
+    def test_resaving_an_old_instance_does_not_demote_the_current_one(self):
+        first = self._block()
+        second = self._block(day=date(2026, 11, 3))
+        # `first` was demoted in the database, but this in-memory copy is stale.
+        self.assertTrue(first.is_current)
+        first.description = "edited"
+        first.save(update_fields=["description"])
+        second.refresh_from_db()
+        self.assertTrue(second.is_current)
+
+    def test_database_rejects_a_second_current_row_for_the_same_point(self):
+        first = self._block()
+        self._block(day=date(2026, 11, 3))
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            StudyBlock.objects.filter(pk=first.pk).update(is_current=True)
 
     def test_title_comes_from_the_catalog_not_from_free_text(self):
         self.assertEqual(self._block(code="f").title, catalog.get("f").text)

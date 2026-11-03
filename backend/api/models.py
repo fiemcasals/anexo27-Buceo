@@ -1,6 +1,6 @@
 from datetime import timedelta
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import User
 import uuid
 from django.contrib.auth.models import User
@@ -17,14 +17,24 @@ class StudyBlock(models.Model):
     study_date = models.DateField()
     pdf_attachment = models.FileField(upload_to='studies/%Y/%m/%d/')
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'study_code'],
+                condition=models.Q(is_current=True),
+                name='one_current_study_per_diver_and_point',
+            ),
+        ]
+
     def save(self, *args, **kwargs):
         if self.study_code in catalog.CODES:
             self.title = catalog.get(self.study_code).text
-        if self._state.adding and self.is_current:
-            StudyBlock.objects.filter(
-                user=self.user, study_code=self.study_code, is_current=True
-            ).update(is_current=False)
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            if self._state.adding and self.is_current:
+                StudyBlock.objects.filter(
+                    user=self.user, study_code=self.study_code, is_current=True
+                ).update(is_current=False)
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
