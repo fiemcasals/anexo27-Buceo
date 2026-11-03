@@ -15,7 +15,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'age', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name']
+        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name']
 
     def update(self, instance, validated_data):
         # Correct way to handle multiple pops from same nested dict if mapped by source
