@@ -21,7 +21,9 @@ import datetime
 from django.contrib.auth.models import User
 
 from api import catalog, fitness
-from api.models import Comment, DiveActivity, DiveLog, HabilitationWindow, StudyBlock
+from api.models import (
+    Comment, DiveActivity, DiveLog, HabilitationWindow, Permission, StudyBlock,
+)
 from users.models import UserProfile
 
 PASSWORD = '12345'
@@ -154,6 +156,12 @@ upload('fechaerronea', 'f', datetime.date(2027, 3, 10))
 # Sin ventana elegida y sin fecha de nacimiento: con algo cargado cada uno.
 fully_approved('sinfecha', ['b', 'c'])
 fully_approved('sinnacim', ['b', 'c'])
+
+# --- Permisos (funcionalidad de compartir, aparte de la aptitud) ------------------
+Permission.objects.create(
+    grantor=users['apto'], grantee=doctor, access_level='MODIFY',
+    shared_items=['ALL'],
+)
 
 # --- Bitacora de buceo (funcionalidad aparte de la aptitud) -------------------
 activity = DiveActivity.objects.create(
