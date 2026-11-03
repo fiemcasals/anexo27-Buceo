@@ -57,6 +57,22 @@ class UserProfileTests(TestCase):
     def test_nurse_is_a_role(self):
         self.assertIn("NURSE", dict(UserProfile.ROLE_CHOICES))
 
+    def test_the_role_labels_are_the_ones_the_spec_names(self):
+        # El admin de Django es la única interfaz humana de esta rama, y es
+        # donde el oficial de la unidad designa los roles: "User" no se lee
+        # como "buzo" (§5 y §10). Los valores no cambian, sólo las etiquetas.
+        self.assertEqual(
+            dict(UserProfile.ROLE_CHOICES),
+            {"USER": "Buzo", "NURSE": "Enfermero auxiliar",
+             "DOCTOR": "Médico", "ADMIN": "Administrador"},
+        )
+
+    def test_the_admin_list_does_not_dereference_user_row_by_row(self):
+        # §8.5: el admin coteja 150 personas contra sus propios legajos. Las
+        # tres columnas que salen de `user` costaban una consulta por fila.
+        from users.admin import UserProfileAdmin
+        self.assertEqual(UserProfileAdmin.list_select_related, ("user",))
+
     def test_rank_is_the_closed_hierarchical_list(self):
         self.assertEqual(
             UserProfile.RANK_VALUES,

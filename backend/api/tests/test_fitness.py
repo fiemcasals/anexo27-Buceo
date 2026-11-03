@@ -6,6 +6,7 @@ medido contra el rango de la fecha de habilitación elegida, no contra hoy.
 
 import itertools
 from datetime import date, datetime, time, timedelta
+from datetime import timezone as dt_timezone
 
 from django.contrib.auth.models import User
 from django.db.models import Prefetch
@@ -453,6 +454,18 @@ class DiverSummaryTests(TestCase):
 
     def test_last_doctor_review_is_none_when_the_doctor_never_looked(self):
         self.assertIsNone(self._summary_only_pre_reviewed().last_doctor_review)
+
+    def test_last_doctor_review_is_the_calendar_day_in_buenos_aires(self):
+        # Un dictamen firmado a las 22:00 del 27/10 en Buenos Aires se guarda
+        # como 01:00 UTC del 28. La columna del médico tiene que decir 27: la
+        # pregunta es qué día lo miró, y los días son los de acá.
+        p = self._base_diver()
+        block = _upload(p, "b", VALID_FOR_EVERY_POINT,
+                        dictamenes=[("APPROVED", "DOCTOR")])
+        Comment.objects.filter(block=block).update(
+            created_at=datetime(2026, 10, 28, 1, 0, tzinfo=dt_timezone.utc))
+        s = fitness.diver_summary(p, TODAY)
+        self.assertEqual(s.last_doctor_review, date(2026, 10, 27))
 
     # --- Más allá de los casos del brief ---
 

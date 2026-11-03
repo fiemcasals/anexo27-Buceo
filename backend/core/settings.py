@@ -122,7 +122,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Los timestamps se siguen guardando en UTC (USE_TZ = True); esto cambia de que
+# dia calendario se derivan. Con 'UTC', un dictamen firmado a las 22:00 en Buenos
+# Aires (UTC-3) quedaba registrado al dia siguiente en la columna del medico.
+TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 USE_I18N = True
 

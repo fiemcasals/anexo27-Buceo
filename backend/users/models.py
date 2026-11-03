@@ -2,11 +2,14 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class UserProfile(models.Model):
+    # Etiquetas en castellano: el admin de Django es donde el oficial de la
+    # unidad designa los roles, y son los nombres del §5. Los valores quedan en
+    # ingles porque los usa el codigo.
     ROLE_CHOICES = [
-        ('USER', 'User'),
+        ('USER', 'Buzo'),
         ('NURSE', 'Enfermero auxiliar'),
-        ('DOCTOR', 'Doctor'),
-        ('ADMIN', 'Admin'),
+        ('DOCTOR', 'Médico'),
+        ('ADMIN', 'Administrador'),
     ]
     # Lista cerrada de grados, en orden jerarquico.
     RANK_CHOICES = [

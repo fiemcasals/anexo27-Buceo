@@ -7,6 +7,9 @@ from users.models import UserProfile
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('rank', 'last_name', 'first_name', 'dni', 'email', 'role')
     search_fields = ('dni', 'user__last_name', 'user__first_name')
+    # Tres de las columnas salen de `user`: sin esto, 150 consultas de mas en la
+    # unica lista que el spec pide que sea comoda (§8.5).
+    list_select_related = ('user',)
 
     @admin.display(description='Apellido', ordering='user__last_name')
     def last_name(self, obj):
