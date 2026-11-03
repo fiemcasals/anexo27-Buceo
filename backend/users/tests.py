@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 from django.db.utils import IntegrityError
 from django.test import TestCase
 
+from rest_framework.test import APIClient
+
 from api.serializers import UserProfileSerializer
 from users.models import UserProfile
 
@@ -35,6 +37,22 @@ class UserProfileTests(TestCase):
         b.refresh_from_db()
         self.assertIsNone(a.dni)
         self.assertIsNone(b.dni)
+
+    def test_blank_dni_is_stored_as_null_so_profiles_coexist(self):
+        a = _profile("h", dni="")
+        b = _profile("i", dni="")
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertIsNone(a.dni)
+        self.assertIsNone(b.dni)
+
+    def test_two_users_can_patch_blank_dni_through_the_api(self):
+        # Profile.jsx envia dni: '' cuando el campo no se toco.
+        for name in ("j", "k"):
+            client = APIClient()
+            client.force_authenticate(User.objects.create(username=name))
+            response = client.patch("/api/profiles/me/", {"dni": ""}, format="json")
+            self.assertEqual(response.status_code, 200, response.content)
 
     def test_nurse_is_a_role(self):
         self.assertIn("NURSE", dict(UserProfile.ROLE_CHOICES))

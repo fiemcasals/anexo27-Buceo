@@ -48,6 +48,13 @@ class UserProfile(models.Model):
     weight = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        # Un DNI en blanco se guarda como NULL: el indice unico ignora NULL,
+        # pero dos '' chocarian. Vale para cualquier via de escritura.
+        if not self.dni:
+            self.dni = None
+        super().save(*args, **kwargs)
+
     def age_in_year(self, year):
         """Edad que se alcanza en `year`: resta de años, no edad cumplida."""
         if self.birth_date is None:
