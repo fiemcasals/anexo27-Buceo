@@ -1,0 +1,128 @@
+<h2>Pantalla del médico: listado de buzos</h2>
+<p class="subtitle">Lo primero que ve el médico al entrar. Una fila por buzo, sin tener que abrir a nadie para saber cómo viene.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Control de Aptitud Médica &mdash; vista del médico</div>
+  <div class="mockup-body" style="background:#fff;color:#15213b;padding:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
+
+    <div style="padding:22px 26px 0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+        <div>
+          <div style="font-size:20px;font-weight:700;letter-spacing:-.2px">Personal a controlar</div>
+          <div style="font-size:13px;color:#6b7694;margin-top:3px">6 buzos registrados</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="background:#eaf7ee;border:1px solid #bfe5cb;border-radius:10px;padding:9px 15px;text-align:center;min-width:92px">
+            <div style="font-size:21px;font-weight:700;color:#1d7a3d;line-height:1">2</div>
+            <div style="font-size:10px;color:#1d7a3d;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">Aptos</div>
+          </div>
+          <div style="background:#fff6e5;border:1px solid #f0d9a8;border-radius:10px;padding:9px 15px;text-align:center;min-width:92px">
+            <div style="font-size:21px;font-weight:700;color:#9a6508;line-height:1">6</div>
+            <div style="font-size:10px;color:#9a6508;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">A revisar</div>
+          </div>
+          <div style="background:#fdecec;border:1px solid #f3c3c3;border-radius:10px;padding:9px 15px;text-align:center;min-width:92px">
+            <div style="font-size:21px;font-weight:700;color:#a52a2a;line-height:1">1</div>
+            <div style="font-size:10px;color:#a52a2a;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">Vencidos</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;align-items:center">
+        <div style="flex:1;min-width:260px;position:relative">
+          <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9aa3b8;font-size:15px">&#128269;</span>
+          <div style="border:1.5px solid #dde2ec;border-radius:10px;padding:11px 14px 11px 38px;font-size:14px;color:#9aa3b8;background:#fafbfd">Buscar por nombre, apellido, DNI o grado&hellip;</div>
+        </div>
+        <div style="border:1.5px solid #dde2ec;border-radius:10px;padding:11px 16px;font-size:13.5px;background:#fafbfd;white-space:nowrap">
+          Ordenar: <strong style="color:#15213b">Apellido</strong> &nbsp;&#9662;
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <span style="background:#15213b;color:#fff;border-radius:999px;padding:7px 15px;font-size:12.5px;font-weight:600">Todos <span style="opacity:.6">6</span></span>
+        <span style="background:#f2f4f8;color:#4c5872;border-radius:999px;padding:7px 15px;font-size:12.5px">Documentación completa <span style="opacity:.55">3</span></span>
+        <span style="background:#f2f4f8;color:#4c5872;border-radius:999px;padding:7px 15px;font-size:12.5px">Documentación incompleta <span style="opacity:.55">3</span></span>
+        <span style="background:#f2f4f8;color:#4c5872;border-radius:999px;padding:7px 15px;font-size:12.5px">Pendientes de revisar <span style="opacity:.55">4</span></span>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px">
+      <thead>
+        <tr style="background:#f7f8fb">
+          <th style="text-align:left;padding:11px 26px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">Grado y nombre</th>
+          <th style="text-align:left;padding:11px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">DNI</th>
+          <th style="text-align:center;padding:11px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">Edad</th>
+          <th style="text-align:center;padding:11px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">Presentados</th>
+          <th style="text-align:center;padding:11px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">A revisar</th>
+          <th style="text-align:left;padding:11px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">Última vez revisado</th>
+          <th style="text-align:left;padding:11px 26px 11px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8590a8;font-weight:600;border-top:1px solid #eceff5;border-bottom:1px solid #eceff5">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f1f3f8">
+          <td style="padding:13px 26px"><strong>Molina, Ana</strong><div style="color:#8590a8;font-size:12px;margin-top:2px">Sgto. Ayud. &middot; Base Naval</div></td>
+          <td style="padding:13px 10px;color:#5b6684">27.888.444</td>
+          <td style="padding:13px 10px;text-align:center;color:#5b6684">39</td>
+          <td style="padding:13px 10px;text-align:center"><strong>7/7</strong></td>
+          <td style="padding:13px 10px;text-align:center;color:#c3cada">&mdash;</td>
+          <td style="padding:13px 10px;color:#5b6684">20/09/2025</td>
+          <td style="padding:13px 26px 13px 10px"><span style="background:#fdecec;color:#a52a2a;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600">1 vencido</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f8">
+          <td style="padding:13px 26px"><strong>Gómez, María</strong><div style="color:#8590a8;font-size:12px;margin-top:2px">Cabo &middot; Base Naval</div></td>
+          <td style="padding:13px 10px;color:#5b6684">12.345.675</td>
+          <td style="padding:13px 10px;text-align:center;color:#5b6684">31</td>
+          <td style="padding:13px 10px;text-align:center"><strong>7/7</strong></td>
+          <td style="padding:13px 10px;text-align:center"><span style="background:#fff6e5;color:#9a6508;border-radius:999px;padding:3px 10px;font-weight:700">2</span></td>
+          <td style="padding:13px 10px;color:#5b6684">25/10/2026</td>
+          <td style="padding:13px 26px 13px 10px"><span style="background:#fff6e5;color:#9a6508;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600">A revisar</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f8">
+          <td style="padding:13px 26px"><strong>Pérez, Juan</strong><div style="color:#8590a8;font-size:12px;margin-top:2px">Sgto. &middot; Base Naval</div></td>
+          <td style="padding:13px 10px;color:#5b6684">12.345.674</td>
+          <td style="padding:13px 10px;text-align:center;color:#5b6684">42</td>
+          <td style="padding:13px 10px;text-align:center"><strong>8/8</strong></td>
+          <td style="padding:13px 10px;text-align:center;color:#c3cada">&mdash;</td>
+          <td style="padding:13px 10px;color:#5b6684">28/10/2026</td>
+          <td style="padding:13px 26px 13px 10px"><span style="background:#eaf7ee;color:#1d7a3d;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600">&#10003; Apto</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f8">
+          <td style="padding:13px 26px"><strong>Ríos, Luis</strong><div style="color:#8590a8;font-size:12px;margin-top:2px">Cabo &middot; Base Naval</div></td>
+          <td style="padding:13px 10px;color:#5b6684">33.222.111</td>
+          <td style="padding:13px 10px;text-align:center;color:#5b6684">28</td>
+          <td style="padding:13px 10px;text-align:center"><strong style="color:#a52a2a">3/7</strong></td>
+          <td style="padding:13px 10px;text-align:center"><span style="background:#fff6e5;color:#9a6508;border-radius:999px;padding:3px 10px;font-weight:700">3</span></td>
+          <td style="padding:13px 10px;color:#5b6684">Sin revisar</td>
+          <td style="padding:13px 26px 13px 10px"><span style="background:#f2f4f8;color:#5b6684;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600">Incompleto</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f8">
+          <td style="padding:13px 26px"><strong>Suárez, Diego</strong><div style="color:#8590a8;font-size:12px;margin-top:2px">Cabo 1&ordm; &middot; Base Naval</div></td>
+          <td style="padding:13px 10px;color:#5b6684">30.111.222</td>
+          <td style="padding:13px 10px;text-align:center;color:#5b6684">45</td>
+          <td style="padding:13px 10px;text-align:center"><strong style="color:#a52a2a">6/8</strong></td>
+          <td style="padding:13px 10px;text-align:center"><span style="background:#fff6e5;color:#9a6508;border-radius:999px;padding:3px 10px;font-weight:700">1</span></td>
+          <td style="padding:13px 10px;color:#5b6684">15/10/2026</td>
+          <td style="padding:13px 26px 13px 10px"><span style="background:#fdecec;color:#a52a2a;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600">1 rechazado</span></td>
+        </tr>
+        <tr>
+          <td style="padding:13px 26px"><strong>Vega, Pablo</strong><div style="color:#8590a8;font-size:12px;margin-top:2px">Sgto. 1&ordm; &middot; Base Naval</div></td>
+          <td style="padding:13px 10px;color:#5b6684">25.999.888</td>
+          <td style="padding:13px 10px;text-align:center;color:#5b6684">51</td>
+          <td style="padding:13px 10px;text-align:center"><strong>8/8</strong></td>
+          <td style="padding:13px 10px;text-align:center;color:#c3cada">&mdash;</td>
+          <td style="padding:13px 10px;color:#5b6684">12/10/2026</td>
+          <td style="padding:13px 26px 13px 10px"><span style="background:#eaf7ee;color:#1d7a3d;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600">&#10003; Apto</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="section" style="margin-top:4px">
+  <p class="label">Decisiones que ves acá</p>
+  <ul style="line-height:1.75;font-size:14.5px">
+    <li><strong>Presentados se lee 7/7 u 8/8 según la edad.</strong> A Gómez (31) la app le pide siete; a Pérez (42), ocho. El denominador cambia solo.</li>
+    <li><strong>&ldquo;A revisar&rdquo; es tu cola de trabajo:</strong> estudios subidos que todavía no dictaminaste. Es la columna por la que vas a querer ordenar.</li>
+    <li><strong>El estado es calculado, nunca tipeado.</strong> Apto solo si están todos presentados, aprobados y vigentes. Si falta algo: Incompleto. Si vos rechazaste algo: Rechazado. Si se pasó el año (o los 30 días del Anexo 27): Vencido.</li>
+    <li><strong>Vencido y Rechazado le ganan a los demás</strong> en la fila, porque son los dos que necesitan que alguien haga algo ya.</li>
+  <li><strong>El orden por fecha pasa a seguir esta columna:</strong> ordenás por quién hace más tiempo que no mirás, no por quién subió último. Con 150 buzos ese es el orden que evita que alguien se quede atrás.</li></ul>
+</div>
