@@ -22,3 +22,10 @@ class UserProfileAdmin(admin.ModelAdmin):
     @admin.display(description='Correo', ordering='user__email')
     def email(self, obj):
         return obj.user.email
+
+
+# El panel es la unica interfaz humana que entrega esta rama, y la usa un oficial
+# de la unidad: "Django administration" no le dice nada.
+admin.site.site_header = 'Control de aptitud médica para buceo'
+admin.site.site_title = 'Aptitud médica'
+admin.site.index_title = 'Administración'

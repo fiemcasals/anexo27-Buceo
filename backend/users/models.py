@@ -36,18 +36,33 @@ class UserProfile(models.Model):
         ]),
     ]
     RANK_VALUES = tuple(value for _, group in RANK_CHOICES for value, _ in group)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='USER')
-    is_instructor = models.BooleanField(default=False)
-    profile_data = models.JSONField(default=dict, blank=True)
-    
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='profile',
+        verbose_name='Usuario',
+    )
+    role = models.CharField(
+        max_length=10, choices=ROLE_CHOICES, default='USER', verbose_name='Rol',
+    )
+    is_instructor = models.BooleanField(default=False, verbose_name='Es instructor')
+    profile_data = models.JSONField(
+        default=dict, blank=True, verbose_name='Datos adicionales',
+    )
+
     # Base fields requested by user
-    dni = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    dni = models.CharField(
+        max_length=20, unique=True, null=True, blank=True, verbose_name='DNI',
+    )
     # Nullable a proposito: sin fecha de nacimiento no se puede derivar la edad.
-    birth_date = models.DateField(null=True, blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    rank = models.CharField(max_length=2, choices=RANK_CHOICES, blank=True) # Grado
-    destination = models.CharField(max_length=100, blank=True) # Destino
+    birth_date = models.DateField(
+        null=True, blank=True, verbose_name='Fecha de nacimiento',
+    )
+    phone = models.CharField(max_length=20, blank=True, verbose_name='Teléfono')
+    rank = models.CharField(
+        max_length=2, choices=RANK_CHOICES, blank=True, verbose_name='Grado',
+    )
+    destination = models.CharField(
+        max_length=100, blank=True, verbose_name='Destino',
+    )
     # Nullable: sin fecha elegida el buzo no puede estar apto, y no siempre es culpa suya.
     # PROTECT y no SET_NULL: borrar una ventana con buzos inscriptos los
     # des-inscribia en silencio y sin rastro. El administrador aca es un oficial
@@ -56,9 +71,14 @@ class UserProfile(models.Model):
     habilitation_window = models.ForeignKey(
         'api.HabilitationWindow', null=True, blank=True,
         on_delete=models.PROTECT, related_name='divers',
+        verbose_name='Fecha de habilitación elegida',
     )
-    weight = models.FloatField(null=True, blank=True)
-    height = models.FloatField(null=True, blank=True)
+    weight = models.FloatField(null=True, blank=True, verbose_name='Peso')
+    height = models.FloatField(null=True, blank=True, verbose_name='Altura')
+
+    class Meta:
+        verbose_name = 'Perfil'
+        verbose_name_plural = 'Perfiles'
 
     def save(self, *args, **kwargs):
         # Un DNI en blanco se guarda como NULL: el indice unico ignora NULL,
@@ -74,15 +94,30 @@ class UserProfile(models.Model):
         return year - self.birth_date.year
 
     def __str__(self):
-        return f"{self.user.username}'s Profile"
+        # Se lee en los desplegables y encabezados del admin: grado y apellido es
+        # como identifica a la persona la unidad. Sin esos datos cargados, cae al
+        # nombre de usuario.
+        etiqueta = ' '.join(
+            parte for parte in (self.rank, self.user.last_name, self.user.first_name)
+            if parte
+        )
+        return etiqueta or self.user.username
 
 class ProfileFieldTemplate(models.Model):
     """Admin-defined template for dynamic fields"""
-    name = models.CharField(max_length=100)
-    label = models.CharField(max_length=100)
-    field_type = models.CharField(max_length=50, default='text') # text, number, date
-    default_value = models.CharField(max_length=255, blank=True, null=True)
-    is_required = models.BooleanField(default=False)
+    name = models.CharField(max_length=100, verbose_name='Nombre interno')
+    label = models.CharField(max_length=100, verbose_name='Etiqueta')
+    field_type = models.CharField(
+        max_length=50, default='text', verbose_name='Tipo de dato',
+    ) # text, number, date
+    default_value = models.CharField(
+        max_length=255, blank=True, null=True, verbose_name='Valor por omisión',
+    )
+    is_required = models.BooleanField(default=False, verbose_name='Obligatorio')
+
+    class Meta:
+        verbose_name = 'Campo de perfil'
+        verbose_name_plural = 'Campos de perfil'
 
     def __str__(self):
         return self.label

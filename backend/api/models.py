@@ -7,17 +7,27 @@ from django.contrib.auth.models import User
 from . import catalog
 
 class StudyBlock(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_blocks')
-    study_code = models.CharField(max_length=1, choices=[(c, c) for c in catalog.CODES])
-    is_current = models.BooleanField(default=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='study_blocks',
+        verbose_name='Buzo',
+    )
+    study_code = models.CharField(
+        max_length=1, choices=[(c, c) for c in catalog.CODES],
+        verbose_name='Punto de la directiva',
+    )
+    is_current = models.BooleanField(default=True, verbose_name='Vigente')
     # Filled from the catalog in save(); never typed by the diver.
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    study_date = models.DateField()
-    pdf_attachment = models.FileField(upload_to='studies/%Y/%m/%d/')
+    title = models.CharField(max_length=255, verbose_name='Estudio')
+    description = models.TextField(blank=True, verbose_name='Observaciones')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Subido el')
+    study_date = models.DateField(verbose_name='Fecha del estudio')
+    pdf_attachment = models.FileField(
+        upload_to='studies/%Y/%m/%d/', verbose_name='Archivo',
+    )
 
     class Meta:
+        verbose_name = 'Estudio médico'
+        verbose_name_plural = 'Estudios médicos'
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'study_code'],
@@ -62,18 +72,34 @@ class Comment(models.Model):
         ('DOCTOR', 'Médico'),
         ('NURSE', 'Enfermero auxiliar'),
     ]
-    block = models.ForeignKey(StudyBlock, on_delete=models.CASCADE, related_name='comments')
+    block = models.ForeignKey(
+        StudyBlock, on_delete=models.CASCADE, related_name='comments',
+        verbose_name='Estudio médico',
+    )
     # Nombre histórico: también lo usa un enfermero; reviewer_role dice quién dictaminó.
-    doctor = models.ForeignKey(User, on_delete=models.CASCADE)
-    reviewer_role = models.CharField(max_length=10, choices=REVIEWER_ROLES)
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, verbose_name='Dictaminó',
+    )
+    reviewer_role = models.CharField(
+        max_length=10, choices=REVIEWER_ROLES, verbose_name='En calidad de',
+    )
     # Obligatorio sólo en los rechazos (ver clean()).
-    content = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    rejection_reason = models.CharField(max_length=20, choices=REJECTION_REASONS, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    verified_signature = models.BooleanField(default=True)
+    content = models.TextField(blank=True, verbose_name='Detalle')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, verbose_name='Dictamen',
+    )
+    rejection_reason = models.CharField(
+        max_length=20, choices=REJECTION_REASONS, blank=True,
+        verbose_name='Motivo del rechazo',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Registrado el')
+    verified_signature = models.BooleanField(
+        default=True, verbose_name='Firma verificada',
+    )
 
     class Meta:
+        verbose_name = 'Dictamen'
+        verbose_name_plural = 'Dictámenes'
         constraints = [
             # Sólo el médico declara apto; el enfermero pre-aprueba; ambos pueden rechazar.
             models.CheckConstraint(
@@ -227,12 +253,16 @@ class HabilitationWindow(models.Model):
         (COMPLEMENTARY, 'Complementaria'),
     ]
 
-    cycle = models.PositiveIntegerField()
-    slot = models.CharField(max_length=13, choices=SLOT_CHOICES)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    cycle = models.PositiveIntegerField(verbose_name='Ciclo (año)')
+    slot = models.CharField(
+        max_length=13, choices=SLOT_CHOICES, verbose_name='Lugar en el ciclo',
+    )
+    start_date = models.DateField(verbose_name='Fecha de inicio')
+    end_date = models.DateField(verbose_name='Fecha de fin')
 
     class Meta:
+        verbose_name = 'Fecha de habilitación'
+        verbose_name_plural = 'Fechas de habilitación'
         ordering = ['start_date']
         constraints = [
             models.UniqueConstraint(
