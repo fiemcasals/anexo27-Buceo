@@ -4,7 +4,7 @@ Ningún estado se guarda ni se tipea: cada lectura lo deriva de los dictámenes 
 de las fechas. Así la aptitud de un buzo se cae sola el día que un estudio
 vence, sin que nadie tenga que acordarse de cambiar una marca.
 
-Cuatro reglas gobiernan el cálculo:
+Cinco reglas gobiernan el cálculo:
 
 1. La vigencia se mide contra el rango de la fecha de habilitación que el buzo
    eligió, **no** contra hoy.
@@ -16,6 +16,10 @@ Cuatro reglas gobiernan el cálculo:
 4. El Anexo 27 tiene ventana de presentación, no vencimiento común: su fecha más
    vieja aceptable es ``end_date − 30 días``. Sale de la misma fórmula que el
    resto, porque su vigencia de catálogo es de 30 días.
+5. ``today`` no interviene en la vigencia (regla 1), pero sí pone un techo a la
+   fecha que el buzo declara: un estudio no puede estar hecho en el futuro. Es
+   lo único que atrapa el año mal tipeado cuando la fecha errada cae dentro del
+   rango.
 
 Las funciones son puras en el sentido que importa acá: **no consultan la base**.
 Leen el perfil y sus relaciones ya traídas, así que el llamador que necesita el
@@ -252,7 +256,16 @@ def _study_state(code: str, block: StudyBlock | None, dictamen: Comment | None,
         return StudyState.MISSING
     # La fecha manda sobre el dictamen: un estudio que no cubre el rango no
     # sirve ni aprobado.
-    if block.study_date > window.end_date:
+    #
+    # Dos topes, y manda el más bajo. La comparación es estricta: la fecha del
+    # tope sirve, la siguiente no.
+    #   - `window.end_date`: un estudio fechado después del rango no puede
+    #     estar cubriéndolo.
+    #   - `today`: un estudio no puede estar hecho en el futuro. Sin este tope,
+    #     el error de tipear el año de más queda dentro del rango y pasa por
+    #     vigente: el buzo termina APTO con un papel que ya no sirve.
+    latest_trusted_date = min(today, window.end_date)
+    if block.study_date > latest_trusted_date:
         return StudyState.DATE_INVALID
     if validity_ends_on(code, block.study_date) < window.end_date:
         return StudyState.EXPIRED

@@ -216,7 +216,12 @@ class SlotStateTests(TestCase):
                          StudyState.EXPIRED)
 
     def test_a_study_dated_on_the_last_day_of_the_window_is_valid(self):
+        # `today` es ese mismo día: el tope de confianza es el menor entre hoy y
+        # el fin del rango, así que el borde de `end_date` sólo se puede medir
+        # cuando ese día llegó. Antes, manda el tope de hoy (ver los tres tests
+        # de fecha futura más abajo).
         self.assertEqual(self._state("b", study_date=date(2026, 11, 20),
+                                     today=date(2026, 11, 20),
                                      dictamen=("APPROVED", "DOCTOR")),
                          StudyState.APPROVED)
 
@@ -225,6 +230,44 @@ class SlotStateTests(TestCase):
         self.assertEqual(self._state("b", study_date=date(2027, 1, 15),
                                      dictamen=("APPROVED", "DOCTOR")),
                          StudyState.DATE_INVALID)
+
+    def test_a_study_dated_in_the_future_but_inside_the_window_is_not_trusted(self):
+        # Ventana complementaria (12 al 14/07/2027): el buzo tipeó 2027 por 2026
+        # al cargar un estudio hecho el 15/01/2026. La fecha cae ANTES del fin
+        # del rango, así que la regla de la ventana no la atrapa, y la vigencia
+        # llegaría hasta 2028. El tope es hoy: un estudio del futuro no existe.
+        self.assertEqual(
+            self._state("b", study_date=date(2027, 1, 15), today=TODAY,
+                        dictamen=("APPROVED", "DOCTOR"), window=_july_2027()),
+            StudyState.DATE_INVALID,
+        )
+
+    def test_a_study_dated_after_a_window_that_already_passed_is_not_trusted(self):
+        # El otro tope del `min`: la ventana cerró el 20/11 y hoy es el 1/12. Un
+        # estudio fechado el 25/11 ya no está en el futuro, pero tampoco pudo
+        # cubrir un rango que terminó antes.
+        self.assertEqual(
+            self._state("b", study_date=date(2026, 11, 25),
+                        today=date(2026, 12, 1),
+                        dictamen=("APPROVED", "DOCTOR")),
+            StudyState.DATE_INVALID,
+        )
+
+    def test_a_study_dated_today_is_trusted(self):
+        # El tope es estricto: hoy sirve, mañana no. Sin esto, el arreglo
+        # anterior podría rechazar el estudio que el buzo acaba de hacerse.
+        self.assertEqual(
+            self._state("b", study_date=TODAY, today=TODAY,
+                        dictamen=("APPROVED", "DOCTOR"), window=_july_2027()),
+            StudyState.APPROVED,
+        )
+
+    def test_a_study_dated_tomorrow_is_not_trusted(self):
+        self.assertEqual(
+            self._state("b", study_date=TODAY + timedelta(days=1), today=TODAY,
+                        dictamen=("APPROVED", "DOCTOR"), window=_july_2027()),
+            StudyState.DATE_INVALID,
+        )
 
     def test_a_study_dated_one_day_after_the_window_is_already_not_trusted(self):
         self.assertEqual(self._state("b", study_date=date(2026, 11, 21),
@@ -461,6 +504,24 @@ class DiverSummaryTests(TestCase):
         self.assertEqual(_slot_of(s, "g").state, StudyState.DATE_INVALID)
         self.assertEqual(_slot_of(s, "h").state, StudyState.MISSING)
         self.assertEqual(s.state, DiverState.PROBLEM)
+
+    def test_a_future_dated_study_cannot_leave_the_diver_apto(self):
+        # El peligro concreto: el buzo cargó el ecocardiograma que se hizo el
+        # 15/11/2025 (vence el 15/11/2026, antes del 20) pero tipeó el año
+        # corriente, 15/11/2026. Esa fecha cae DENTRO del rango, así que no es
+        # posterior al fin de la ventana, y su vigencia llega hasta 2027: sin el
+        # tope de hoy el punto sale aprobado y el buzo queda APTO con un papel
+        # que en realidad ya no cubre su fecha de habilitación.
+        p = self._base_diver()
+        for code in "cdefgh":
+            _upload(p, code, VALID_FOR_EVERY_POINT,
+                    dictamenes=[("APPROVED", "DOCTOR")])
+        _upload(p, "b", date(2026, 11, 15), dictamenes=[("APPROVED", "DOCTOR")])
+        s = fitness.diver_summary(p, TODAY)       # hoy es el 3/11/2026
+        self.assertEqual(_slot_of(s, "b").state, StudyState.DATE_INVALID)
+        self.assertFalse(s.is_apto)
+        self.assertEqual(s.state, DiverState.PROBLEM)
+        self.assertEqual(s.problems, 1)
 
     def test_an_expired_point_is_a_problem_even_with_everything_uploaded(self):
         p = self._base_diver()
