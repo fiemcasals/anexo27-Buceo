@@ -215,7 +215,7 @@ DiveLog.objects.create(
 print('\nFecha de habilitacion sembrada:', first_window)
 print('Contrasena de todos los usuarios:', PASSWORD, '\n')
 print(f"{'usuario':<12} {'edad':<5} {'exige':<6} {'estado':<12} "
-      f"{'pres':<5} {'apr':<4} {'rev':<4} {'pre':<4} prob")
+      f"{'pres':<5} {'apr':<4} {'rev':<4} {'pre':<4} {'prob':<5} {'venc':<5} rech")
 for username, person in PEOPLE.items():
     if person[2] != 'USER':
         continue  # solo los buzos tienen estado de aptitud
@@ -227,4 +227,5 @@ for username, person in PEOPLE.items():
     print(f"{username:<12} {str(age):<5} "
           f"{len(summary.required_codes):<6} {summary.state.value:<12} "
           f"{summary.presented:<5} {summary.approved:<4} {summary.pending_review:<4} "
-          f"{summary.pre_reviewed:<4} {summary.problems}")
+          f"{summary.pre_reviewed:<4} {summary.problems:<5} {summary.expired:<5} "
+          f"{summary.rejected}")

@@ -441,7 +441,7 @@ class DiverSummaryTests(TestCase):
 
     def test_a_rejection_outranks_an_incomplete_set(self):
         self.assertEqual(self._summary_with_one_rejected_and_two_missing().state,
-                         DiverState.PROBLEM)
+                         DiverState.REJECTED)
 
     def test_presented_counts_rejected_and_expired_as_presented(self):
         # "Documentación completa" significa todo subido, no todo aprobado (§8.1).
@@ -500,10 +500,15 @@ class DiverSummaryTests(TestCase):
         self.assertEqual(s.pre_reviewed, 1)
         self.assertEqual(s.pending_review, 1)
         self.assertEqual(s.problems, 3)   # rechazado, vencido y fecha inválida
+        # `problems` es la suma de los dos desgloses, y la fecha inválida cuenta
+        # como vencida: un papel mal fechado tampoco sirve para esta ventana.
+        self.assertEqual(s.rejected, 1)
+        self.assertEqual(s.expired, 2)
+        self.assertEqual(s.problems, s.rejected + s.expired)
         self.assertEqual(_slot_of(s, "f").state, StudyState.EXPIRED)
         self.assertEqual(_slot_of(s, "g").state, StudyState.DATE_INVALID)
         self.assertEqual(_slot_of(s, "h").state, StudyState.MISSING)
-        self.assertEqual(s.state, DiverState.PROBLEM)
+        self.assertEqual(s.state, DiverState.REJECTED)
 
     def test_a_future_dated_study_cannot_leave_the_diver_apto(self):
         # El peligro concreto: el buzo cargó el ecocardiograma que se hizo el
@@ -520,7 +525,7 @@ class DiverSummaryTests(TestCase):
         s = fitness.diver_summary(p, TODAY)       # hoy es el 3/11/2026
         self.assertEqual(_slot_of(s, "b").state, StudyState.DATE_INVALID)
         self.assertFalse(s.is_apto)
-        self.assertEqual(s.state, DiverState.PROBLEM)
+        self.assertEqual(s.state, DiverState.EXPIRED)
         self.assertEqual(s.problems, 1)
 
     def test_an_expired_point_is_a_problem_even_with_everything_uploaded(self):
@@ -530,9 +535,63 @@ class DiverSummaryTests(TestCase):
             _upload(p, code, VALID_FOR_EVERY_POINT,
                     dictamenes=[("APPROVED", "DOCTOR")])
         s = fitness.diver_summary(p, TODAY)
-        self.assertEqual(s.state, DiverState.PROBLEM)
+        self.assertEqual(s.state, DiverState.EXPIRED)
+        self.assertEqual(s.problems, 1)
+        self.assertEqual(s.expired, 1)
+        self.assertEqual(s.rejected, 0)
+        self.assertFalse(s.is_apto)
+
+    def test_a_rejected_point_reports_rejected_not_expired(self):
+        # El §7 lista Vencido y Rechazado como dos estados distintos de la fila,
+        # y el §8.1 pide el conteo de vencidos en particular.
+        p = self._base_diver()
+        _upload(p, "b", VALID_FOR_EVERY_POINT, dictamenes=[("REJECTED", "DOCTOR")])
+        for code in "cdefgh":
+            _upload(p, code, VALID_FOR_EVERY_POINT,
+                    dictamenes=[("APPROVED", "DOCTOR")])
+        s = fitness.diver_summary(p, TODAY)
+        self.assertEqual(s.state, DiverState.REJECTED)
+        self.assertEqual(s.rejected, 1)
+        self.assertEqual(s.expired, 0)
         self.assertEqual(s.problems, 1)
         self.assertFalse(s.is_apto)
+
+    def test_a_rejection_outranks_an_expiry(self):
+        # Precedencia: el rechazo trae un motivo que el buzo tiene que leer para
+        # poder arreglarlo; "vencido" se explica solo.
+        p = self._base_diver()
+        _upload(p, "b", date(2025, 11, 19), dictamenes=[("APPROVED", "DOCTOR")])
+        _upload(p, "c", VALID_FOR_EVERY_POINT, dictamenes=[("REJECTED", "DOCTOR")])
+        for code in "defgh":
+            _upload(p, code, VALID_FOR_EVERY_POINT,
+                    dictamenes=[("APPROVED", "DOCTOR")])
+        s = fitness.diver_summary(p, TODAY)
+        self.assertEqual(_slot_of(s, "b").state, StudyState.EXPIRED)
+        self.assertEqual(_slot_of(s, "c").state, StudyState.REJECTED)
+        self.assertEqual(s.state, DiverState.REJECTED)
+        self.assertEqual(s.expired, 1)
+        self.assertEqual(s.rejected, 1)
+        self.assertEqual(s.problems, 2)
+
+    def test_an_invalid_date_alone_reports_expired(self):
+        # DATE_INVALID se pliega en EXPIRED y no en REJECTED: un papel mal
+        # fechado es, en la práctica, uno que no sirve para esta ventana.
+        p = self._base_diver()
+        _upload(p, "b", date(2027, 1, 15), dictamenes=[("APPROVED", "DOCTOR")])
+        for code in "cdefgh":
+            _upload(p, code, VALID_FOR_EVERY_POINT,
+                    dictamenes=[("APPROVED", "DOCTOR")])
+        s = fitness.diver_summary(p, TODAY)
+        self.assertEqual(_slot_of(s, "b").state, StudyState.DATE_INVALID)
+        self.assertEqual(s.state, DiverState.EXPIRED)
+        self.assertEqual(s.expired, 1)
+        self.assertEqual(s.rejected, 0)
+
+    def test_a_diver_with_no_problem_counts_nothing_as_a_problem(self):
+        s = fitness.diver_summary(self._diver_with_all_approved_by_doctor(), TODAY)
+        self.assertEqual(s.problems, 0)
+        self.assertEqual(s.expired, 0)
+        self.assertEqual(s.rejected, 0)
 
     def test_a_missing_point_outranks_the_ones_awaiting_review(self):
         p = self._base_diver()

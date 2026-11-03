@@ -74,20 +74,31 @@ class StudyState(Enum):
 
 
 class DiverState(Enum):
-    """Estado global de un buzo frente a su fecha de habilitación."""
+    """Estado global de un buzo frente a su fecha de habilitación.
+
+    Son los seis del §7, uno por uno: el listado del médico muestra esta fila
+    tal cual, sin volver a derivarla de los estados de cada punto.
+    """
 
     NO_WINDOW = "NO_WINDOW"            # no eligió fecha: no hay contra qué medir
     UNKNOWN_AGE = "UNKNOWN_AGE"        # sin fecha de nacimiento no se sabe qué debe
-    PROBLEM = "PROBLEM"                # algo rechazado, vencido o mal fechado
+    REJECTED = "REJECTED"              # algo rechazado
+    EXPIRED = "EXPIRED"                # algo vencido o mal fechado
     INCOMPLETE = "INCOMPLETE"          # falta documentación
     TO_REVIEW = "TO_REVIEW"            # todo presentado, falta dictamen
     APTO = "APTO"                      # todo exigido aprobado por el médico y vigente
 
 
-#: Puntos que piden una corrección: el buzo tiene que volver a cargarlos.
-PROBLEM_STATES = frozenset({
-    StudyState.REJECTED, StudyState.EXPIRED, StudyState.DATE_INVALID,
-})
+#: Puntos rechazados: el buzo tiene que leer el motivo para poder arreglarlos.
+REJECTED_STATES = frozenset({StudyState.REJECTED})
+#: Puntos cuya fecha no sirve para esta ventana. ``DATE_INVALID`` se pliega acá
+#: y no en los rechazados: un estudio mal fechado es, en la práctica, un
+#: documento que no cubre el rango, igual que uno vencido, y como el vencido no
+#: lleva un motivo que alguien tenga que leer.
+EXPIRED_STATES = frozenset({StudyState.EXPIRED, StudyState.DATE_INVALID})
+#: Puntos que piden una corrección: el buzo tiene que volver a cargarlos. Es la
+#: unión de los dos anteriores, y son disjuntos.
+PROBLEM_STATES = REJECTED_STATES | EXPIRED_STATES
 #: Puntos que todavía no están presentados.
 INCOMPLETE_STATES = frozenset({StudyState.MISSING, StudyState.BEFORE_WINDOW})
 #: Puntos presentados que esperan el dictamen del médico.
@@ -129,7 +140,13 @@ class DiverSummary:
     approved: int
     pending_review: int
     pre_reviewed: int
+    #: Total de puntos a corregir: siempre ``expired + rejected``. Se conserva
+    #: porque el total es lo que resume la fila; el desglose está abajo.
     problems: int
+    #: Desglose de ``problems``. El §8.1 pide "cuántos vencidos" en particular y
+    #: el §13 nombra la fila del plantel como "... vencidos, rechazados ...".
+    expired: int
+    rejected: int
     last_doctor_review: date | None
     state: DiverState
     is_apto: bool
@@ -179,6 +196,8 @@ def diver_summary(profile: UserProfile, today: date) -> DiverSummary:
     required_slots = [slot for slot in slots if slot.code in required]
     states = [slot.state for slot in required_slots]
     state = _diver_state(window, age, states)
+    expired = sum(1 for s in states if s in EXPIRED_STATES)
+    rejected = sum(1 for s in states if s in REJECTED_STATES)
 
     return DiverSummary(
         required_codes=required,
@@ -187,7 +206,9 @@ def diver_summary(profile: UserProfile, today: date) -> DiverSummary:
         approved=states.count(StudyState.APPROVED),
         pending_review=states.count(StudyState.IN_REVIEW),
         pre_reviewed=states.count(StudyState.PRE_REVIEWED),
-        problems=sum(1 for s in states if s in PROBLEM_STATES),
+        problems=expired + rejected,
+        expired=expired,
+        rejected=rejected,
         last_doctor_review=_last_doctor_review(slots),
         state=state,
         is_apto=state is DiverState.APTO,
@@ -292,14 +313,25 @@ def _last_doctor_review(slots: tuple[SlotStatus, ...]) -> date | None:
 
 def _diver_state(window: HabilitationWindow | None, age: int | None,
                  states: list[StudyState]) -> DiverState:
-    """Orden de evaluación del spec (§7)."""
+    """Estado de la fila del §7, en su orden de prioridad.
+
+    El §7 pone Vencido y Rechazado por delante de los demás, porque son los dos
+    que necesitan que alguien actúe ya; entre esos dos, la precedencia es la que
+    documenta el bloque de abajo.
+    """
     if window is None:
         return DiverState.NO_WINDOW
     if age is None:
         return DiverState.UNKNOWN_AGE
     present = set(states)
-    if present & PROBLEM_STATES:
-        return DiverState.PROBLEM
+    # Precedencia entre los dos estados que el §7 marca como prioritarios: si
+    # el buzo tiene un estudio rechazado y otro vencido, gana REJECTED, porque
+    # el rechazo trae un motivo que el buzo tiene que leer para poder
+    # arreglarlo, mientras que "vencido" se explica solo.
+    if present & REJECTED_STATES:
+        return DiverState.REJECTED
+    if present & EXPIRED_STATES:
+        return DiverState.EXPIRED
     if present & INCOMPLETE_STATES:
         return DiverState.INCOMPLETE
     if present & REVIEW_STATES:
