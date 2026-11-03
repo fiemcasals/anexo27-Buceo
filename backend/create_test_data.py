@@ -3,12 +3,18 @@
 Ejecutar desde backend/ (NO con `manage.py shell < archivo`: la consola
 interactiva pierde las variables entre bloques separados por lineas en blanco):
 
-    PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python.exe manage.py shell \
+    SEED_CONFIRM=1 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python.exe manage.py shell \
         -c "exec(open('create_test_data.py', encoding='utf-8').read())"
 
 Es re-ejecutable: BORRA y vuelve a crear los usuarios sembrados (se reconocen
-por su username; el borrado arrastra perfiles, estudios y dictamenes) y hace
-upsert de la fecha de habilitacion. Nada que no sea de esta lista se toca.
+por su username; el borrado arrastra perfiles, estudios, dictamenes, permisos y
+bitacora de buceo) y hace upsert de la fecha de habilitacion. Nada que no sea de
+esta lista se toca.
+
+ATENCION: si la base ya tiene un usuario con alguno de esos username (por
+ejemplo un `admin` real), se borra junto con todo lo asociado. Por eso el script
+se niega a correr sin confirmacion explicita: hay que definir SEED_CONFIRM=1.
+Antes de borrar imprime los usuarios existentes que se van a destruir.
 
 El ciclo 2026 queda INCOMPLETO a proposito: solo la 1.a fecha esta confirmada
 (18 al 20 de noviembre). La 2.a y la complementaria no existen todavia.
@@ -17,6 +23,7 @@ Cada buzo ejercita un estado distinto del motor (api/fitness.py). Los estados
 se derivan al final y se imprimen, para verificar que son los buscados.
 """
 import datetime
+import os
 
 from django.contrib.auth.models import User
 
@@ -54,14 +61,27 @@ PEOPLE = {
     'mayor':       ('Carlos', 'Ortiz', 'USER', 'SM', datetime.date(1978, 4, 1), '30000002', 'Base Naval'),
     # Fecha mal tipeada: estudio fechado despues del fin del rango.
     'fechaerronea': ('Marta', 'Paz', 'USER', 'CB', datetime.date(1996, 8, 8), '20000006', 'Base Naval'),
-    # Instructor: no presenta estudios en este seed (sin ventana).
+    # Instructor de buceo: no tiene fecha de habilitacion ni estudios cargados.
     'instructor':  ('Carlos', 'Instructor', 'USER', 'CY', datetime.date(1980, 10, 10), '50000001', 'Base Naval'),
+    # Cargado sin dictamen (EN REVISION) y estudio reemplazado (historial).
+    'enrevision':  ('Hugo', 'Bravo', 'USER', 'CB', datetime.date(1993, 3, 3), '20000007', 'Base Naval'),
+    'reemplazo':   ('Julia', 'Cruz', 'USER', 'CI', datetime.date(1995, 12, 1), '20000008', 'Base Naval'),
     # Sin ventana elegida / sin fecha de nacimiento.
     'sinfecha':    ('Ana', 'Duarte', 'USER', 'CB', datetime.date(1995, 6, 6), '40000001', 'Base Naval'),
     'sinnacim':    ('Pedro', 'Sosa', 'USER', 'CI', None, '40000002', 'Base Naval'),
 }
 
-# --- Limpieza: re-ejecutable ------------------------------------------------
+# --- Limpieza: re-ejecutable, con confirmacion explicita ----------------------
+existing = sorted(User.objects.filter(username__in=PEOPLE)
+                  .values_list('username', flat=True))
+if existing:
+    print('Se van a borrar los siguientes usuarios y todos sus datos asociados:',
+          ', '.join(existing))
+if os.environ.get('SEED_CONFIRM') != '1':
+    raise SystemExit(
+        'Se cancela: el script borra y recrea los usuarios de prueba '
+        f"({', '.join(PEOPLE)}) y todo lo asociado a ellos. "
+        'Para confirmar, definir SEED_CONFIRM=1.')
 User.objects.filter(username__in=PEOPLE).delete()
 
 # --- Fecha de habilitacion: solo la 1.a del ciclo 2026 -----------------------
@@ -92,10 +112,15 @@ for username, (first, last, role, rank, birth, dni, destination) in PEOPLE.items
 doctor, nurse = users['medico'], users['vera']
 
 
-def upload(diver, code, study_date=RECENT):
+def default_date(code):
+    """Fecha de un estudio reciente: el Anexo 27 (h) dura 30 dias, los demas 365."""
+    return RECENT_ANEXO27 if code == 'h' else RECENT
+
+
+def upload(diver, code, study_date=None):
     """El buzo carga un estudio (queda como vigente)."""
-    if code == 'h' and study_date == RECENT:
-        study_date = RECENT_ANEXO27
+    if study_date is None:
+        study_date = default_date(code)
     return StudyBlock.objects.create(
         user=users[diver], study_code=code, study_date=study_date,
         pdf_attachment='',
@@ -153,6 +178,16 @@ fully_approved('mayor', [c for c in OVER_40 if c != 'a'])
 # tipeado). Sin dictamen a proposito: la fecha manda sobre cualquier dictamen.
 fully_approved('fechaerronea', [c for c in UNDER_40 if c != 'f'])
 upload('fechaerronea', 'f', datetime.date(2027, 3, 10))
+# EN REVISION: f cargado y sin ningun dictamen.
+fully_approved('enrevision', [c for c in UNDER_40 if c != 'f'])
+upload('enrevision', 'f')
+# Estudio reemplazado: d se cargo, el medico lo rechazo y el buzo lo cargo de
+# nuevo. El rechazado queda como historial (is_current=False) con su dictamen; la
+# carga nueva, vigente, esta aprobada. La vista normal solo debe mostrar la vigente.
+fully_approved('reemplazo', [c for c in UNDER_40 if c != 'd'])
+reject(upload('reemplazo', 'd', datetime.date(2026, 8, 1)), doctor, 'DOCTOR',
+       'OUT_OF_TERM', 'El estudio presentado no cumple el plazo de la directiva.')
+approve(upload('reemplazo', 'd'))
 # Sin ventana elegida y sin fecha de nacimiento: con algo cargado cada uno.
 fully_approved('sinfecha', ['b', 'c'])
 fully_approved('sinnacim', ['b', 'c'])
@@ -179,7 +214,7 @@ DiveLog.objects.create(
 # --- Verificacion con el motor -----------------------------------------------
 print('\nFecha de habilitacion sembrada:', first_window)
 print('Contrasena de todos los usuarios:', PASSWORD, '\n')
-print(f"{'usuario':<12} {'rol':<7} {'edad':<5} {'exige':<6} {'estado':<12} "
+print(f"{'usuario':<12} {'edad':<5} {'exige':<6} {'estado':<12} "
       f"{'pres':<5} {'apr':<4} {'rev':<4} {'pre':<4} prob")
 for username, person in PEOPLE.items():
     if person[2] != 'USER':
@@ -189,7 +224,7 @@ for username, person in PEOPLE.items():
     summary = fitness.diver_summary(profile, TODAY)
     age = (None if profile.habilitation_window is None
            else profile.age_in_year(fitness.habilitation_year(profile.habilitation_window)))
-    print(f"{username:<12} {profile.role:<7} {str(age):<5} "
+    print(f"{username:<12} {str(age):<5} "
           f"{len(summary.required_codes):<6} {summary.state.value:<12} "
           f"{summary.presented:<5} {summary.approved:<4} {summary.pending_review:<4} "
           f"{summary.pre_reviewed:<4} {summary.problems}")
