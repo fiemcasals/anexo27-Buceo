@@ -46,6 +46,18 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'block', 'doctor', 'doctor_name', 'reviewer_role', 'content', 'status', 'rejection_reason', 'created_at', 'verified_signature']
         read_only_fields = ['doctor']
 
+    def get_fields(self):
+        fields = super().get_fields()
+        # Un dictamen pertenece al estudio sobre el que se emitió: después de la
+        # creación, `block` es de sólo lectura. Se cierra acá y no con una
+        # validación porque re-apuntar una aprobación que el médico sí firmó al
+        # estudio de otro buzo le da a ese buzo una palabra final que nadie dio,
+        # y la validación de abajo no se dispara cuando el bloque destino no es
+        # del que edita. Sin bloque que cambiar, el agujero no existe.
+        if self.instance is not None:
+            fields['block'].read_only = True
+        return fields
+
     def validate(self, attrs):
         # Spec §15.9: nadie dictamina sobre sus propios estudios. Comment.clean()
         # lo cubre para el admin y el shell, pero DRF no llama a clean(); y no

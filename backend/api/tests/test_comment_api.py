@@ -1,0 +1,138 @@
+"""El dictamen es la palabra final del médico: nadie más puede fabricarla.
+
+La invariante, como la enunció el dueño del producto: "cada usuario puede borrar
+sus estudios si quiere, si despues vuelve a subir otro de todas maneras tiene que
+aprobarlo el medico para quedar apto. no hay forma de que queda apto si el medico
+no da la palabra final".
+
+El motor de aptitud no guarda la aptitud, la deriva: una fila que dice
+``status=APPROVED, reviewer_role=DOCTOR`` **es** la palabra final del médico, y no
+hay segunda fuente contra la que cotejarla. `CommentViewSet` no tenía ningún
+control en `update` ni en `destroy`, así que el §15.9 —cerrado en la creación— se
+eludía por otra puerta, y el registro es abierto y sin verificación de correo.
+
+Cada caso afirma el código de estado **y** el estado de la fila después: un 403
+con la fila ya modificada sería un test que pasa por la razón equivocada.
+"""
+
+from datetime import date
+
+from django.contrib.auth.models import User
+from rest_framework.test import APIClient, APITestCase
+
+from api.models import Comment, StudyBlock
+from users.models import UserProfile
+
+URL = "/api/comments/"
+
+
+def _user(username, role):
+    user = User.objects.create(username=username)
+    UserProfile.objects.create(user=user, role=role)
+    return user
+
+
+def _client(user):
+    client = APIClient()
+    client.force_authenticate(user)
+    return client
+
+
+class DictamenNoSeFabricaTests(APITestCase):
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.doctor = _user("medico", "DOCTOR")
+        self.nurse = _user("enfermero", "NURSE")
+        self.stranger = _user("tercero", "USER")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+        self.verdict = Comment.objects.create(
+            block=self.block, doctor=self.doctor, reviewer_role="DOCTOR",
+            status="REJECTED", rejection_reason="ILLEGIBLE",
+            content="La foto está cortada.")
+
+    def _assert_untouched(self):
+        self.verdict.refresh_from_db()
+        self.assertEqual(self.verdict.status, "REJECTED")
+        self.assertEqual(self.verdict.reviewer_role, "DOCTOR")
+        self.assertEqual(self.verdict.rejection_reason, "ILLEGIBLE")
+        self.assertEqual(self.verdict.content, "La foto está cortada.")
+        self.assertEqual(self.verdict.block_id, self.block.pk)
+
+    FORGERY = {"status": "APPROVED", "reviewer_role": "DOCTOR",
+               "rejection_reason": "", "content": ""}
+
+    def test_a_third_party_cannot_forge_the_doctors_approval(self):
+        # El agujero tal como se verificó: la fila pasaba de REJECTED a APPROVED
+        # con `doctor` todavía apuntando al médico real. 404 porque un tercero no
+        # alcanza siquiera a ver el dictamen.
+        response = _client(self.stranger).patch(
+            f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
+        self.assertEqual(response.status_code, 404, response.content)
+        self._assert_untouched()
+
+    def test_a_nurse_who_does_see_the_verdict_still_cannot_rewrite_it(self):
+        # El enfermero auxiliar ve los estudios de todos (§5), así que acá el 403
+        # lo da la regla y no el queryset: el dictamen del médico no se toca.
+        response = _client(self.nurse).patch(
+            f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
+        self.assertEqual(response.status_code, 403, response.content)
+        self._assert_untouched()
+
+    def test_the_diver_cannot_delete_the_rejection_on_their_own_study(self):
+        # No produce aptitud, pero destruye el motivo y el detalle que el §9
+        # manda por correo y le permite al buzo ocultar que fue rechazado.
+        response = _client(self.diver).delete(f"{URL}{self.verdict.pk}/")
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertTrue(Comment.objects.filter(pk=self.verdict.pk).exists())
+        self._assert_untouched()
+
+    def test_the_diver_cannot_rewrite_the_rejection_on_their_own_study(self):
+        response = _client(self.diver).patch(
+            f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
+        self.assertEqual(response.status_code, 403, response.content)
+        self._assert_untouched()
+
+    def test_a_verdict_cannot_be_re_pointed_at_another_divers_study(self):
+        # Mover una aprobación que el médico sí firmó al estudio de otro buzo le
+        # da a ese buzo una palabra final que nadie le dio. `block` es de sólo
+        # lectura después de la creación, así que no hay dónde apuntar: lo
+        # intenta quien dictaminó, que es el único que puede editar la fila.
+        other_block = StudyBlock.objects.create(
+            user=_user("buzo2", "USER"), study_code="b",
+            study_date=date(2026, 10, 1))
+        response = _client(self.doctor).patch(
+            f"{URL}{self.verdict.pk}/", {"block": other_block.pk},
+            format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["block"], self.block.pk)
+        self.verdict.refresh_from_db()
+        self.assertEqual(self.verdict.block_id, self.block.pk)
+
+    def test_whoever_ruled_can_correct_their_own_verdict(self):
+        response = _client(self.doctor).patch(
+            f"{URL}{self.verdict.pk}/", {"content": "Ilegible el renglón 4."},
+            format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.verdict.refresh_from_db()
+        self.assertEqual(self.verdict.content, "Ilegible el renglón 4.")
+
+    def test_whoever_ruled_can_delete_their_own_verdict(self):
+        response = _client(self.doctor).delete(f"{URL}{self.verdict.pk}/")
+        self.assertEqual(response.status_code, 204, response.content)
+        self.assertFalse(Comment.objects.filter(pk=self.verdict.pk).exists())
+
+    def test_a_third_party_is_not_served_another_divers_verdicts(self):
+        # El motivo y el detalle de un rechazo son la revisión médica: §5, nadie
+        # más que el revisor designado y el propio buzo los ve.
+        response = _client(self.stranger).get(URL)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json(), [])
+
+    def test_the_diver_is_served_the_verdicts_on_their_own_studies(self):
+        # §6: el detalle se le muestra textual al buzo, es lo que le dice qué
+        # tiene que arreglar.
+        response = _client(self.diver).get(URL)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual([row["id"] for row in response.json()],
+                         [self.verdict.pk])

@@ -21,6 +21,30 @@ from .report_pdf import generate_anexo_27
 # y contamina la salida de los tests y del servidor.
 logger = logging.getLogger(__name__)
 
+# §5: el acceso a los estudios médicos sale del rol que designa el admin, no de
+# concesiones entre usuarios. El buzo "ve y gestiona sus propios estudios, nada
+# más"; el médico y los enfermeros auxiliares "ven los estudios de todos"; nadie
+# más ve los de nadie. El circuito anterior era el inverso y venía de la vida
+# previa de la app: cada buzo le concedía acceso al revisor desde la pantalla de
+# Permisos, así que el médico designado no veía nada y un buzo podía compartir
+# sus estudios médicos con cualquier usuario registrado — y el registro es
+# abierto y sin verificación. `Permission` se deja en pie (§5) y deja de regir.
+REVIEWER_ROLES = ('DOCTOR', 'NURSE')
+
+
+def es_revisor(user):
+    """True si el usuario es el médico o un enfermero auxiliar designado.
+
+    El perfil puede no existir —`UserProfile` se crea aparte del `User`, y
+    `UserProfileViewSet.me` lo prueba haciéndole `get_or_create`— y en ese caso
+    el usuario no es revisor: la falta de perfil nunca puede significar "ve
+    todo". El `getattr` es el mismo cuidado que ya tiene `generate_anexo_27`;
+    hace falta porque el acceso a un OneToOne inverso inexistente levanta.
+    """
+    profile = getattr(user, 'profile', None)
+    return profile is not None and profile.role in REVIEWER_ROLES
+
+
 class UserProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
@@ -61,37 +85,46 @@ class ProfileFieldTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = ProfileFieldTemplateSerializer
     permission_classes = [permissions.IsAdminUser] # Only admins can manage templates
 
+class SoloElDuenoDelEstudio(permissions.BasePermission):
+    """Un estudio lo modifica y lo borra sólo su dueño. La lectura no se toca.
+
+    Que el buzo borre sus propios estudios cuando quiera es diseño, no un
+    agujero: al borrarse, sus dictámenes se van en cascada (`Comment.block` es
+    CASCADE), el punto queda faltante y, si sube otro, arranca sin dictamen y
+    vuelve a revisión — por ese camino nadie queda apto. Lo que hay que cerrar
+    es la escritura sobre el estudio de otro. Antes la abría una concesión de
+    `Permission`, que metía el bloque ajeno en el queryset: un buzo con un
+    permiso de sólo lectura podía borrar el registro médico del grantor (204).
+    Y con el acceso por rol del §5 el revisor ve a todos los buzos, así que sin
+    esto podría borrar o editar el estudio de cualquiera; el §5 le da ver,
+    aprobar y rechazar — no modificar ni borrar.
+
+    No es el §15.10 —qué estados le permiten al buzo reemplazar lo propio—, que
+    sigue sin implementar.
+    """
+
+    message = 'Sólo el dueño del estudio puede modificarlo o borrarlo.'
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.user_id == request.user.pk
+
+
 class StudyBlockViewSet(viewsets.ModelViewSet):
     queryset = StudyBlock.objects.all()
     serializer_class = StudyBlockSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SoloElDuenoDelEstudio]
 
     def get_queryset(self):
         try:
             user = self.request.user
-            
-            # Own blocks
-            q_own = Q(user=user)
-            
-            # Shared blocks
-            shared_perms = Permission.objects.filter(grantee=user)
-            grantor_ids = []
-            specific_ids = []
-            
-            for perm in shared_perms:
-                if "ALL" in perm.shared_items:
-                    grantor_ids.append(perm.grantor_id)
-                else:
-                    for item in perm.shared_items:
-                        try:
-                            # Skip special strings like "PERSONAL_DATA" which might be in shared_items
-                            if str(item).isdigit():
-                                specific_ids.append(int(item))
-                        except (ValueError, TypeError):
-                            continue
-            
-            q_shared = Q(user_id__in=grantor_ids) | Q(id__in=specific_ids)
-            queryset = StudyBlock.objects.filter(q_own | q_shared).distinct()
+            # §5: el revisor designado ve a todos los buzos; el buzo, sólo lo
+            # suyo. Nada de concesiones: ver `es_revisor` arriba.
+            if es_revisor(user):
+                queryset = StudyBlock.objects.all()
+            else:
+                queryset = StudyBlock.objects.filter(user=user)
             # §6: el estudio reemplazado no es visible en la vista normal. El
             # historial se pide a propósito, con ?historico=1; cualquier otro
             # valor deja la vista normal. Sin pantalla: el plan 2 la construye.
@@ -127,30 +160,58 @@ class Anexo27View(viewsets.ViewSet):
         generate_anexo_27(response, user)
         return response
 
+class SoloQuienDictamino(permissions.BasePermission):
+    """Un dictamen lo edita y lo borra sólo quien lo emitió. Nadie más, nunca.
+
+    `CommentViewSet` no tenía ningún control en `update` ni en `destroy`, y el
+    registro es abierto (`core/urls.py`, `ACCOUNT_EMAIL_VERIFICATION='none'`).
+    Un `PATCH {status: "APPROVED", reviewer_role: "DOCTOR"}` sobre el dictamen
+    de otro dejaba la fila diciendo que el médico aprobó, con `doctor` todavía
+    apuntando al médico real: `fitness` no guarda la aptitud, la deriva de esa
+    fila, así que fabricarla es declarar apto a un buzo sin que el médico haya
+    dicho nada. Un rechazo borrado por el propio buzo no produce aptitud, pero
+    destruye el motivo y el detalle que el §9 manda por correo.
+
+    La lectura no se toca: la ficha del buzo y el listado del médico la usan.
+    """
+
+    message = 'Un dictamen lo puede modificar o borrar sólo quien lo emitió.'
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.doctor_id == request.user.pk
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SoloQuienDictamino]
+
+    def get_queryset(self):
+        # §5 sobre la misma base que los estudios, porque el dictamen es el
+        # contenido de la revisión: el revisor designado ve todos; el buzo ve los
+        # de sus propios estudios, que el §6 le muestra textuales con el motivo y
+        # el detalle; nadie más ve ninguno. `Comment.objects.all()` le servía a
+        # cualquier usuario autenticado el rechazo de cualquier buzo.
+        user = self.request.user
+        if es_revisor(user):
+            return Comment.objects.all()
+        # Lo que uno mismo dictaminó lo ve siempre: si no, a quien el admin le
+        # saca la designación deja de poder corregir lo que firmó, y
+        # `SoloQuienDictamino` no tendría nunca sobre qué fila pronunciarse.
+        return Comment.objects.filter(Q(block__user=user) | Q(doctor=user)).distinct()
 
     def perform_create(self, serializer):
-        block = serializer.validated_data.get('block')
-        user = self.request.user
-        
-        if block.user != user:
-            # Se filtra en Python: SQLite no soporta `shared_items__contains`
-            # sobre un JSONField (levantaba NotSupportedError, un 500), y es la
-            # misma comparación que hace StudyBlockSerializer.get_access_level.
-            grants = Permission.objects.filter(
-                grantor=block.user, grantee=user, access_level='MODIFY')
-            has_permission = any(
-                "ALL" in g.shared_items or str(block.id) in map(str, g.shared_items)
-                for g in grants
-            )
-            
-            if not has_permission:
-                raise PermissionDenied("No tienes permisos de Médico Auditor para comentar en este estudio.")
-                
-        serializer.save(doctor=user)
+        # §5: dictamina el médico o un enfermero auxiliar designado por el
+        # admin, y nadie más. Antes lo habilitaba una concesión del propio buzo,
+        # que es al revés: el buzo le podía dar la revisión de sus estudios a
+        # cualquier usuario registrado. El §15.9 —nadie dictamina sobre sus
+        # propios estudios— lo aplica CommentSerializer.validate, encima de esto.
+        if not es_revisor(self.request.user):
+            raise PermissionDenied(
+                'Sólo el médico o un enfermero auxiliar designados pueden '
+                'dictaminar sobre un estudio médico.')
+        serializer.save(doctor=self.request.user)
 
     def create(self, request, *args, **kwargs):
         try:
