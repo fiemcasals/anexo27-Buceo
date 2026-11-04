@@ -6,7 +6,7 @@ import Dashboard from './components/Dashboard';
 import PantallaBuzo from './components/PantallaBuzo';
 import Profile from './components/Profile';
 import Login from './components/Login';
-import Permissions from './components/Permissions';
+import Registro from './components/Registro';
 import ResetPassword from './components/ResetPassword';
 import Bitacora from './components/Bitacora';
 import CompleteDiveLog from './components/CompleteDiveLog';
@@ -62,6 +62,7 @@ function App() {
       <div className="container-fluid p-0 d-flex-wrapper">
         <Routes>
           <Route path="/login" element={<Login onLogin={login} />} />
+          <Route path="/registro" element={<Registro onLogin={login} />} />
           <Route path="/password-reset/:uid/:token" element={<ResetPassword />} />
           <Route 
             path="/dashboard" 
@@ -70,10 +71,6 @@ function App() {
           <Route 
             path="/profile" 
             element={isAuthenticated ? <Profile onLogout={logout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/permissions" 
-            element={isAuthenticated ? <Permissions onLogout={logout} /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/bitacora" 

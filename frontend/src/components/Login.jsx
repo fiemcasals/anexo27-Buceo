@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 
 const Login = ({ onLogin }) => {
@@ -7,14 +7,12 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
   const [isForgotMode, setIsForgotMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
-    passwordConfirm: ''
+    password: ''
   });
 
   const handleChange = (e) => {
@@ -31,24 +29,6 @@ const Login = ({ onLogin }) => {
         await api.post('auth/password/reset/', { email: formData.email });
         setSuccessMsg('Si el correo existe, te enviaremos un enlace para restablecer tu contraseña.');
         setIsForgotMode(false);
-      } else if (isRegistering) {
-        if (formData.password !== formData.passwordConfirm) {
-          setError('Las contraseñas no coinciden.');
-          setLoading(false);
-          return;
-        }
-        // Register using dj-rest-auth registration endpoint
-        const response = await api.post('auth/registration/', {
-          username: formData.email.split('@')[0],
-          email: formData.email,
-          password: formData.password,
-          password1: formData.password,
-          password2: formData.passwordConfirm,
-        });
-        const token = response.data.key;
-        localStorage.setItem('token', token);
-        onLogin();
-        navigate('/dashboard');
       } else {
         // Login
         const response = await api.post('auth/login/', {
@@ -151,45 +131,20 @@ const Login = ({ onLogin }) => {
                 </div>
               </div>
 
-              {isRegistering && (
-                <div className="mb-4">
-                  <label className="form-label small fw-bold">Confirmar Contraseña</label>
-                  <div className="input-group">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="passwordConfirm"
-                      className="form-control"
-                      placeholder="Repite tu contraseña"
-                      value={formData.passwordConfirm}
-                      onChange={handleChange}
-                      required
-                    />
-                    <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)}>
-                      <i className={`bi bi-eye${showPassword ? '-slash' : ''}`}></i>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               <button type="submit" className="btn btn-primary w-100 py-2 fw-bold mb-2" disabled={loading}>
                 <span className={`spinner-border spinner-border-sm me-2 ${loading ? '' : 'd-none'}`} role="status" aria-hidden="true"></span>
-                <span>{isRegistering ? 'Registrarse' : 'Iniciar Sesión'}</span>
+                <span>Iniciar Sesión</span>
               </button>
 
-              {!isRegistering && (
-                <div className="text-end mb-3">
-                  <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotMode(true); setError(''); setSuccessMsg(''); }} className="small text-decoration-none text-muted">
-                    ¿Olvidaste tu contraseña?
-                  </a>
-                </div>
-              )}
+              <div className="text-end mb-3">
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotMode(true); setError(''); setSuccessMsg(''); }} className="small text-decoration-none text-muted">
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
             </form>
 
             <div className="text-muted small mt-2">
-              {isRegistering ? '¿Ya tienes cuenta? ' : '¿No tienes cuenta? '}
-              <a href="#" onClick={(e) => { e.preventDefault(); setIsRegistering(!isRegistering); setError(''); setSuccessMsg(''); }} className="text-primary text-decoration-none fw-bold">
-                {isRegistering ? 'Inicia sesión aquí' : 'Regístrate aquí'}
-              </a>
+              ¿Sin cuenta? <Link to="/registro" className="text-primary text-decoration-none fw-bold">Registrarse</Link>
             </div>
           </>
         )}
