@@ -9,6 +9,14 @@ Los SHA son exactos, no hay que buscarlos.
 |---|---|---|
 | **Antes de todo** | `8d3f8d385d2b597fd5778bfd9d11d3f0a9579cc1` | `main` y `origin/main` antes del plan 1. Tambien marcado con el tag **`antes-del-plan-1`**. Su mensaje: "Fix user instance assignment in create_test_data script" |
 | **El merge** | `4c70bd1f03e5d6481405f3268663a71e43a62c89` | "merge: plan 1 — cimientos del dominio de aptitud". Hecho con `--no-ff`, asi que los 45 commits cuelgan de el y se revierten juntos |
+| **Este documento** | `6ad2ef2` | "docs: rescatar los informes del plan 1 y anotar como volver atras". Va **encima** del merge, asi que revertir el merge no lo saca |
+
+El push se hizo el 2026-11-04: `origin/main` paso de `8d3f8d3` a `6ad2ef2`, 47 commits, en
+fast-forward (no se reescribio nada).
+
+> **El tag `antes-del-plan-1` es local.** Existe solo en esta maquina; no se pusheo. Desde otra
+> computadora hay que usar el SHA `8d3f8d38` directamente, o traerlo con
+> `git push origin antes-del-plan-1`.
 
 Copia de la base de datos de antes del merge, **fuera del repo** (asi sobrevive a un
 `reset --hard`):
@@ -31,6 +39,11 @@ git push origin main
 ```
 
 El `-m 1` le dice a git que el lado que se conserva es `main` como estaba antes del merge.
+
+**Ojo con lo que este camino NO deshace:** revertir el merge saca los 45 commits del plan, pero
+deja en pie `6ad2ef2`, que es el que trae los informes y **este mismo documento**. Normalmente es
+lo que querés —si volviste atras, estas instrucciones son justo lo que necesitas tener a mano—
+pero si buscas que no quede rastro, eso es el Caso 2 o el 3.
 
 Si despues te arrepentis y lo querés de vuelta, se revierte el revert:
 
