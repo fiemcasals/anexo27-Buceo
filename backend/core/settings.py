@@ -120,7 +120,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+# Castellano de Argentina: los mensajes que Django y DRF ya traen traducidos
+# (validadores de contrasena, el 401, los error_messages por defecto) salen en
+# castellano. Los mensajes propios ganan igual, porque `error_messages` se
+# resuelve antes del catalogo. La API sigue hablando ISO y claves en ingles.
+LANGUAGE_CODE = 'es-ar'
 
 # Los timestamps se siguen guardando en UTC (USE_TZ = True); esto cambia de que
 # dia calendario se derivan. Con 'UTC', un dictamen firmado a las 22:00 en Buenos
