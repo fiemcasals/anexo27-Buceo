@@ -138,6 +138,75 @@ class DictamenNoSeFabricaTests(APITestCase):
                          [self.verdict.pk])
 
 
+class ExRevisorTests(APITestCase):
+    """§5: la facultad es de quien está designado, no de quien lo estuvo.
+
+    El §5 abre con "Cuatro roles. El admin los designa." y condiciona la
+    facultad a la designación en presente: el médico y el enfermero auxiliar son
+    "designado por el admin". La tabla tiene cuatro filas y no tiene una para
+    "ex-médico": a quien el admin le saca la designación, el §5 lo pone en la
+    fila "Buzo | Ve y gestiona sus propios estudios. **Nada más.**", que es la
+    única del cuadro que cierra con una negación.
+
+    `SoloQuienDictamino` dejaba editar y borrar el propio dictamen sin volver a
+    comprobar la designación. Lo que eso habilitaba no era corregir una errata:
+    el enfermero al que le sacaron la designación convertía su pre-aprobación en
+    la aprobación del médico, y el motor la lee como tal. La asimetría era la
+    pista de que algo estaba mal — el ex-revisor ya no podía **ver** el estudio
+    pero sí reescribir el dictamen sobre ese estudio.
+
+    El argumento de "que pueda corregir lo que firmó" se conserva entero para
+    todo el que siga designado (`test_whoever_ruled_can_correct_their_own_verdict`)
+    y para la lectura, que no se toca.
+    """
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.nurse = _user("enfermero", "NURSE")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+        self.verdict = Comment.objects.create(
+            block=self.block, doctor=self.nurse, reviewer_role="NURSE",
+            status="PRE_APPROVED")
+
+    def _undesignate(self):
+        """El admin le saca la designación, y devuelve un cliente nuevo.
+
+        Nuevo a propósito: el `User` que `force_authenticate` guarda cachea su
+        `profile` en la primera lectura, así que reusar el cliente mediría el
+        caché y el test pasaría con el agujero abierto.
+        """
+        profile = UserProfile.objects.get(user=self.nurse)
+        profile.role = "USER"
+        profile.save()
+        return _client(User.objects.get(pk=self.nurse.pk))
+
+    def _assert_untouched(self):
+        self.verdict.refresh_from_db()
+        self.assertEqual(self.verdict.status, "PRE_APPROVED")
+        self.assertEqual(self.verdict.reviewer_role, "NURSE")
+
+    def test_an_ex_reviewer_cannot_turn_their_pre_approval_into_an_approval(self):
+        response = self._undesignate().patch(
+            f"{URL}{self.verdict.pk}/",
+            {"status": "APPROVED", "reviewer_role": "DOCTOR"}, format="json")
+        self.assertEqual(response.status_code, 403, response.content)
+        self._assert_untouched()
+
+    def test_an_ex_reviewer_cannot_delete_the_verdict_they_signed(self):
+        response = self._undesignate().delete(f"{URL}{self.verdict.pk}/")
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertTrue(Comment.objects.filter(pk=self.verdict.pk).exists())
+
+    def test_an_ex_reviewer_is_still_shown_what_they_signed(self):
+        # La lectura no se toca: lo que uno firmó es parte del registro y
+        # ocultárselo no protege a nadie. `get_queryset` conserva `Q(doctor=user)`.
+        response = self._undesignate().get(URL)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual([row["id"] for row in response.json()],
+                         [self.verdict.pk])
+
+
 class ElRolDelDictamenEsElRealTests(APITestCase):
     """§6: "Lo único que el médico no puede delegar es decir que alguien está apto."
 

@@ -173,6 +173,17 @@ class SoloQuienDictamino(permissions.BasePermission):
     destruye el motivo y el detalle que el §9 manda por correo.
 
     La lectura no se toca: la ficha del buzo y el listado del médico la usan.
+
+    Y hace falta **seguir** designado, no haberlo estado. El §5 condiciona la
+    facultad a la designación en presente ("designado por el admin") y su tabla
+    no tiene una fila para "ex-médico": a quien el admin le saca la designación
+    lo pone en la fila "Buzo | Ve y gestiona sus propios estudios. Nada más."
+    Sin esto, el enfermero al que le sacaron la designación convertía su
+    pre-aprobación en la aprobación del médico —verificado: PATCH
+    `{status: APPROVED}` daba 200— y el motor la lee como la palabra final. Era
+    el mismo riesgo de falsificación de arriba con un paso previo. La asimetría
+    lo delataba: ya no podía ver el estudio pero sí reescribir el dictamen sobre
+    ese estudio.
     """
 
     message = 'Un dictamen lo puede modificar o borrar sólo quien lo emitió.'
@@ -180,7 +191,7 @@ class SoloQuienDictamino(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.doctor_id == request.user.pk
+        return es_revisor(request.user) and obj.doctor_id == request.user.pk
 
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
