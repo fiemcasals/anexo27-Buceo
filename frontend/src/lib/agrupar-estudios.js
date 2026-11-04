@@ -22,14 +22,18 @@ const GRUPO_DE = {
 }
 
 // Devuelve siempre los cuatro grupos, en orden, aunque alguno quede vacío.
-// Un estado que el mapa no conoce es un error y no se oculta: un estudio no
-// puede desaparecer de la pantalla del buzo.
+// Un estado que el mapa no conoce cae en "Falta subir" y se deja rastro: tirar
+// un error le dejaría la pantalla en blanco al buzo. "Revisados" afirmaría una
+// aprobación que no existe y "En revisión" lo dejaría esperando algo que no va
+// a pasar; "Falta subir" lo mantiene visible y accionable. El guardia es el test
+// de los nueve estados, que se pone rojo en desarrollo.
 export function agrupar(estudios) {
   const grupos = GRUPOS.map(titulo => ({ titulo, estudios: [] }))
   for (const estudio of estudios) {
-    const titulo = GRUPO_DE[estudio.estado]
+    let titulo = GRUPO_DE[estudio.estado]
     if (!titulo) {
-      throw new Error(`Estado de estudio desconocido: ${estudio.estado}`)
+      console.error(`Estado de estudio desconocido: ${estudio.estado}`)
+      titulo = FALTA_SUBIR
     }
     grupos.find(g => g.titulo === titulo).estudios.push(estudio)
   }

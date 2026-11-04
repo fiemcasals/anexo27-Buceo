@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { agrupar } from './agrupar-estudios'
 
 // Los títulos y la pertenencia de cada estado están escritos a mano acá, a
@@ -74,7 +74,17 @@ describe('agrupar', () => {
     expect(agrupar([estudio])[1].estudios[0]).toBe(estudio)
   })
 
-  it('un estado desconocido no desaparece en silencio: se avisa', () => {
-    expect(() => agrupar([{ code: 'z', estado: 'INVENTADO' }])).toThrow(/INVENTADO/)
+  it('un estado desconocido cae en "Falta subir" y deja rastro, sin tumbar la pantalla', () => {
+    const espia = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const grupos = agrupar([{ code: 'z', estado: 'INVENTADO' }, { code: 'y', estado: 'APPROVED' }])
+      expect(grupos[0].titulo).toBe('Falta subir')
+      expect(grupos[0].estudios.map(e => e.code)).toEqual(['z'])
+      expect(grupos[2].estudios.map(e => e.code)).toEqual(['y'])
+      expect(espia).toHaveBeenCalled()
+      expect(String(espia.mock.calls[0][0])).toContain('INVENTADO')
+    } finally {
+      espia.mockRestore()
+    }
   })
 })
