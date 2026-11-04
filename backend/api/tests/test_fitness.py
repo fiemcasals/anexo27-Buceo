@@ -703,19 +703,23 @@ class PuedeReemplazarseTests(TestCase):
     """El buzo reemplaza lo suyo salvo lo que el médico aprobó y sigue vigente.
 
     La regla vive en `fitness` y no dentro del serializador porque la pantalla
-    del buzo necesita la misma respuesta para decidir si ofrece el reemplazo. Y
-    sale del estado y no del último dictamen porque la fecha manda sobre el
-    dictamen: un aprobado vencido es EXPIRED y se renueva.
+    del buzo necesita la misma respuesta para decidir si ofrece el reemplazo. Se
+    juzga el punto como si fuera exigido: que al buzo le falte la fecha de
+    nacimiento o la ventana no puede ser la llave para pisar lo aprobado.
     """
 
     def setUp(self):
-        self.profile = _diver(birth_year=1988, window=_november_2026())
+        self.window = _november_2026()
+        self.profile = _diver(birth_year=1988, window=self.window)
 
-    def _puede(self, dictamenes, study_date=VALID_FOR_EVERY_POINT):
-        _upload(self.profile, "c", study_date, dictamenes=dictamenes)
-        profile = UserProfile.objects.get(pk=self.profile.pk)
-        state = _slot_of(fitness.diver_summary(profile, TODAY), "c").state
-        return fitness.puede_reemplazarse(state)
+    def _puede(self, dictamenes, study_date=VALID_FOR_EVERY_POINT, window="de_setUp"):
+        block = _upload(self.profile, "c", study_date, dictamenes=dictamenes)
+        block = StudyBlock.objects.prefetch_related("comments").get(pk=block.pk)
+        window = self.window if window == "de_setUp" else window
+        return fitness.puede_reemplazarse("c", block, window, TODAY)
+
+    def test_sin_carga_vigente_se_puede(self):
+        self.assertTrue(fitness.puede_reemplazarse("c", None, self.window, TODAY))
 
     def test_en_revision_se_puede(self):
         self.assertTrue(self._puede([]))
@@ -747,8 +751,11 @@ class PuedeReemplazarseTests(TestCase):
         self.assertTrue(self._puede([("APPROVED", "DOCTOR")],
                                     study_date=date(2026, 12, 1)))
 
-    def test_el_unico_estado_que_bloquea_es_el_aprobado(self):
-        for state in StudyState:
-            with self.subTest(state=state):
-                self.assertEqual(fitness.puede_reemplazarse(state),
-                                 state is not StudyState.APPROVED)
+    def test_sin_ventana_el_aprobado_no_se_puede(self):
+        # Sin rango no hay vencimiento que libere el papel.
+        self.assertFalse(self._puede([("APPROVED", "DOCTOR")], window=None))
+
+    def test_sin_ventana_lo_no_aprobado_se_puede(self):
+        for dictamenes in ([], [("PRE_APPROVED", "NURSE")], [("REJECTED", "DOCTOR")]):
+            with self.subTest(dictamenes=dictamenes):
+                self.assertTrue(self._puede(dictamenes, window=None))

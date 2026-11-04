@@ -249,15 +249,32 @@ def _latest_dictamen(block: StudyBlock) -> Comment | None:
     return dictamenes[-1] if dictamenes else None
 
 
-def puede_reemplazarse(state: StudyState) -> bool:
-    """Si el buzo puede volver a cargar un punto que está en ese estado.
+def puede_reemplazarse(code: str, block: StudyBlock | None,
+                       window: HabilitationWindow | None, today: date) -> bool:
+    """Si el buzo puede volver a cargar el punto ``code``, cuya carga vigente es
+    ``block``.
 
     Sólo lo aprobado por el médico **y vigente** se protege: es el único estado
     donde el papel sirve y alguien ya lo dio por bueno. Un aprobado que venció
-    llega acá como ``EXPIRED`` (la fecha manda sobre el dictamen), y renovarlo
-    es justamente el trámite de la aplicación; ``DATE_INVALID`` y ``REJECTED``
-    piden otra carga, y lo que está en revisión o pre-revisado se reemplaza.
+    es ``EXPIRED`` (la fecha manda sobre el dictamen) y renovarlo es el trámite
+    de la aplicación; ``DATE_INVALID`` y ``REJECTED`` piden otra carga, y lo que
+    está en revisión o pre-revisado se reemplaza.
+
+    El punto se juzga **como si fuera exigido**, sin mirar la edad: que al buzo
+    le falte un dato de su perfil no puede ser la llave para pisar lo que el
+    médico aprobó, porque sin edad todo punto sería ``NOT_REQUIRED`` y el
+    reemplazo entraría.
+
+    Sin ventana no hay rango contra el cual medir el vencimiento, y por lo tanto
+    nada que libere el papel: ahí manda el último dictamen, y un aprobado no se
+    reemplaza.
     """
+    if block is None:
+        return True
+    dictamen = _latest_dictamen(block)
+    if window is None:
+        return dictamen is None or dictamen.status != "APPROVED"
+    state = _study_state(code, block, dictamen, window, required=True, today=today)
     return state is not StudyState.APPROVED
 
 

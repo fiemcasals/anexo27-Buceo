@@ -493,6 +493,34 @@ class ElReemplazoTests(_ConBuzoYRevisores):
         anterior.refresh_from_db()
         self.assertFalse(anterior.is_current)
 
+    def test_sin_fecha_de_nacimiento_NO_se_puede_reemplazar_uno_aprobado(self):
+        # Vaciar un dato del perfil no puede ser la llave para pisar lo que el
+        # médico aprobó: sin edad todo punto sería NOT_REQUIRED.
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        UserProfile.objects.filter(user=self.buzo).update(birth_date=None)
+        r = _client(User.objects.get(pk=self.buzo.pk)).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("study_code", r.data)
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.is_current)
+
+    def test_sin_ventana_NO_se_puede_reemplazar_uno_aprobado(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        UserProfile.objects.filter(user=self.buzo).update(habilitation_window=None)
+        r = _client(User.objects.get(pk=self.buzo.pk)).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("study_code", r.data)
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.is_current)
+
+    def test_sin_ventana_se_puede_reemplazar_uno_no_aprobado(self):
+        _estudio(self.buzo, "c")
+        UserProfile.objects.filter(user=self.buzo).update(habilitation_window=None)
+        r = _client(User.objects.get(pk=self.buzo.pk)).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 201, r.content)
+
     def test_se_puede_reemplazar_uno_rechazado(self):
         _dictamen(_estudio(self.buzo, "c"), self.medico, "REJECTED")
         self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
