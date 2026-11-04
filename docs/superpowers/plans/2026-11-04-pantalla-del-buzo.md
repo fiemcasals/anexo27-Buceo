@@ -57,6 +57,7 @@ Valores textuales del spec. Son requisitos implícitos de todas las tareas.
 - **El rol es único y excluyente** (§15.20). El médico, los enfermeros y el admin **no presentan estudios**: la pantalla del buzo no es para ellos.
 - **Una sola pantalla. Sin pestañas, sin "Mis estudios" contra "Compartidos", sin sección de permisos** (§8.3).
 - **`Permission` no se elimina del modelo** (§5): se deja de usar y la pantalla sale de la navegación. Borrar el modelo es trabajo innecesario y riesgoso.
+- **Un test que afirme un error tiene que afirmar también qué campo lo produjo**, no sólo el código de estado. Lo aprendimos en la Tarea 2: tres tests daban 400 por `title` obligatorio y no por la regla que decían probar, así que parecían probar algo y medían otra cosa. Un `assertEqual(status_code, 400)` no distingue de dónde vino el 400. Además, la Tarea 9 muestra "los errores del backend junto a su campo": si el error no viene atado a su campo, la pantalla no puede ubicarlo.
 
 ---
 
@@ -380,10 +381,14 @@ class InscribirseTests(APITestCase):
         self.perfil.refresh_from_db()
         self.assertEqual(self.perfil.habilitation_window_id, segunda.pk)
 
-    def test_cambiar_a_una_fecha_que_ya_paso_da_400(self):
+    def test_cambiar_a_una_fecha_que_ya_paso_da_400_por_la_fecha(self):
         pasada = _fecha(slot='FIRST', inicio='2026-01-10', fin='2026-01-12')
-        self.assertEqual(
-            _client(self.buzo).put('/api/mi-fecha/', {'window': pasada.pk}).status_code, 400)
+        r = _client(self.buzo).put('/api/mi-fecha/', {'window': pasada.pk})
+        self.assertEqual(r.status_code, 400)
+        # El error va atado a `window`, no suelto: un 400 generico no distingue
+        # "esa fecha ya paso" de "ese id no existe", y la pantalla necesita
+        # poder ubicar el mensaje junto al campo.
+        self.assertIn('window', r.data)
 
     def test_desinscribirse_deja_el_perfil_sin_fecha(self):
         futura = _fecha(slot='FIRST', inicio='2026-11-18', fin='2026-11-20')
@@ -587,17 +592,25 @@ class LoQueElRegistroExigeTests(APITestCase):
         # igual con un endpoint que rechaza todo.
         self.assertEqual(_registrar().status_code, 201)
 
-    def test_sin_dni_da_400(self):
-        self.assertEqual(_registrar(dni=None).status_code, 400)
+    def test_sin_dni_da_400_por_ese_campo(self):
+        r = _registrar(dni=None)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('dni', r.data)
 
-    def test_sin_grado_da_400(self):
-        self.assertEqual(_registrar(rank=None).status_code, 400)
+    def test_sin_grado_da_400_por_ese_campo(self):
+        r = _registrar(rank=None)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('rank', r.data)
 
-    def test_sin_fecha_de_nacimiento_da_400(self):
-        self.assertEqual(_registrar(birth_date=None).status_code, 400)
+    def test_sin_fecha_de_nacimiento_da_400_por_ese_campo(self):
+        r = _registrar(birth_date=None)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('birth_date', r.data)
 
-    def test_sin_unidad_da_400(self):
-        self.assertEqual(_registrar(destination=None).status_code, 400)
+    def test_sin_unidad_da_400_por_ese_campo(self):
+        r = _registrar(destination=None)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('destination', r.data)
 
 
 class ElDniNoSeRepiteTests(APITestCase):
@@ -617,16 +630,26 @@ class ElDniNoSeRepiteTests(APITestCase):
 
 class ElCorreoSePideDosVecesTests(APITestCase):
     # §15.11
-    def test_si_los_dos_correos_no_coinciden_da_400(self):
-        self.assertEqual(_registrar(email='a@b.com', email2='c@d.com').status_code, 400)
+    def test_si_los_dos_correos_no_coinciden_da_400_por_el_segundo(self):
+        r = _registrar(email='a@b.com', email2='c@d.com')
+        self.assertEqual(r.status_code, 400)
+        # Atado a `email2` y no a `non_field_errors`: el §15.11 pide el correo
+        # dos veces justamente para atajar el error de tipeo, y el que se
+        # corrige es el segundo.
+        self.assertIn('email2', r.data)
 
     def test_si_coinciden_se_registra(self):
         self.assertEqual(_registrar(email='a@b.com', email2='a@b.com').status_code, 201)
 
 
 class ElGradoEsListaCerradaTests(APITestCase):
-    def test_un_grado_inventado_da_400(self):
-        self.assertEqual(_registrar(rank='Sgto.').status_code, 400)
+    def test_un_grado_inventado_da_400_por_el_grado(self):
+        # "Sgto." es exactamente lo que el §5 quiere impedir: con 150 personas
+        # escribiendo su propio grado convivirian "Sgto", "Sgto.", "Sargento"
+        # y "SG" en la misma base.
+        r = _registrar(rank='Sgto.')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('rank', r.data)
 
     def test_el_endpoint_de_grados_devuelve_los_dos_grupos_en_orden_jerarquico(self):
         grupos = _client(None).get('/api/grados/').data
@@ -651,9 +674,10 @@ class CorregirElCorreoTests(APITestCase):
         self.assertFalse(
             EmailAddress.objects.filter(user=self.buzo, email='mal@b.com').exists())
 
-    def test_un_correo_ya_usado_por_otro_da_400(self):
+    def test_un_correo_ya_usado_por_otro_da_400_por_el_correo(self):
         r = _client(self.buzo).put('/api/mi-correo/', {'email': self.otro.email})
         self.assertEqual(r.status_code, 400)
+        self.assertIn('email', r.data)
 
     def test_el_buzo_no_puede_cambiar_el_correo_de_otro(self):
         # Actua siempre sobre request.user: no hay id que mandar
