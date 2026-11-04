@@ -16,6 +16,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name']
+        # §5: "Cuatro roles. El admin los designa." El rol no es un dato que el
+        # usuario edite de su propio perfil, y desde que el acceso sale del rol
+        # (D-5) es la única credencial de autorización del sistema: escribible
+        # por su dueño, cualquiera se hacía médico con un PATCH y leía el legajo
+        # de todos los buzos. Se designa por el admin de Django (D-1).
+        # `is_instructor` va por lo mismo: lo da `promote-instructor`
+        # (`IsAdminUser`) y habilita a firmar la bitácora de otros.
+        read_only_fields = ['role', 'is_instructor']
 
     def update(self, instance, validated_data):
         # Correct way to handle multiple pops from same nested dict if mapped by source

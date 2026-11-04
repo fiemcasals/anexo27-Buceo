@@ -24,10 +24,32 @@ from .roles import REVIEWER_ROLES, es_revisor  # noqa: F401  (re-export)
 logger = logging.getLogger(__name__)
 
 
+class SoloElDuenoDelPerfil(permissions.BasePermission):
+    """Un perfil lo modifica y lo borra sólo su dueño. La lectura no se toca.
+
+    Hermano de `SoloElDuenoDelEstudio`, y por el mismo agujero: sin control a
+    nivel de objeto, un grantee con una concesión de **sólo lectura** podía
+    reescribir el perfil del grantor —rol y DNI incluidos— y borrarlo (204).
+
+    El queryset de abajo sirve sólo el perfil propio, así que hoy un perfil
+    ajeno da 404 antes de llegar acá. La regla existe igual porque el §8.1 pide
+    un listado de 150 buzos para el médico: cuando el plan que lo construya
+    ensanche ese queryset, que el médico pueda **ver** 150 perfiles no puede
+    volverse poder reescribirlos. El §5 le da ver, aprobar y rechazar.
+    """
+
+    message = 'Sólo el dueño del perfil puede modificarlo o borrarlo.'
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.user_id == request.user.pk
+
+
 class UserProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, SoloElDuenoDelPerfil]
 
     @action(detail=False, methods=['get', 'put', 'patch'])
     def me(self, request):
@@ -44,20 +66,19 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def get_queryset(self):
-        user = self.request.user
-        
-        # Own profile
-        q_own = Q(user=user)
-        
-        # Profiles shared with me
-        shared_perms = Permission.objects.filter(grantee=user)
-        grantor_ids = []
-        for p in shared_perms:
-            if "ALL" in p.shared_items or "PERSONAL_DATA" in p.shared_items:
-                grantor_ids.append(p.grantor_id)
-        
-        q_shared = Q(user_id__in=grantor_ids)
-        return UserProfile.objects.filter(q_own | q_shared).distinct()
+        # D-5 sobre el endpoint que el cierre del plan 1 no convirtió: el acceso
+        # sale del rol, no de concesiones entre usuarios. Acá la concesión
+        # `PERSONAL_DATA`/`ALL` seguía rigiendo de verdad, y es textualmente la
+        # ruta que D-5 condena — el buzo le entregaba su DNI, su fecha de
+        # nacimiento, su grado y su destino a cualquier usuario registrado, con
+        # el registro abierto y sin verificación de correo.
+        #
+        # Queda en lo propio y nada más. El §8.1 pide además un listado de 150
+        # buzos con grado, nombre y unidad para el médico: eso es una vista que
+        # todavía no existe y la construye el plan que haga su pantalla, con el
+        # rol como base igual que `StudyBlockViewSet`. Ensancharlo acá ahora le
+        # cambiaría la respuesta a `Dashboard.jsx:56` sin pantalla que lo use.
+        return UserProfile.objects.filter(user=self.request.user)
 
 class ProfileFieldTemplateViewSet(viewsets.ModelViewSet):
     queryset = ProfileFieldTemplate.objects.all()
