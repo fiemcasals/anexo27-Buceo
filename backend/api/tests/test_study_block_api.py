@@ -16,12 +16,15 @@ Dos reglas distintas conviven acá y conviene no confundirlas:
 from datetime import date
 
 from django.contrib.auth.models import User
+from django.test import override_settings
 from PIL import Image
 from rest_framework.test import APIClient, APITestCase
 
 from api.images import ArchivoRechazado, comprimir
 from api.models import Comment, HabilitationWindow, Permission, StudyBlock
 from users.models import UserProfile
+
+from .media_temporal import MEDIA_TEMPORAL
 
 URL = "/api/blocks/"
 
@@ -384,6 +387,7 @@ def _carga(code):
             "pdf_attachment": _pdf()}
 
 
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
 class _ConBuzoYRevisores(APITestCase):
     def setUp(self):
         self.buzo = _user("buzo1", "USER")

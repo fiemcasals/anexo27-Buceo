@@ -17,12 +17,15 @@ from unittest import mock
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db import connection
+from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient, APITestCase
 
 from api import catalog
 from api.models import Comment, HabilitationWindow, StudyBlock
 from users.models import UserProfile
+
+from .media_temporal import MEDIA_TEMPORAL
 
 HOY = date(2026, 11, 4)
 URL = '/api/mi-estado/'
@@ -83,6 +86,7 @@ def _dictamen(bloque, revisor, status, **extra):
         block=bloque, doctor=revisor, reviewer_role=rol, status=status, **extra)
 
 
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
 class _ConBuzo(APITestCase):
     def setUp(self):
         patcher = mock.patch('api.serializers.hoy', return_value=HOY)
