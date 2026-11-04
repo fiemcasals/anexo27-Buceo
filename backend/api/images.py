@@ -10,7 +10,7 @@ import os
 
 import pillow_heif
 from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
-from PIL import Image
+from PIL import Image, ImageOps
 
 pillow_heif.register_heif_opener()
 
@@ -44,6 +44,8 @@ def comprimir(archivo: UploadedFile) -> UploadedFile:
     archivo.seek(0)
     try:
         imagen = Image.open(archivo)
+        # Antes de descartar el EXIF: la rotación de la foto vive ahí.
+        imagen = ImageOps.exif_transpose(imagen)
         imagen = imagen.convert('RGB')
     except (OSError, Image.DecompressionBombError):
         raise ArchivoRechazado(_MENSAJE_NO_IMAGEN)

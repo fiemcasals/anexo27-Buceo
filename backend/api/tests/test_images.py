@@ -5,6 +5,7 @@ binario. Ningún test toca la base ni HTTP, por eso alcanza con SimpleTestCase.
 """
 
 import io
+from unittest import mock
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
@@ -35,6 +36,17 @@ def _imagen_con_exif(ancho, alto):
     return _archivo(buffer.getvalue(), 'foto.jpg')
 
 
+def _imagen_con_orientacion(ancho, alto, orientacion):
+    # El celular en vertical guarda los píxeles en horizontal y marca la rotación
+    # en la etiqueta 0x0112 del EXIF.
+    exif = Image.Exif()
+    exif[0x0112] = orientacion
+    buffer = io.BytesIO()
+    Image.new('RGB', (ancho, alto), (120, 60, 30)).save(
+        buffer, 'JPEG', exif=exif.tobytes())
+    return _archivo(buffer.getvalue(), 'foto.jpg')
+
+
 def _pdf():
     contenido = (
         b'%PDF-1.4\n'
@@ -59,6 +71,12 @@ class ReduceLasFotosDeCelularTests(SimpleTestCase):
 
     def test_sale_sin_metadatos_exif_de_la_camara(self):
         self.assertFalse(Image.open(comprimir(_imagen_con_exif(4032, 3024))).getexif())
+
+    def test_la_foto_en_vertical_sale_derecha(self):
+        # Si se descarta el EXIF sin aplicar la rotación antes, la foto le llega
+        # al médico acostada. La orientación 6 es la de una foto en vertical.
+        salida = comprimir(_imagen_con_orientacion(400, 200, 6))
+        self.assertEqual(Image.open(salida).size, (200, 400))
 
 
 class ElHeicDelIphoneSeConvierteTests(SimpleTestCase):
@@ -104,3 +122,12 @@ class LoQueNoSeAceptaTests(SimpleTestCase):
     def test_un_jpg_mentido_que_no_es_imagen_se_rechaza_sin_traza_de_pillow(self):
         with self.assertRaises(ArchivoRechazado):
             comprimir(_archivo(b'no soy una imagen', 'mentira.jpg'))
+
+    def test_una_imagen_que_se_expande_demasiado_se_rechaza(self):
+        # Una imagen chica que declara muchísimos píxeles es una bomba de
+        # descompresión. Pillow la corta con DecompressionBombError, que no es
+        # OSError: sin su propia traducción llegaría como 500.
+        archivo = _imagen(100, 100, 'JPEG')
+        with mock.patch.object(Image, 'MAX_IMAGE_PIXELS', 100):
+            with self.assertRaises(ArchivoRechazado):
+                comprimir(archivo)
