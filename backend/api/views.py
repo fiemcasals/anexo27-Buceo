@@ -16,33 +16,12 @@ from .serializers import (
     DiveActivitySerializer, DiveLogSerializer
 )
 from .report_pdf import generate_anexo_27
+# §5, en su propio modulo porque tambien lo consultan los serializadores.
+from .roles import REVIEWER_ROLES, es_revisor  # noqa: F401  (re-export)
 
 # Los errores de validacion se registran, no se imprimen: un print va a stdout
 # y contamina la salida de los tests y del servidor.
 logger = logging.getLogger(__name__)
-
-# §5: el acceso a los estudios médicos sale del rol que designa el admin, no de
-# concesiones entre usuarios. El buzo "ve y gestiona sus propios estudios, nada
-# más"; el médico y los enfermeros auxiliares "ven los estudios de todos"; nadie
-# más ve los de nadie. El circuito anterior era el inverso y venía de la vida
-# previa de la app: cada buzo le concedía acceso al revisor desde la pantalla de
-# Permisos, así que el médico designado no veía nada y un buzo podía compartir
-# sus estudios médicos con cualquier usuario registrado — y el registro es
-# abierto y sin verificación. `Permission` se deja en pie (§5) y deja de regir.
-REVIEWER_ROLES = ('DOCTOR', 'NURSE')
-
-
-def es_revisor(user):
-    """True si el usuario es el médico o un enfermero auxiliar designado.
-
-    El perfil puede no existir —`UserProfile` se crea aparte del `User`, y
-    `UserProfileViewSet.me` lo prueba haciéndole `get_or_create`— y en ese caso
-    el usuario no es revisor: la falta de perfil nunca puede significar "ve
-    todo". El `getattr` es el mismo cuidado que ya tiene `generate_anexo_27`;
-    hace falta porque el acceso a un OneToOne inverso inexistente levanta.
-    """
-    profile = getattr(user, 'profile', None)
-    return profile is not None and profile.role in REVIEWER_ROLES
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):
