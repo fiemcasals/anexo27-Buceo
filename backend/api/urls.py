@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     UserProfileViewSet, ProfileFieldTemplateViewSet,
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
-    Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet
+    Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
+    FechasView, MiFechaView,
 )
 
 router = DefaultRouter()
@@ -18,5 +19,7 @@ router.register(r'dive-logs', DiveLogViewSet, basename='divelog')
 router.register(r'superusers', SuperUserViewSet, basename='superuser')
 
 urlpatterns = [
+    path('fechas/', FechasView.as_view(), name='fechas'),
+    path('mi-fecha/', MiFechaView.as_view(), name='mi-fecha'),
     path('', include(router.urls)),
 ]

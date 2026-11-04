@@ -1,10 +1,48 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .models import (
+    StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
+)
 from django.utils import timezone
 from .fitness import puede_reemplazarse
 from .roles import es_revisor
 from users.models import UserProfile, ProfileFieldTemplate
+
+
+def hoy():
+    return timezone.localdate()
+
+
+class HabilitationWindowSerializer(serializers.ModelSerializer):
+    """Una fecha publicada, de sólo lectura. `ya_paso`: su último día ya pasó."""
+    slot_display = serializers.CharField(source='get_slot_display', read_only=True)
+    ya_paso = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HabilitationWindow
+        fields = ['id', 'slot', 'slot_display', 'start_date', 'end_date', 'ya_paso']
+        read_only_fields = fields
+
+    def get_ya_paso(self, obj):
+        return obj.end_date < hoy()
+
+
+class InscripcionSerializer(serializers.Serializer):
+    """La fecha a la que se inscribe el buzo; `null` lo desinscribe."""
+    window = serializers.PrimaryKeyRelatedField(
+        queryset=HabilitationWindow.objects.all(), allow_null=True,
+        error_messages={
+            'does_not_exist': 'La fecha elegida no existe.',
+            'required': 'Debe indicarse la fecha, o null para desinscribirse.',
+            'incorrect_type': 'La fecha elegida no es válida.',
+        },
+    )
+
+    def validate_window(self, window):
+        if window is not None and window.end_date < hoy():
+            raise serializers.ValidationError(
+                'La fecha elegida ya pasó y no puede seleccionarse.')
+        return window
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

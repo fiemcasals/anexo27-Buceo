@@ -1,6 +1,7 @@
 import logging
 
-from rest_framework import viewsets, permissions
+from rest_framework import generics, viewsets, permissions
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
@@ -9,12 +10,15 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.conf import settings
-from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .models import (
+    StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
+)
 from users.models import UserProfile, ProfileFieldTemplate
 from .serializers import (
     StudyBlockSerializer, CommentSerializer, PermissionSerializer,
     UserProfileSerializer, ProfileFieldTemplateSerializer,
-    DiveActivitySerializer, DiveLogSerializer
+    DiveActivitySerializer, DiveLogSerializer,
+    HabilitationWindowSerializer, InscripcionSerializer,
 )
 from .images import ArchivoRechazado, comprimir
 from .report_pdf import generate_anexo_27
@@ -409,3 +413,29 @@ class SuperUserViewSet(viewsets.ViewSet):
             return Response({"message": f"{email} ahora tiene permisos de Instructor."})
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=404)
+
+
+class FechasView(generics.ListAPIView):
+    """Las fechas de habilitación publicadas, por `start_date`. Sólo lectura."""
+    queryset = HabilitationWindow.objects.order_by('start_date')
+    serializer_class = HabilitationWindowSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+
+class MiFechaView(APIView):
+    """Inscribe al que llama a una fecha, o lo desinscribe con `null`.
+
+    Escribe siempre el perfil de `request.user`: no hay id de usuario ni de
+    perfil en el cuerpo, de modo que no hay forma de apuntar a otro.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        serializer = InscripcionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile.habilitation_window = serializer.validated_data['window']
+        profile.save(update_fields=['habilitation_window'])
+        return Response({'window': profile.habilitation_window_id})
+
