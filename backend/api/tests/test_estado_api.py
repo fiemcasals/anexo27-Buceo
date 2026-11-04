@@ -176,17 +176,94 @@ class ElEstadoDelBuzoTests(_ConBuzo):
         self.assertEqual(_punto(cuerpo, 'c')['estado'], 'PRE_REVIEWED')
         self.assertEqual(_punto(cuerpo, 'd')['estado'], 'IN_REVIEW')
 
-    def test_faltan_son_los_exigidos_sin_presentar(self):
-        # Siete exigidos, uno cargado (c): faltan seis. Un estudio presentado
-        # que espera revision ya no falta.
-        self.assertEqual(_get(self.buzo)['faltan'], 6)
-        _estudio(self.buzo, 'd')
+    def test_faltan_no_cuenta_lo_que_esta_en_revision_ni_el_anexo_27_fuera_de_ventana(self):
+        # Exigidos b..h; c en revision y h antes de su ventana: faltan b, d, e, f, g.
         self.assertEqual(_get(self.buzo)['faltan'], 5)
+        _estudio(self.buzo, 'd')
+        self.assertEqual(_get(self.buzo)['faltan'], 4)
 
     def test_un_punto_que_no_corresponde_no_cuenta_en_los_que_faltan(self):
-        # El menor de 40 debe siete: sin nada cargado faltan siete, no ocho.
-        self.assertEqual(_get(self.menor)['faltan'], 7)
-        self.assertEqual(_get(self.mayor)['faltan'], 8)
+        # El menor de 40 debe b..g (h fuera de ventana): faltan seis, no siete.
+        self.assertEqual(_get(self.menor)['faltan'], 6)
+        self.assertEqual(_get(self.mayor)['faltan'], 7)
+
+
+class LoQueFaltaEsLoQueNecesitaUnaCargaAhoraTests(_ConBuzo):
+    """`faltan` es el trabajo que el buzo tiene que hacer hoy: lo exigido que
+    esta MISSING, REJECTED, EXPIRED o DATE_INVALID. El Anexo 27 antes de su
+    ventana no cuenta: todavia no se puede presentar (§15.19)."""
+
+    ESTADOS = {'MISSING', 'REJECTED', 'EXPIRED', 'DATE_INVALID'}
+    DENTRO_DE_LA_VENTANA = date(2026, 12, 1)
+
+    def _todo_aprobado(self, user):
+        """Sube y aprueba todo lo exigido, h incluido, con el reloj dentro de
+        la ventana del Anexo 27."""
+        for code in 'bcdefg':
+            _dictamen(_estudio(user, code), self.medico, 'APPROVED')
+        _dictamen(_estudio(user, 'h', study_date=date(2026, 11, 25)),
+                  self.medico, 'APPROVED')
+
+    def _get_en_la_ventana(self, user):
+        with mock.patch('api.serializers.hoy', return_value=self.DENTRO_DE_LA_VENTANA):
+            return _get(user)
+
+    def test_el_punto_de_una_carga_completa_deja_faltan_en_cero(self):
+        # Control de los tests de abajo: sin pendientes, 0.
+        self._todo_aprobado(self.menor)
+        self.assertEqual(self._get_en_la_ventana(self.menor)['faltan'], 0)
+
+    def test_un_estudio_rechazado_cuenta_en_faltan(self):
+        self._todo_aprobado(self.menor)
+        c = StudyBlock.objects.get(user=self.menor, study_code='c')
+        _dictamen(c, self.medico, 'REJECTED',
+                  rejection_reason='OTHER', content='Falta la firma.')
+        cuerpo = self._get_en_la_ventana(self.menor)
+        self.assertEqual(_punto(cuerpo, 'c')['estado'], 'REJECTED')
+        self.assertEqual(cuerpo['faltan'], 1)
+
+    def test_un_estudio_vencido_cuenta_en_faltan(self):
+        self._todo_aprobado(self.menor)
+        StudyBlock.objects.filter(user=self.menor, study_code='e').update(
+            study_date=date(2025, 12, 1))
+        cuerpo = self._get_en_la_ventana(self.menor)
+        self.assertEqual(_punto(cuerpo, 'e')['estado'], 'EXPIRED')
+        self.assertEqual(cuerpo['faltan'], 1)
+
+    def test_un_estudio_con_fecha_invalida_cuenta_en_faltan(self):
+        self._todo_aprobado(self.menor)
+        StudyBlock.objects.filter(user=self.menor, study_code='e').update(
+            study_date=date(2026, 12, 20))
+        cuerpo = self._get_en_la_ventana(self.menor)
+        self.assertEqual(_punto(cuerpo, 'e')['estado'], 'DATE_INVALID')
+        self.assertEqual(cuerpo['faltan'], 1)
+
+    def test_si_lo_unico_pendiente_es_el_anexo_27_fuera_de_ventana_faltan_es_cero(self):
+        # Parece un error y no lo es: no tiene nada que hacer hoy. Cuando la
+        # ventana abra, el punto pasa a MISSING y el contador sube a 1.
+        for code in 'bcdefg':
+            _dictamen(_estudio(self.menor, code), self.medico, 'APPROVED')
+        cuerpo = _get(self.menor)
+        self.assertEqual(_punto(cuerpo, 'h')['estado'], 'BEFORE_WINDOW')
+        self.assertEqual(cuerpo['faltan'], 0)
+        self.assertEqual(self._get_en_la_ventana(self.menor)['faltan'], 1)
+
+    def test_faltan_es_igual_a_las_tarjetas_de_falta_subir_sin_el_anexo_27_fuera_de_ventana(self):
+        # El invariante de la pantalla: el contador y las tarjetas cuentan lo
+        # mismo. b sin subir, c rechazado, d vencido, e fecha invalida, h fuera
+        # de ventana, y f y g sin subir.
+        _dictamen(_estudio(self.menor, 'c'), self.medico, 'REJECTED',
+                  rejection_reason='OTHER', content='Falta la firma.')
+        _estudio(self.menor, 'd', study_date=date(2025, 12, 1))
+        _estudio(self.menor, 'e', study_date=date(2026, 11, 4) + timedelta(days=1))
+        cuerpo = _get(self.menor)
+        tarjetas = [e for e in cuerpo['estudios']
+                    if e['corresponde'] and e['estado'] in self.ESTADOS]
+        self.assertEqual(
+            sorted(e['estado'] for e in tarjetas),
+            ['DATE_INVALID', 'EXPIRED', 'MISSING', 'MISSING', 'MISSING', 'REJECTED'])
+        self.assertEqual(_punto(cuerpo, 'h')['estado'], 'BEFORE_WINDOW')
+        self.assertEqual(cuerpo['faltan'], len(tarjetas))
 
 
 class ElEstadoEsSoloDelQueLlamaTests(_ConBuzo):
@@ -273,6 +350,9 @@ class SinFechaDeNacimientoTests(_ConBuzo):
         cuerpo = _get(self.buzo)
         self.assertEqual(cuerpo['total_exigidos'], 0)
         self.assertEqual(len(cuerpo['estudios']), 8)
+        # "cargar" es el verbo de subir un estudio: no se usa para el perfil.
+        self.assertEqual(_punto(cuerpo, 'b')['motivo_no_corresponde'],
+                         'Se determina al completar la fecha de nacimiento')
         for e in cuerpo['estudios']:
             self.assertTrue(e['motivo_no_corresponde'], e['code'])
 

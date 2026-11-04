@@ -23,7 +23,20 @@ from .models import HabilitationWindow
 from .serializers import HabilitationWindowSerializer
 
 SIN_VENTANA = 'Se determina al elegir la fecha de habilitación'
-SIN_EDAD = 'Se determina al cargar la fecha de nacimiento'
+SIN_EDAD = 'Se determina al completar la fecha de nacimiento'
+
+#: Lo que necesita una carga nueva ahora: nunca subido, rechazado, vencido o mal
+#: fechado. Es el grupo "Falta subir" de la pantalla **menos** BEFORE_WINDOW, a
+#: propósito: el Anexo 27 fuera de su ventana todavía no se puede presentar
+#: (§15.19), así que un buzo cuyo único pendiente es ése ve "Faltan 0 estudios"
+#: con una tarjeta que dice desde cuándo se puede presentar. Parece un error y
+#: no lo es: no tiene nada que hacer hoy, y al abrirse la ventana el punto pasa
+#: a MISSING y el contador sube a 1. No es `fitness.INCOMPLETE_STATES`, que
+#: responde otra pregunta (si la documentación está completa).
+ESTADOS_QUE_PIDEN_CARGA = frozenset({
+    StudyState.MISSING, StudyState.REJECTED,
+    StudyState.EXPIRED, StudyState.DATE_INVALID,
+})
 
 
 def _motivo_no_corresponde(code: str, profile) -> str:
@@ -95,8 +108,10 @@ def armar_estado(profile, today: date, request=None) -> dict:
         # elegir (§15.21).
         'hay_fechas_para_elegir': HabilitationWindow.objects.filter(
             end_date__gte=today).exists(),
-        # Con carga o sin ella, un punto exigido sin presentar es lo que falta.
-        'faltan': len(resumen.required_codes) - resumen.presented,
+        # Sólo cuentan los exigidos: un punto que no corresponde está en
+        # NOT_REQUIRED y no entra en el conjunto (ver ESTADOS_QUE_PIDEN_CARGA).
+        'faltan': sum(1 for slot in resumen.slots
+                      if slot.state in ESTADOS_QUE_PIDEN_CARGA),
         'revisados': resumen.approved,
         'total_exigidos': len(resumen.required_codes),
         'correo': profile.user.email,
