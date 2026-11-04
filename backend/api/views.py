@@ -1,21 +1,29 @@
 import logging
 
-from rest_framework import viewsets, permissions
+from rest_framework import generics, viewsets, permissions
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.conf import settings
-from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .models import (
+    StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
+)
 from users.models import UserProfile, ProfileFieldTemplate
 from .serializers import (
     StudyBlockSerializer, CommentSerializer, PermissionSerializer,
     UserProfileSerializer, ProfileFieldTemplateSerializer,
-    DiveActivitySerializer, DiveLogSerializer
+    DiveActivitySerializer, DiveLogSerializer,
+    HabilitationWindowSerializer, InscripcionSerializer,
 )
+from users.serializers import CorregirCorreoSerializer
+from . import serializers as _serializers
+from .estado import armar_estado
+from .images import ArchivoRechazado, comprimir
 from .report_pdf import generate_anexo_27
 # §5, en su propio modulo porque tambien lo consultan los serializadores.
 from .roles import REVIEWER_ROLES, es_revisor  # noqa: F401  (re-export)
@@ -116,6 +124,10 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
     queryset = StudyBlock.objects.all()
     serializer_class = StudyBlockSerializer
     permission_classes = [permissions.IsAuthenticated, SoloElDuenoDelEstudio]
+    # Sin PUT ni PATCH: un estudio no se edita, se reemplaza con un POST al mismo
+    # punto. Editar el archivo en el lugar esquivaba la regla del reemplazo y la
+    # compresión, y le cambiaba el papel al médico a sus espaldas (§15.10).
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_queryset(self):
         try:
@@ -144,7 +156,13 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
             raise
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Las fotos se reducen en el servidor, antes de guardarlas: un rechazo
+        # del archivo es un 400 con el mensaje ya redactado, no un 500.
+        try:
+            archivo = comprimir(serializer.validated_data['pdf_attachment'])
+        except ArchivoRechazado as e:
+            raise ValidationError({'pdf_attachment': e.mensaje})
+        serializer.save(user=self.request.user, pdf_attachment=archivo)
 
 class Anexo27View(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -398,3 +416,91 @@ class SuperUserViewSet(viewsets.ViewSet):
             return Response({"message": f"{email} ahora tiene permisos de Instructor."})
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=404)
+
+
+class FechasView(generics.ListAPIView):
+    """Las fechas de habilitación publicadas, por `start_date`. Sólo lectura."""
+    queryset = HabilitationWindow.objects.order_by('start_date')
+    serializer_class = HabilitationWindowSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+
+class MiFechaView(APIView):
+    """Inscribe al que llama a una fecha, o lo desinscribe con `null`.
+
+    Escribe siempre el perfil de `request.user`: no hay id de usuario ni de
+    perfil en el cuerpo, de modo que no hay forma de apuntar a otro.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        serializer = InscripcionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile.habilitation_window = serializer.validated_data['window']
+        profile.save(update_fields=['habilitation_window'])
+        return Response({'window': profile.habilitation_window_id})
+
+
+class GradosView(APIView):
+    """La lista cerrada de grados (§5), agrupada y en orden jerárquico.
+
+    Sale del modelo para que el desplegable del frontend no la redefina. Es
+    pública: el registro la necesita antes de que exista una sesión, y un token
+    viejo en el navegador no tiene que impedir verla.
+    """
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response([
+            {
+                'grupo': grupo,
+                'grados': [
+                    {'valor': valor, 'etiqueta': etiqueta}
+                    for valor, etiqueta in grados
+                ],
+            }
+            for grupo, grados in UserProfile.RANK_CHOICES
+        ])
+
+
+class MiCorreoView(APIView):
+    """Corrige el correo del que llama (§15.11).
+
+    Es lo único que repara un correo mal tipeado en el registro, que no verifica
+    la dirección. Actúa siempre sobre `request.user`: no recibe ningún id.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        serializer = CorregirCorreoSerializer(
+            data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response({'email': user.email})
+
+
+class MiEstadoView(APIView):
+    """El estado del que llama, tal como lo muestra su pantalla.
+
+    Sólo lectura y sin parámetros: lee el perfil de `request.user`, así que no
+    hay forma de pedir el de otro. Trae el perfil con su ventana, y los
+    estudios vigentes con sus dictámenes, en un número fijo de consultas.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        UserProfile.objects.get_or_create(user=request.user)
+        profile = UserProfile.objects.select_related(
+            'user', 'habilitation_window',
+        ).prefetch_related(
+            Prefetch(
+                'user__study_blocks',
+                queryset=StudyBlock.objects.filter(is_current=True)
+                .prefetch_related('comments'),
+            ),
+        ).get(user=request.user)
+        # La fecha sale de la costura de `serializers`, que los tests congelan.
+        return Response(armar_estado(profile, _serializers.hoy(), request=request))

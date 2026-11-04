@@ -20,6 +20,9 @@ Cada caso afirma el código de estado **y** la fila después: un 200 que no guar
 nada y un 403 con la fila ya cambiada son el mismo test inútil.
 """
 
+from datetime import date
+from unittest import mock
+
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient, APITestCase
 
@@ -195,3 +198,70 @@ class SoloElDuenoDelPerfilTests(APITestCase):
     def test_reading_another_profile_is_not_what_this_rule_governs(self):
         self.assertTrue(self.regla.has_object_permission(
             self._request(self.other, "GET"), None, self.profile))
+
+
+class LaFechaDeNacimientoNoSeVaciaTests(APITestCase):
+    """El registro la exige; una fecha que después se puede borrar no es exigida.
+
+    Sin fecha de nacimiento el motor no sabe si corresponden siete u ocho
+    estudios. El buzo puede corregir un error de tipeo, pero no dejarla vacía.
+    """
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.profile = UserProfile.objects.get(user=self.diver)
+        self.profile.birth_date = date(1990, 5, 1)
+        self.profile.save()
+        self.url = f"{URL}{self.profile.pk}/"
+
+    def _fecha(self):
+        return UserProfile.objects.get(pk=self.profile.pk).birth_date
+
+    def test_vaciarla_por_put_da_400_por_ese_campo_y_el_valor_sigue(self):
+        r = _client(User.objects.get(pk=self.diver.pk)).put(
+            self.url, {"birth_date": None}, format="json")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("birth_date", r.json())
+        self.assertEqual(
+            r.json()["birth_date"],
+            ["La fecha de nacimiento no puede quedar vacía; sólo puede corregirse."])
+        self.assertEqual(self._fecha(), date(1990, 5, 1))
+
+    def test_vaciarla_por_patch_tampoco(self):
+        r = _client(User.objects.get(pk=self.diver.pk)).patch(
+            self.url, {"birth_date": None}, format="json")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("birth_date", r.json())
+        self.assertEqual(self._fecha(), date(1990, 5, 1))
+
+    def test_vaciarla_por_la_ruta_me_tampoco(self):
+        r = _client(User.objects.get(pk=self.diver.pk)).patch(
+            ME, {"birth_date": None}, format="json")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("birth_date", r.json())
+        self.assertEqual(self._fecha(), date(1990, 5, 1))
+
+    def test_corregirla_si_se_puede(self):
+        # No es de sólo lectura: el buzo corrige un error de tipeo.
+        r = _client(User.objects.get(pk=self.diver.pk)).patch(
+            self.url, {"birth_date": "1991-06-02"}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self._fecha(), date(1991, 6, 2))
+
+    def test_un_perfil_sin_fecha_todavia_puede_guardar_otros_datos(self):
+        # Las cuentas anteriores al registro nuevo no la tienen: mandar `null`
+        # donde ya no había nada no puede romperles el guardado.
+        sin_fecha = _user("viejo", "USER")
+        perfil = UserProfile.objects.get(user=sin_fecha)
+        r = _client(User.objects.get(pk=sin_fecha.pk)).put(
+            f"{URL}{perfil.pk}/", {"birth_date": None, "phone": "1122"},
+            format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+
+    def test_una_fecha_futura_da_400_por_ese_campo(self):
+        with mock.patch("api.serializers.hoy", return_value=date(2026, 11, 4)):
+            r = _client(User.objects.get(pk=self.diver.pk)).patch(
+                self.url, {"birth_date": "2026-11-05"}, format="json")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("birth_date", r.json())
+        self.assertEqual(self._fecha(), date(1990, 5, 1))

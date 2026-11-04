@@ -1,8 +1,56 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .models import (
+    StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
+)
+from django.utils import timezone
+from .fitness import puede_reemplazarse
 from .roles import es_revisor
 from users.models import UserProfile, ProfileFieldTemplate
+
+
+def hoy():
+    return timezone.localdate()
+
+
+def validar_fecha_de_nacimiento(valor):
+    """Una fecha de nacimiento no puede ser posterior a hoy."""
+    if valor is not None and valor > hoy():
+        raise serializers.ValidationError(
+            'La fecha de nacimiento no puede ser posterior a hoy.')
+    return valor
+
+
+class HabilitationWindowSerializer(serializers.ModelSerializer):
+    """Una fecha publicada, de sólo lectura. `ya_paso`: su último día ya pasó."""
+    slot_display = serializers.CharField(source='get_slot_display', read_only=True)
+    ya_paso = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HabilitationWindow
+        fields = ['id', 'slot', 'slot_display', 'start_date', 'end_date', 'ya_paso']
+        read_only_fields = fields
+
+    def get_ya_paso(self, obj):
+        return obj.end_date < hoy()
+
+
+class InscripcionSerializer(serializers.Serializer):
+    """La fecha a la que se inscribe el buzo; `null` lo desinscribe."""
+    window = serializers.PrimaryKeyRelatedField(
+        queryset=HabilitationWindow.objects.all(), allow_null=True,
+        error_messages={
+            'does_not_exist': 'La fecha elegida no existe.',
+            'required': 'Debe indicarse la fecha, o null para desinscribirse.',
+            'incorrect_type': 'La fecha elegida no es válida.',
+        },
+    )
+
+    def validate_window(self, window):
+        if window is not None and window.end_date < hoy():
+            raise serializers.ValidationError(
+                'La fecha elegida ya pasó y no puede seleccionarse.')
+        return window
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,6 +73,23 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # `is_instructor` va por lo mismo: lo da `promote-instructor`
         # (`IsAdminUser`) y habilita a firmar la bitácora de otros.
         read_only_fields = ['role', 'is_instructor']
+        # No es de sólo lectura: el buzo corrige un error de tipeo. Lo que no
+        # puede es dejarla vacía (ver `validate_birth_date`).
+        extra_kwargs = {
+            'birth_date': {'error_messages': {
+                'invalid': 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.',
+            }},
+        }
+
+    def validate_birth_date(self, valor):
+        # El registro la exige y de ella depende qué estudios corresponden: un
+        # dato obligatorio que después se puede borrar no es obligatorio. Las
+        # cuentas anteriores al registro nuevo que no la tienen pueden seguir
+        # guardando otros datos.
+        if valor is None and self.instance is not None and self.instance.birth_date:
+            raise serializers.ValidationError(
+                'La fecha de nacimiento no puede quedar vacía; sólo puede corregirse.')
+        return validar_fecha_de_nacimiento(valor)
 
     def update(self, instance, validated_data):
         # Correct way to handle multiple pops from same nested dict if mapped by source
@@ -126,7 +191,33 @@ class StudyBlockSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudyBlock
         fields = ['id', 'user', 'user_details', 'study_code', 'is_current', 'title', 'description', 'created_at', 'study_date', 'pdf_attachment', 'comments', 'access_level']
-        read_only_fields = ['user']
+        # `title` lo pone `StudyBlock.save()` desde el catálogo: el punto de la
+        # directiva lo decide el botón con que el buzo entró, no un texto libre.
+        read_only_fields = ['user', 'title']
+        extra_kwargs = {'study_code': {'required': True}}
+
+    def validate(self, attrs):
+        # Un reemplazo es un POST al mismo punto. Lo aprobado por el médico no
+        # se reemplaza: la carga nueva bajaría la vigente y el buzo se quedaría
+        # sin su estudio aprobado. Sin request no hay buzo, y no hay qué cotejar.
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if self.instance is None and user is not None and 'study_code' in attrs:
+            if not self._puede_reemplazarse(user, attrs['study_code']):
+                raise serializers.ValidationError({
+                    'study_code': 'El estudio ya fue revisado por el médico '
+                                  'y no puede reemplazarse.'})
+        return attrs
+
+    @staticmethod
+    def _puede_reemplazarse(user, code):
+        """Si el buzo puede volver a cargar el punto `code` (ver `fitness`)."""
+        vigente = (StudyBlock.objects.prefetch_related('comments')
+                   .filter(user=user, study_code=code, is_current=True).first())
+        profile = (UserProfile.objects.select_related('habilitation_window')
+                   .filter(user=user).first())
+        window = None if profile is None else profile.habilitation_window
+        return puede_reemplazarse(code, vigente, window, hoy())
 
     def get_access_level(self, obj):
         request = self.context.get('request')

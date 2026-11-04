@@ -216,9 +216,6 @@ const Bitacora = ({ onLogout }) => {
           <Link to="/profile" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-person-circle me-3"></i><span>Mi Perfil</span>
           </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-shield-lock me-3"></i><span>Permisos</span>
-          </Link>
           <Link to="/bitacora" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-book-fill me-3"></i><span>Bitácora de Buceo</span>
           </Link>

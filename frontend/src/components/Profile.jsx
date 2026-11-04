@@ -98,10 +98,6 @@ const Profile = ({ onLogout }) => {
             <i className="bi bi-person-circle-fill me-3"></i>
             <span>Mi Perfil</span>
           </Link>
-          <Link to="/permissions" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-shield-lock me-3"></i>
-            <span>Permisos</span>
-          </Link>
           <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
             <i className="bi bi-book me-3"></i>
             <span>Bitácora de Buceo</span>

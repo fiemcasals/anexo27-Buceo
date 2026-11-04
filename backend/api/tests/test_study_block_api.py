@@ -16,10 +16,15 @@ Dos reglas distintas conviven acá y conviene no confundirlas:
 from datetime import date
 
 from django.contrib.auth.models import User
+from django.test import override_settings
+from PIL import Image
 from rest_framework.test import APIClient, APITestCase
 
-from api.models import Comment, Permission, StudyBlock
+from api.images import ArchivoRechazado, comprimir
+from api.models import Comment, HabilitationWindow, Permission, StudyBlock
 from users.models import UserProfile
+
+from .media_temporal import MEDIA_TEMPORAL
 
 URL = "/api/blocks/"
 
@@ -208,10 +213,12 @@ class StudyBlockDeletionTests(APITestCase):
         self.assertTrue(StudyBlock.objects.filter(pk=self.mine.pk).exists())
 
     def test_a_reviewer_who_does_see_the_study_still_cannot_edit_it(self):
+        # Desde que el viewset no admite PATCH ni PUT, lo que lo impide es el
+        # método (405) y no el permiso de objeto.
         response = _client(self.doctor).patch(
             f"{URL}{self.mine.pk}/", {"study_date": "2020-01-01"},
             format="json")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self.mine.refresh_from_db()
         self.assertEqual(self.mine.study_date, date(2026, 10, 1))
 
@@ -352,3 +359,219 @@ class AccessLevelSaleDelRolTests(APITestCase):
         sobre_permisos = [q["sql"] for q in captured.captured_queries
                           if "api_permission" in q["sql"]]
         self.assertEqual(sobre_permisos, [])
+
+
+# Los helpers de archivos se importan de test_images y no se duplican: son los
+# que ya fijan qué es una foto, un PDF y un archivo que no es ninguno de los dos,
+# y una copia podría desviarse sin que ningún test lo note. Importar sólo los
+# helpers (no las clases) evita que el runner corra los tests de imágenes dos veces.
+from api.tests.test_images import _archivo, _imagen, _pdf  # noqa: E402
+
+
+def _estudio(buzo, code, study_date=date(2026, 9, 1)):
+    """La carga vigente de un punto, sin dictamen."""
+    return StudyBlock.objects.create(
+        user=buzo, study_code=code, study_date=study_date)
+
+
+def _dictamen(block, reviewer, status):
+    role = reviewer.profile.role
+    extra = ({"content": "Falta la firma.", "rejection_reason": "OTHER"}
+             if status == "REJECTED" else {})
+    return Comment.objects.create(
+        block=block, doctor=reviewer, reviewer_role=role, status=status, **extra)
+
+
+def _carga(code):
+    return {"study_code": code, "study_date": "2026-10-01",
+            "pdf_attachment": _pdf()}
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class _ConBuzoYRevisores(APITestCase):
+    def setUp(self):
+        self.buzo = _user("buzo1", "USER")
+        self.medico = _user("medico", "DOCTOR")
+        self.enfermero = _user("enfermero", "NURSE")
+        # Con ventana y fecha de nacimiento los ocho puntos tienen estado: sin
+        # ellos todo es NOT_REQUIRED y nada se podría proteger.
+        self.ventana = HabilitationWindow.objects.create(
+            cycle=2026, slot="FIRST",
+            start_date=date(2026, 11, 18), end_date=date(2026, 11, 20))
+        UserProfile.objects.filter(user=self.buzo).update(
+            birth_date=date(1988, 6, 15), habilitation_window=self.ventana)
+
+
+class ElPuntoLoDecideElBotonTests(_ConBuzoYRevisores):
+    def test_crear_sin_study_code_da_400(self):
+        r = _client(self.buzo).post(URL, {
+            "study_date": "2026-10-01", "pdf_attachment": _pdf()})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("study_code", r.data)
+
+    def test_el_title_que_manda_el_cliente_se_ignora(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "title": "Electrocardiograma de esfuerzo", "pdf_attachment": _pdf()})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(StudyBlock.objects.get(pk=r.data["id"]).title,
+                         "Electroencefalograma")
+
+    def test_se_puede_crear_sin_mandar_title(self):
+        # El title lo pone el catálogo: el cliente no tiene por qué mandarlo.
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 201, r.content)
+
+
+class LaFotoSeComprimeAlRecibirlaTests(_ConBuzoYRevisores):
+    def test_una_foto_grande_queda_guardada_en_2000_pixeles(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "pdf_attachment": _imagen(4032, 3024, "JPEG")})
+        self.assertEqual(r.status_code, 201, r.content)
+        bloque = StudyBlock.objects.get(pk=r.data["id"])
+        self.addCleanup(bloque.pdf_attachment.delete, save=False)
+        with Image.open(bloque.pdf_attachment) as guardada:
+            self.assertEqual(max(guardada.size), 2000)
+
+    def test_un_archivo_rechazado_sale_como_400_y_no_como_500(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "pdf_attachment": _archivo(b"PK\x03\x04", "informe.docx")})
+        self.assertEqual(r.status_code, 400)
+        # El 400 tiene que ser por el archivo y llevar el mensaje de `images`
+        # tal cual, no por cualquier otro campo.
+        with self.assertRaises(ArchivoRechazado) as ctx:
+            comprimir(_archivo(b"PK\x03\x04", "informe.docx"))
+        self.assertEqual(str(r.data["pdf_attachment"]), ctx.exception.mensaje)
+        self.assertEqual(StudyBlock.objects.count(), 0)
+
+
+class ElReemplazoTests(_ConBuzoYRevisores):
+    def test_se_puede_reemplazar_un_estudio_en_revision(self):
+        anterior = _estudio(self.buzo, "c")            # sin dictamen
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.is_current)
+
+    def test_se_puede_reemplazar_uno_pre_revisado(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.enfermero, "PRE_APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+
+    def test_NO_se_puede_reemplazar_uno_aprobado_por_el_medico(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400)
+        # Por el punto aprobado y no por otro campo mal armado.
+        self.assertIn("study_code", r.data)
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.is_current)
+
+    def test_el_rechazo_por_aprobado_es_un_error_del_study_code(self):
+        _dictamen(_estudio(self.buzo, "c"), self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(list(r.data), ["study_code"])
+
+    def test_el_estudio_aprobado_sigue_siendo_el_vigente_despues_del_rechazo(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("study_code", r.data)
+        # Una sola carga en el punto, y es la aprobada: la nueva no se guardó.
+        self.assertEqual(
+            list(StudyBlock.objects.filter(user=self.buzo, study_code="c")
+                 .values_list("pk", "is_current")),
+            [(anterior.pk, True)])
+
+    def test_se_puede_reemplazar_uno_aprobado_pero_vencido(self):
+        # La fecha manda sobre el dictamen: el aprobado que venció es EXPIRED y
+        # la pantalla le ofrece subirlo; el servidor no puede contestar 400.
+        anterior = _estudio(self.buzo, "c", date(2025, 1, 10))
+        _dictamen(anterior, self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 201, r.content)
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.is_current)
+
+    def test_sin_fecha_de_nacimiento_NO_se_puede_reemplazar_uno_aprobado(self):
+        # Vaciar un dato del perfil no puede ser la llave para pisar lo que el
+        # médico aprobó: sin edad todo punto sería NOT_REQUIRED.
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        UserProfile.objects.filter(user=self.buzo).update(birth_date=None)
+        r = _client(User.objects.get(pk=self.buzo.pk)).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("study_code", r.data)
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.is_current)
+
+    def test_sin_ventana_NO_se_puede_reemplazar_uno_aprobado(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        UserProfile.objects.filter(user=self.buzo).update(habilitation_window=None)
+        r = _client(User.objects.get(pk=self.buzo.pk)).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("study_code", r.data)
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.is_current)
+
+    def test_sin_ventana_se_puede_reemplazar_uno_no_aprobado(self):
+        _estudio(self.buzo, "c")
+        UserProfile.objects.filter(user=self.buzo).update(habilitation_window=None)
+        r = _client(User.objects.get(pk=self.buzo.pk)).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 201, r.content)
+
+    def test_se_puede_reemplazar_uno_rechazado(self):
+        _dictamen(_estudio(self.buzo, "c"), self.medico, "REJECTED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+
+    def test_la_aprobacion_de_un_punto_no_frena_la_carga_de_otro(self):
+        _dictamen(_estudio(self.buzo, "c"), self.medico, "APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("d")).status_code, 201)
+
+    def test_la_aprobacion_de_otro_buzo_no_frena_la_carga(self):
+        otro = _user("buzo2", "USER")
+        _dictamen(_estudio(otro, "c"), self.medico, "APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+
+    def test_el_dictamen_anterior_queda_en_el_historial(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.enfermero, "PRE_APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.is_current)
+        self.assertTrue(Comment.objects.filter(block=anterior).exists())
+
+
+class UnEstudioNoSeEditaTests(_ConBuzoYRevisores):
+    """Un reemplazo es un POST al mismo punto. PATCH y PUT no existen."""
+
+    def test_el_dueno_no_puede_pisar_su_estudio_aprobado_con_un_patch(self):
+        estudio = _estudio(self.buzo, "c")
+        _dictamen(estudio, self.medico, "APPROVED")
+        r = _client(self.buzo).patch(
+            f"{URL}{estudio.pk}/", {"pdf_attachment": _pdf()})
+        self.assertEqual(r.status_code, 405, r.content)
+        estudio.refresh_from_db()
+        self.assertFalse(estudio.pdf_attachment)
+
+    def test_un_patch_sobre_un_estudio_propio_da_405(self):
+        estudio = _estudio(self.buzo, "c")
+        r = _client(self.buzo).patch(
+            f"{URL}{estudio.pk}/", {"study_date": "2026-10-02"}, format="json")
+        self.assertEqual(r.status_code, 405, r.content)
+
+    def test_un_put_sobre_un_estudio_propio_da_405(self):
+        estudio = _estudio(self.buzo, "c")
+        r = _client(self.buzo).put(f"{URL}{estudio.pk}/", _carga("c"))
+        self.assertEqual(r.status_code, 405, r.content)
+
+    def test_borrar_y_listar_siguen_andando(self):
+        estudio = _estudio(self.buzo, "c")
+        self.assertEqual(_client(self.buzo).get(URL).status_code, 200)
+        self.assertEqual(
+            _client(self.buzo).delete(f"{URL}{estudio.pk}/").status_code, 204)

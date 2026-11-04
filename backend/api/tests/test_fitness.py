@@ -697,3 +697,96 @@ class RosterPerformanceTests(TestCase):
         with self.assertNumQueries(0):
             states = [fitness.diver_summary(p, TODAY).state for p in profiles]
         self.assertEqual(states, [DiverState.APTO] * 3)
+
+
+class PuedeReemplazarseTests(TestCase):
+    """El buzo reemplaza lo suyo salvo lo que el médico aprobó y sigue vigente.
+
+    La regla vive en `fitness` y no dentro del serializador porque la pantalla
+    del buzo necesita la misma respuesta para decidir si ofrece el reemplazo. Se
+    juzga el punto como si fuera exigido: que al buzo le falte la fecha de
+    nacimiento o la ventana no puede ser la llave para pisar lo aprobado.
+    """
+
+    def setUp(self):
+        self.window = _november_2026()
+        self.profile = _diver(birth_year=1988, window=self.window)
+
+    def _puede(self, dictamenes, study_date=VALID_FOR_EVERY_POINT, window="de_setUp"):
+        block = _upload(self.profile, "c", study_date, dictamenes=dictamenes)
+        block = StudyBlock.objects.prefetch_related("comments").get(pk=block.pk)
+        window = self.window if window == "de_setUp" else window
+        return fitness.puede_reemplazarse("c", block, window, TODAY)
+
+    def test_sin_carga_vigente_se_puede(self):
+        self.assertTrue(fitness.puede_reemplazarse("c", None, self.window, TODAY))
+
+    def test_en_revision_se_puede(self):
+        self.assertTrue(self._puede([]))
+
+    def test_pre_aprobado_se_puede(self):
+        self.assertTrue(self._puede([("PRE_APPROVED", "NURSE")]))
+
+    def test_rechazado_se_puede(self):
+        self.assertTrue(self._puede([("REJECTED", "DOCTOR")]))
+
+    def test_aprobado_por_el_medico_y_vigente_no_se_puede(self):
+        self.assertFalse(self._puede([("APPROVED", "DOCTOR")]))
+
+    def test_pre_aprobado_y_despues_aprobado_no_se_puede(self):
+        self.assertFalse(self._puede(
+            [("PRE_APPROVED", "NURSE"), ("APPROVED", "DOCTOR")]))
+
+    def test_aprobado_y_despues_rechazado_se_puede(self):
+        # Vale el último dictamen, no que alguna vez haya existido una aprobación.
+        self.assertTrue(self._puede(
+            [("APPROVED", "DOCTOR"), ("REJECTED", "DOCTOR")]))
+
+    def test_aprobado_pero_vencido_se_puede(self):
+        # La fecha manda sobre el dictamen: es EXPIRED, y renovarlo es el trámite.
+        self.assertTrue(self._puede([("APPROVED", "DOCTOR")],
+                                    study_date=date(2025, 1, 10)))
+
+    def test_aprobado_pero_fechado_en_el_futuro_se_puede(self):
+        self.assertTrue(self._puede([("APPROVED", "DOCTOR")],
+                                    study_date=date(2026, 12, 1)))
+
+    def test_sin_ventana_el_aprobado_no_se_puede(self):
+        # Sin rango no hay vencimiento que libere el papel.
+        self.assertFalse(self._puede([("APPROVED", "DOCTOR")], window=None))
+
+    def test_sin_ventana_lo_no_aprobado_se_puede(self):
+        for dictamenes in ([], [("PRE_APPROVED", "NURSE")], [("REJECTED", "DOCTOR")]):
+            with self.subTest(dictamenes=dictamenes):
+                self.assertTrue(self._puede(dictamenes, window=None))
+
+
+class EstadosFijadosTests(TestCase):
+    """Fija los nueve estados, porque la pantalla del buzo los mapea a mano.
+
+    `frontend/src/lib/agrupar-estudios.js` traduce cada estado a uno de los
+    cuatro grupos del parrafo 8.3, y lo hace con un mapa escrito a mano que no
+    puede leer este archivo. Un decimo estado agregado aca cae del lado del
+    descarte, y el buzo lo ve en "Falta subir" aunque no haya nada que subir.
+
+    El mapa del frontend tiene su propia tabla escrita a mano, pero esa tabla
+    solo prueba los estados que ya conoce: no puede saber que aparecio uno
+    nuevo. Este test es el unico lugar donde se nota, asi que si lo rompes,
+    actualiza tambien el mapa del frontend antes de ponerlo en verde.
+    """
+
+    def test_son_exactamente_estos_nueve(self):
+        self.assertEqual(
+            sorted(e.name for e in fitness.StudyState),
+            sorted([
+                'NOT_REQUIRED', 'MISSING', 'BEFORE_WINDOW', 'IN_REVIEW',
+                'PRE_REVIEWED', 'APPROVED', 'REJECTED', 'EXPIRED',
+                'DATE_INVALID',
+            ]))
+
+    def test_el_nombre_y_el_valor_coinciden(self):
+        # El endpoint serializa `estado` con el *nombre*, y el frontend mapea
+        # ese nombre. Si alguno divergiera del valor, el frontend recibiria una
+        # cadena que su mapa no conoce.
+        for estado in fitness.StudyState:
+            self.assertEqual(estado.name, estado.value)
