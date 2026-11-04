@@ -82,9 +82,17 @@ class Anexo27VerdictLineTests(TestCase):
         self.assertIn(colors.red, painted)
 
     def test_the_reviewer_label_comes_from_the_role_not_from_the_status(self):
-        # Mismo dictamen, dos roles: la etiqueta tiene que cambiar.
+        # Mismo dictamen, dos roles: el renglón tiene que distinguirlos. Hacen
+        # falta los dos en el mismo caso — con la etiqueta fija en "Médico", uno
+        # solo seguía coincidiendo y el test no podía fallar.
         doctor = User.objects.create(username="medico1")
+        nurse = User.objects.create(username="enfermero1")
+        Comment.objects.create(
+            block=self.block, doctor=doctor, reviewer_role="DOCTOR",
+            status="REJECTED", rejection_reason="OTHER",
+            content="Falta el sello.")
         lines, _ = self._render(
-            doctor=doctor, reviewer_role="DOCTOR", status="REJECTED",
-            rejection_reason="OTHER", content="Falta el sello.")
-        self.assertEqual(lines, ["[RECHAZADO] Médico (medico1):"])
+            doctor=nurse, reviewer_role="NURSE", status="REJECTED",
+            rejection_reason="ILLEGIBLE", content="Ilegible.")
+        self.assertEqual(lines, ["[RECHAZADO] Médico (medico1):",
+                                 "[RECHAZADO] Enfermero auxiliar (enfermero1):"])
