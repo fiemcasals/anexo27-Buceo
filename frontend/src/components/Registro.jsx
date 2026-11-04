@@ -67,6 +67,13 @@ function Registro({ onLogin }) {
         destination: valores.destination.trim(),
         birth_date: valores.birth_date,
       })
+      // Con ACCOUNT_EMAIL_VERIFICATION = 'mandatory' el servidor no devuelve
+      // `key`; guardar `undefined` dejaría la cadena "undefined" como token.
+      if (!res.data?.key) {
+        setErrorGeneral('Se creó la cuenta, pero no se pudo iniciar la sesión. Debe ingresarse desde la pantalla de acceso.')
+        setEnviando(false)
+        return
+      }
       localStorage.setItem('token', res.data.key)
       onLogin()
       navigate('/dashboard')

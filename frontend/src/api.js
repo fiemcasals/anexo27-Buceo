@@ -8,7 +8,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) {
+    // El registro es público: con un token viejo en localStorage, DRF autentica
+    // antes de evaluar AllowAny y responde 401, y el interceptor de abajo mandaría
+    // a la persona al login sin mensaje. Lo mismo que hace GradosView del lado del
+    // servidor (authentication_classes = []).
+    const esElRegistro = (config.url || '').includes('auth/registration');
+    if (token && !esElRegistro) {
       config.headers.Authorization = `Token ${token}`;
     }
     return config;

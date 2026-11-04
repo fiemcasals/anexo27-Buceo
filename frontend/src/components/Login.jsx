@@ -27,7 +27,7 @@ const Login = ({ onLogin }) => {
     try {
       if (isForgotMode) {
         await api.post('auth/password/reset/', { email: formData.email });
-        setSuccessMsg('Si el correo existe, te enviaremos un enlace para restablecer tu contraseña.');
+        setSuccessMsg('Si el correo existe, se enviará un enlace para restablecer la contraseña.');
         setIsForgotMode(false);
       } else {
         // Login
@@ -66,7 +66,7 @@ const Login = ({ onLogin }) => {
             </svg>
           </div>
           <h2 className="fw-bold mb-1">Anexo Buceo</h2>
-          <p className="text-secondary small">Centraliza y comparte tus estudios medicos</p>
+          <p className="text-secondary small">Seguimiento de los estudios médicos exigidos para la habilitación</p>
         </div>
 
 
@@ -75,7 +75,7 @@ const Login = ({ onLogin }) => {
 
         {isForgotMode ? (
           <form onSubmit={handleSubmit} className="text-start">
-            <p className="small text-muted mb-3">Ingresa tu correo para recibir un enlace de recuperación.</p>
+            <p className="small text-muted mb-3">Ingresar el correo electrónico para recibir un enlace de recuperación.</p>
             <div className="mb-4">
               <label className="form-label small fw-bold">Correo Electrónico</label>
               <input
@@ -138,7 +138,7 @@ const Login = ({ onLogin }) => {
 
               <div className="text-end mb-3">
                 <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotMode(true); setError(''); setSuccessMsg(''); }} className="small text-decoration-none text-muted">
-                  ¿Olvidaste tu contraseña?
+                  ¿Olvidó la contraseña?
                 </a>
               </div>
             </form>
