@@ -72,7 +72,7 @@ const ResetPassword = () => {
                 type="password" 
                 name="password" 
                 className="form-control" 
-                placeholder="Ingresa la nueva contraseña"
+                placeholder="Ingresar la nueva contraseña"
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -84,7 +84,7 @@ const ResetPassword = () => {
                 type="password" 
                 name="confirmPassword" 
                 className="form-control" 
-                placeholder="Repite la contraseña"
+                placeholder="Repetir la contraseña"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
