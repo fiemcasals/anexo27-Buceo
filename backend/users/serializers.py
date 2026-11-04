@@ -134,5 +134,7 @@ class CorregirCorreoSerializer(serializers.Serializer):
         with transaction.atomic():
             user.email = correo
             user.save(update_fields=['email'])
-            pass
+            EmailAddress.objects.filter(user=user).delete()
+            EmailAddress.objects.create(
+                user=user, email=correo, primary=True, verified=False)
         return user
