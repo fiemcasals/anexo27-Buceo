@@ -11,6 +11,11 @@ describe('agrupar', () => {
     expect(agrupar([]).map(g => g.titulo)).toEqual(TITULOS)
   })
 
+  it('cada grupo trae una clave estable, escrita a mano acá', () => {
+    expect(agrupar([]).map(g => g.clave))
+      .toEqual(['falta-subir', 'en-revision', 'revisados', 'no-corresponde'])
+  })
+
   it('el vencido y el rechazado van a "Falta subir", porque hay algo que hacer', () => {
     const grupos = agrupar([{ code: 'b', estado: 'EXPIRED' }, { code: 'c', estado: 'REJECTED' }])
     expect(grupos[0].estudios.map(e => e.code)).toEqual(['b', 'c'])

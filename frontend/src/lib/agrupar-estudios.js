@@ -6,6 +6,15 @@ const NO_CORRESPONDE = 'No corresponde'
 // Orden de los grupos en pantalla (§8.3).
 const GRUPOS = [FALTA_SUBIR, EN_REVISION, REVISADOS, NO_CORRESPONDE]
 
+// Clave estable de cada grupo: la pantalla despacha la tarjeta por esta clave y
+// no por el título visible, que se puede retocar sin romper nada.
+const CLAVE_DE = {
+  [FALTA_SUBIR]: 'falta-subir',
+  [EN_REVISION]: 'en-revision',
+  [REVISADOS]: 'revisados',
+  [NO_CORRESPONDE]: 'no-corresponde',
+}
+
 // Los nueve nombres de StudyState (api/fitness.py), explícitos y sin heurística
 // sobre el nombre. BEFORE_WINDOW está en "Falta subir" pero NO cuenta en el
 // "Faltan N" (§15.19): eso es presentación, y lo decide la pantalla.
@@ -28,7 +37,7 @@ const GRUPO_DE = {
 // a pasar; "Falta subir" lo mantiene visible y accionable. El guardia es el test
 // de los nueve estados, que se pone rojo en desarrollo.
 export function agrupar(estudios) {
-  const grupos = GRUPOS.map(titulo => ({ titulo, estudios: [] }))
+  const grupos = GRUPOS.map(titulo => ({ titulo, clave: CLAVE_DE[titulo], estudios: [] }))
   for (const estudio of estudios) {
     let titulo = GRUPO_DE[estudio.estado]
     if (!titulo) {

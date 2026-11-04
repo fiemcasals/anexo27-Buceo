@@ -2,18 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
 import { agrupar } from '../lib/agrupar-estudios'
+import {
+  llevaBoton, estaCompleto, oracionDelContador, cuantosFaltan,
+} from '../lib/decisiones-de-la-pantalla'
 import { enCastellano } from '../lib/fecha-castellano'
 import { rangoEnCastellano } from '../lib/rango-de-fechas'
 import { efectoDelCambioDeFecha } from '../lib/efecto-del-cambio-de-fecha'
 import CargarEstudio from './CargarEstudio'
-
-// §15.19: el botón de subir sale del ESTADO del punto y no de
-// `puede_reemplazarse`, que responde otra pregunta —si el servidor dejaría
-// pisar lo que ya hay— y viene en `true` para todo punto sin carga, incluidos
-// el que no corresponde y el que todavía no se puede presentar. Atarlo a ese
-// campo le pondría botón de subir al Anexo 27 once meses antes de que exista
-// un papel que subir.
-const ESTADOS_QUE_PIDEN_CARGA = ['MISSING', 'REJECTED', 'EXPIRED', 'DATE_INVALID']
 
 // Los que piden una corrección se enmarcan en rojo. "Sin presentar" no: es una
 // tarea pendiente, no un problema, y pintar todo de rojo entrena a ignorarlo.
@@ -44,13 +39,6 @@ const VERDE = '#1d7a3d'
 
 function enPalabras(estado) {
   return ESTADO_EN_PALABRAS[estado] || estado
-}
-
-// "Faltan 1 estudio" no se escribe así. El vocabulario del §8.3 es
-// "Faltan N estudios" y el singular es la única forma que cambia; el cero va en
-// plural, que en castellano es lo correcto.
-function cuantosFaltan(faltan) {
-  return faltan === 1 ? 'Falta 1 estudio' : `Faltan ${faltan} estudios`
 }
 
 function Titulo({ children }) {
@@ -257,7 +245,7 @@ function EfectoDelCambio({ efecto, onCerrar }) {
 
 function Contador({ estado }) {
   const { faltan, revisados, total_exigidos: total } = estado
-  const completo = faltan === 0
+  const completo = estaCompleto(estado)
   const porcentaje = total > 0 ? Math.round((revisados / total) * 100) : 0
 
   return (
@@ -273,11 +261,7 @@ function Contador({ estado }) {
       <div className="mt-2" style={{
         fontSize: '12.5px', lineHeight: 1.5, color: completo ? '#1d7a3d' : '#9a6508',
       }}>
-        {completo
-          ? 'No queda ningún estudio por subir. Se notificará por correo la aptitud para '
-            + 'presentarse a la habilitación.'
-          : 'Una vez subidos y revisados, se notificará por correo la aptitud para '
-            + 'presentarse a la habilitación.'}
+        {oracionDelContador(estado)}
       </div>
       <div className="bg-white rounded-pill mt-3 overflow-hidden" style={{ height: '9px' }}>
         <div style={{ background: VERDE, height: '100%', width: `${porcentaje}%` }} />
@@ -305,9 +289,13 @@ function Rechazo({ rechazo }) {
   )
 }
 
+const ESTADOS_CONOCIDOS_EN_FALTA_SUBIR = [
+  'MISSING', 'REJECTED', 'EXPIRED', 'DATE_INVALID', 'BEFORE_WINDOW',
+]
+
 function TarjetaPorSubir({ estudio, onSubir }) {
   const conProblema = ESTADOS_CON_PROBLEMA.includes(estudio.estado)
-  const conBoton = ESTADOS_QUE_PIDEN_CARGA.includes(estudio.estado)
+  const conBoton = llevaBoton(estudio)
   const fueraDeVentana = estudio.estado === 'BEFORE_WINDOW'
 
   return (
@@ -328,8 +316,7 @@ function TarjetaPorSubir({ estudio, onSubir }) {
       {fueraDeVentana && (
         <div className="mt-1" style={{ fontSize: '12.5px', color: '#6b7694', lineHeight: 1.5 }}>
           Se puede presentar a partir del {enCastellano(estudio.desde_cuando)}.
-          Este documento tiene una validez corta, así que antes de esa fecha no cubriría
-          todo el período de la habilitación.
+          Antes de esa fecha, el documento no cubriría todo el período de la habilitación.
         </div>
       )}
 
@@ -343,6 +330,14 @@ function TarjetaPorSubir({ estudio, onSubir }) {
         <div className="mt-1" style={{ fontSize: '12.5px', color: ROJO, lineHeight: 1.5 }}>
           La fecha cargada no corresponde al período de la habilitación. Debe volver a
           subirse el estudio con la fecha que figura impresa en el documento.
+        </div>
+      )}
+
+      {/* Un estado que la pantalla no conoce cae acá (agrupar-estudios.js): sin
+          este renglón la tarjeta saldría con el nombre y nada más. */}
+      {!ESTADOS_CONOCIDOS_EN_FALTA_SUBIR.includes(estudio.estado) && (
+        <div className="mt-1" style={{ fontSize: '12.5px', color: ROJO, lineHeight: 1.5 }}>
+          No se pudo determinar el estado de este estudio. Debe consultarse con la unidad.
         </div>
       )}
 
@@ -424,15 +419,18 @@ function Grupo({ grupo, onSubir }) {
     <div className="mb-3">
       <Titulo>{grupo.titulo}</Titulo>
       {grupo.estudios.map(estudio => {
-        if (grupo.titulo === 'Falta subir') {
+        if (grupo.clave === 'falta-subir') {
           return <TarjetaPorSubir key={estudio.code} estudio={estudio} onSubir={onSubir} />
         }
-        if (grupo.titulo === 'En revisión') {
+        if (grupo.clave === 'en-revision') {
           return <TarjetaEnRevision key={estudio.code} estudio={estudio} onSubir={onSubir} />
         }
-        if (grupo.titulo === 'Revisados') {
+        if (grupo.clave === 'revisados') {
           return <TarjetaRevisada key={estudio.code} estudio={estudio} />
         }
+        // Sólo 'no-corresponde' llega acá. Se despacha por clave y no por el
+        // título visible: un desajuste de una tilde mandaría un estudio a la
+        // tarjeta más tranquilizadora de la pantalla.
         return <TarjetaNoCorresponde key={estudio.code} estudio={estudio} />
       })}
     </div>
@@ -573,8 +571,18 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
 
   const confirmarFecha = async idDeLaFecha => {
     const antes = estado
+    // Dos pasos, dos errores: si el PUT sale bien y falla el GET, la fecha SÍ se
+    // guardó, y el selector no debe decir lo contrario.
     await api.put('mi-fecha/', { window: idDeLaFecha })
-    const despues = await traer()
+    let despues
+    try {
+      despues = await traer()
+    } catch {
+      setEligiendoFecha(false)
+      setEfecto(null)
+      setError('La fecha se guardó, pero no se pudo traer el estado actualizado de los estudios.')
+      return
+    }
     setEligiendoFecha(false)
     setEfecto(efectoDelCambioDeFecha(antes, despues))
   }
