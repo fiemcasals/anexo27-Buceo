@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .roles import es_revisor
 from users.models import UserProfile, ProfileFieldTemplate
 
 class UserSerializer(serializers.ModelSerializer):
@@ -131,6 +132,22 @@ class StudyBlockSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or request.user == obj.user:
             return 'OWNER'
+        # §5: el revisor designado puede dictaminar sobre el estudio, y este
+        # campo es el que lo informa. Resolviéndolo por `Permission` le decía
+        # "NONE" sobre los estudios que la misma respuesta le estaba sirviendo,
+        # y `Dashboard.jsx:477` cuelga de este valor el único camino de interfaz
+        # para escribir un dictamen: el backend aceptaba el dictamen y la
+        # pantalla no se lo ofrecía.
+        #
+        # `MODIFY` es lo que en el vocabulario de este código significa "puede
+        # dictaminar" —`Permissions.jsx:262` lo rotula "Médico"—, no "puede
+        # editar el estudio": eso lo sigue impidiendo `SoloElDuenoDelEstudio`.
+        # Cuando el plan 3 construya la pantalla del médico conviene reemplazar
+        # este campo por uno honesto; mientras tanto tiene que decir la verdad.
+        # Sale antes de consultar `Permission`, así que al revisor le ahorra una
+        # consulta por fila (§13).
+        if es_revisor(request.user):
+            return 'MODIFY'
         perms = Permission.objects.filter(grantor=obj.user, grantee=request.user)
         for p in perms:
             if "ALL" in p.shared_items or str(obj.id) in p.shared_items:

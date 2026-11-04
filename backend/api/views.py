@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.conf import settings
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
 from users.models import UserProfile, ProfileFieldTemplate
@@ -149,9 +150,24 @@ class Anexo27View(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def retrieve(self, request, pk=None):
-        user = User.objects.get(pk=pk)
-        # Check if user has permission or is staff
-        if request.user != user and not request.user.is_staff:
+        # Sin la guarda, un id inexistente propaga `DoesNotExist` y sale como
+        # 500 — con DEBUG=True, un traceback.
+        user = get_object_or_404(User, pk=pk)
+        # §5 sobre el tercer endpoint que sirve el registro médico, y el que lo
+        # sirve como el documento que firma un oficial: el revisor designado ve
+        # los estudios de todos, así que puede emitir el formulario. Decidía por
+        # `is_staff`, que es la llave del admin de Django y no tiene nada que ver
+        # con el §5: el médico designado recibía 403 sobre el formulario que el
+        # sistema existe para producir.
+        #
+        # `is_staff` se conserva igual: D-1 deja el admin de Django como acceso
+        # crudo y salida de emergencia hasta que exista la pantalla propia del
+        # admin, así que ya ve los estudios y los dictámenes por ahí. Negarle
+        # este endpoint mientras el panel sirve los mismos datos no protegería
+        # nada.
+        if (request.user != user
+                and not es_revisor(request.user)
+                and not request.user.is_staff):
             return HttpResponse("Unauthorized", status=403)
         
         response = HttpResponse(content_type='application/pdf')

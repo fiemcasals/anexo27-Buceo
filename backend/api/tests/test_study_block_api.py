@@ -294,3 +294,61 @@ class CommentSelfDictamenApiTests(APITestCase):
         response = self._post(self._block(self.other), _client(_user("nadie")))
         self.assertEqual(response.status_code, 403, response.content)
         self.assertEqual(Comment.objects.count(), 0)
+
+
+class AccessLevelSaleDelRolTests(APITestCase):
+    """`access_level` informa el acceso, así que tiene que informar el del §5.
+
+    `get_access_level` quedó resolviendo por `Permission` después de que el ítem
+    4 sacara las concesiones del circuito, así que al revisor designado le
+    informaba `"NONE"` sobre los estudios que la propia respuesta le estaba
+    sirviendo. No es sólo un campo inexacto: `Dashboard.jsx:477` abre el botón
+    "Revisar Auditoría" con `s.access_level === 'MODIFY'`, de modo que el único
+    camino de interfaz para escribir un dictamen quedaba oculto justo para el
+    médico designado — el backend le aceptaba el dictamen y la pantalla no se lo
+    ofrecía.
+
+    `MODIFY` es el valor que en el vocabulario de este código significa "puede
+    dictaminar": `Permissions.jsx:262` lo rotula literalmente "Médico". Cuando el
+    plan 3 construya la pantalla del médico conviene reemplazar este campo por
+    uno honesto; mientras tanto tiene que decir la verdad.
+    """
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 18))
+
+    def _level_for(self, user):
+        response = _client(user).get(URL)
+        self.assertEqual(response.status_code, 200, response.content)
+        rows = [r for r in response.json() if r["id"] == self.block.pk]
+        self.assertEqual(len(rows), 1, response.content)
+        return rows[0]["access_level"]
+
+    def test_the_designated_doctor_is_told_they_can_rule(self):
+        self.assertEqual(self._level_for(_user("medico", "DOCTOR")), "MODIFY")
+
+    def test_the_designated_nurse_is_told_they_can_rule(self):
+        self.assertEqual(self._level_for(_user("enfermero", "NURSE")), "MODIFY")
+
+    def test_the_owner_is_still_the_owner(self):
+        self.assertEqual(self._level_for(self.diver), "OWNER")
+
+    def test_the_reviewer_costs_no_permission_query_per_study(self):
+        # El rol alcanza, así que no hace falta preguntarle a `Permission` una
+        # vez por fila. Eran N+1 consultas y el listado del médico pasó de 0 a
+        # ~1.200 filas, que es lo que el §13 marca como la cosa a vigilar.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        doctor = _user("medico", "DOCTOR")
+        for n in range(3):
+            StudyBlock.objects.create(
+                user=self.diver, study_code="cdef"[n],
+                study_date=date(2026, 10, 18))
+        with CaptureQueriesContext(connection) as captured:
+            _client(doctor).get(URL)
+        sobre_permisos = [q["sql"] for q in captured.captured_queries
+                          if "api_permission" in q["sql"]]
+        self.assertEqual(sobre_permisos, [])
