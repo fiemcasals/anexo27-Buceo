@@ -742,7 +742,11 @@ git commit -m "feat(users): el registro pide los datos del parrafo 5 y el DNI no
 
     `DATE_INVALID` acompaña a `EXPIRED` porque el motor ya los junta (`fitness.EXPIRED_STATES`): en los dos casos hay que subir de nuevo.
 
-    **`BEFORE_WINDOW` va en "Falta subir", y eso no contradice al §15.19.** El motor lo cuenta como faltante (`fitness.INCOMPLETE_STATES = {MISSING, BEFORE_WINDOW}`), así que entra en el "Faltan N estudios" y tiene que estar en el grupo. Lo que el §15.19 prohíbe es **mostrarlo como faltante**: sin rojo y sin botón de subir, con "Se puede presentar a partir del …" en su lugar. Eso es presentación, y es la Tarea 7 la que lo hace (paso 1, punto 6).
+    **`BEFORE_WINDOW` va en el grupo "Falta subir" pero NO en el contador.** Esta es una corrección al plan, hecha durante la ejecución: la versión anterior decía que entraba en el "Faltan N estudios" porque `fitness.INCOMPLETE_STATES` lo cuenta. Eso está mal y el §15.19 lo desmiente — "pintarlo de faltante lo entrena a ignorar el rojo justo en el punto que más importa", y el contador es el elemento más grande de la pantalla.
+
+    Lo que rige: **`faltan` cuenta `{MISSING, REJECTED, EXPIRED, DATE_INVALID}`** (la constante `ESTADOS_QUE_PIDEN_CARGA` de `api/estado.py`), o sea el grupo "Falta subir" menos `BEFORE_WINDOW`. `INCOMPLETE_STATES` es del motor del plan 1 y responde otra pregunta: **no se usa para el contador.** Consecuencia buscada: un buzo cuyo único pendiente es el Anexo 27 fuera de ventana ve "Faltan 0 estudios", y el contador pasa a 1 cuando la ventana abre.
+
+    En el grupo sí está, porque el §15.19 no prohíbe el grupo: prohíbe **mostrarlo como faltante**, o sea sin rojo y sin botón de subir, con "Se puede presentar a partir del …" en su lugar. Eso es presentación y lo hace la Tarea 7 (paso 1, punto 6).
   - `comprimirEnElNavegador(file: File) -> Promise<File>` — reduce a 2000 px de lado mayor, calidad 0.75. Un PDF vuelve sin tocar. **No valida ni rechaza**: eso es del servidor (Tarea 1), que es quien no puede ser engañado.
 
 - [ ] **Step 1: Instalar vitest y escribir los tests que fallan**
@@ -856,7 +860,9 @@ De arriba a abajo, en este orden, que es el del §8.3:
 2. **"Faltan N estudios", en grande.** Al llegar a cero, el bloque pasa a verde.
 3. **Barra de progreso** con "2 de 7 revisados".
 4. **Los cuatro grupos** de `agrupar()`, con los títulos exactos.
-5. En "Falta subir", **un botón grande por estudio**. El motivo del rechazo, **textual**, en la misma tarjeta que el botón para arreglarlo.
+5. En "Falta subir", **un botón grande por estudio, salvo el que está fuera de su ventana** (punto 6). El motivo del rechazo, **textual**, en la misma tarjeta que el botón para arreglarlo.
+
+    **De dónde sale el botón, y de dónde no.** La condición es el **estado** del punto: `MISSING`, `REJECTED`, `EXPIRED` o `DATE_INVALID` llevan botón; `BEFORE_WINDOW` no, por el §15.19. **No lo ates a `puede_reemplazarse`**, que el endpoint devuelve `true` para cualquier punto sin carga —incluido el que no corresponde y el que está fuera de ventana—, porque responde otra pregunta: si el servidor dejaría reemplazar lo que ya hay. Atar el botón a ese campo le pone botón de subir al Anexo 27 once meses antes de que se pueda presentar.
 6. El Anexo 27 antes de su ventana dice **desde cuándo** se puede presentar, en castellano.
 7. Lo que no corresponde, **apagado y con su explicación**.
 8. **El correo al que van los avisos**, con la opción de corregirlo, contra `PUT /api/mi-correo/` (§15.11).
