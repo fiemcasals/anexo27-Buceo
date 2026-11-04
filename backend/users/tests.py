@@ -1,3 +1,95 @@
+from datetime import date
+
+from django.contrib.auth.models import User
+from django.db.utils import IntegrityError
 from django.test import TestCase
 
-# Create your tests here.
+from rest_framework.test import APIClient
+
+from api.serializers import UserProfileSerializer
+from users.models import UserProfile
+
+
+def _profile(username, **kwargs):
+    user = User.objects.create(username=username)
+    return UserProfile.objects.create(user=user, **kwargs)
+
+
+class UserProfileTests(TestCase):
+    def test_age_is_a_year_subtraction_not_a_birthday(self):
+        # Cumple 40 en diciembre de 2026: en 2026 ya debe los ocho estudios.
+        p = _profile("a", dni="1", birth_date=date(1986, 12, 31))
+        self.assertEqual(p.age_in_year(2026), 40)
+
+    def test_age_is_none_without_a_birth_date(self):
+        self.assertIsNone(_profile("b", dni="2").age_in_year(2026))
+
+    def test_dni_is_unique(self):
+        _profile("c", dni="30111222")
+        with self.assertRaises(IntegrityError):
+            _profile("d", dni="30111222")
+
+    def test_profiles_without_dni_coexist(self):
+        # Camino de get_or_create(user=...) en /api/profiles/me/: sin DNI.
+        a = UserProfile.objects.get_or_create(user=User.objects.create(username="f"))[0]
+        b = UserProfile.objects.get_or_create(user=User.objects.create(username="g"))[0]
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertIsNone(a.dni)
+        self.assertIsNone(b.dni)
+
+    def test_blank_dni_is_stored_as_null_so_profiles_coexist(self):
+        a = _profile("h", dni="")
+        b = _profile("i", dni="")
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertIsNone(a.dni)
+        self.assertIsNone(b.dni)
+
+    def test_two_users_can_patch_blank_dni_through_the_api(self):
+        # Profile.jsx envia dni: '' cuando el campo no se toco.
+        for name in ("j", "k"):
+            client = APIClient()
+            client.force_authenticate(User.objects.create(username=name))
+            response = client.patch("/api/profiles/me/", {"dni": ""}, format="json")
+            self.assertEqual(response.status_code, 200, response.content)
+
+    def test_nurse_is_a_role(self):
+        self.assertIn("NURSE", dict(UserProfile.ROLE_CHOICES))
+
+    def test_the_role_labels_are_the_ones_the_spec_names(self):
+        # El admin de Django es la única interfaz humana de esta rama, y es
+        # donde el oficial de la unidad designa los roles: "User" no se lee
+        # como "buzo" (§5 y §10). Los valores no cambian, sólo las etiquetas.
+        self.assertEqual(
+            dict(UserProfile.ROLE_CHOICES),
+            {"USER": "Buzo", "NURSE": "Enfermero auxiliar",
+             "DOCTOR": "Médico", "ADMIN": "Administrador"},
+        )
+
+    def test_the_admin_list_does_not_dereference_user_row_by_row(self):
+        # §8.5: el admin coteja 150 personas contra sus propios legajos. Las
+        # tres columnas que salen de `user` costaban una consulta por fila.
+        from users.admin import UserProfileAdmin
+        self.assertEqual(UserProfileAdmin.list_select_related, ("user",))
+
+    def test_rank_is_the_closed_hierarchical_list(self):
+        self.assertEqual(
+            UserProfile.RANK_VALUES,
+            ("GD", "GB", "CY", "CR", "TC", "MY", "CT", "TP", "TT", "ST",
+             "SM", "SP", "SA", "SI", "SG", "CI", "CB"),
+        )
+
+    def test_ranks_are_grouped_into_officers_and_ncos(self):
+        groups = [g for g, _ in UserProfile.RANK_CHOICES]
+        self.assertEqual(groups, ["Oficiales", "Suboficiales"])
+
+    def test_profile_is_registered_in_the_django_admin(self):
+        from django.contrib import admin
+        self.assertIn(UserProfile, admin.site._registry)
+
+    def test_serializer_exposes_birth_date_and_not_age(self):
+        p = _profile("e", dni="3", birth_date=date(1990, 5, 1))
+        data = UserProfileSerializer(p).data
+        self.assertEqual(data["birth_date"], "1990-05-01")
+        self.assertNotIn("age", data)

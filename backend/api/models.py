@@ -1,30 +1,156 @@
-from django.db import models
+from datetime import timedelta
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 from django.contrib.auth.models import User
 import uuid
 from django.contrib.auth.models import User
+from . import catalog
 
 class StudyBlock(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_blocks')
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    study_date = models.DateField()
-    pdf_attachment = models.FileField(upload_to='studies/%Y/%m/%d/')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='study_blocks',
+        verbose_name='Buzo',
+    )
+    study_code = models.CharField(
+        max_length=1, choices=[(c, c) for c in catalog.CODES],
+        verbose_name='Punto de la directiva',
+    )
+    is_current = models.BooleanField(default=True, verbose_name='Vigente')
+    # Filled from the catalog in save(); never typed by the diver.
+    title = models.CharField(max_length=255, verbose_name='Estudio')
+    description = models.TextField(blank=True, verbose_name='Observaciones')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Subido el')
+    study_date = models.DateField(verbose_name='Fecha del estudio')
+    pdf_attachment = models.FileField(
+        upload_to='studies/%Y/%m/%d/', verbose_name='Archivo',
+    )
+
+    class Meta:
+        verbose_name = 'Estudio médico'
+        verbose_name_plural = 'Estudios médicos'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'study_code'],
+                condition=models.Q(is_current=True),
+                name='one_current_study_per_diver_and_point',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Un código fuera del catálogo no es un dato del usuario — el
+        # serializador valida las choices — sino un error de programación de la
+        # consola o de la siembra. Antes guardaba un title vacío en silencio.
+        if self.study_code not in catalog.CODES:
+            raise ValueError(
+                f'study_code {self.study_code!r} no es uno de los ocho puntos '
+                f'de la directiva: {"".join(catalog.CODES)}.'
+            )
+        self.title = catalog.get(self.study_code).text
+        with transaction.atomic():
+            if self._state.adding and self.is_current:
+                StudyBlock.objects.filter(
+                    user=self.user, study_code=self.study_code, is_current=True
+                ).update(is_current=False)
+            super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
 
 class Comment(models.Model):
     STATUS_CHOICES = [
+        ('PRE_APPROVED', 'Pre-revisado'),
         ('APPROVED', 'Aprobado'),
         ('REJECTED', 'Rechazado con Observación'),
     ]
-    block = models.ForeignKey(StudyBlock, on_delete=models.CASCADE, related_name='comments')
-    doctor = models.ForeignKey(User, on_delete=models.CASCADE)
-    content = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
-    created_at = models.DateTimeField(auto_now_add=True)
-    verified_signature = models.BooleanField(default=True)
+    REJECTION_REASONS = [
+        ('OUT_OF_TERM', 'Estudio fuera del plazo de la directiva'),
+        ('UNFIT_VALUES', 'Valores no aptos para realizar la actividad'),
+        ('ILLEGIBLE', 'Documento ilegible'),
+        ('OTHER', 'Otros'),
+    ]
+    REVIEWER_ROLES = [
+        ('DOCTOR', 'Médico'),
+        ('NURSE', 'Enfermero auxiliar'),
+    ]
+    block = models.ForeignKey(
+        StudyBlock, on_delete=models.CASCADE, related_name='comments',
+        verbose_name='Estudio médico',
+    )
+    # Nombre histórico: también lo usa un enfermero; reviewer_role dice quién dictaminó.
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, verbose_name='Dictaminó',
+    )
+    reviewer_role = models.CharField(
+        max_length=10, choices=REVIEWER_ROLES, verbose_name='En calidad de',
+    )
+    # Obligatorio sólo en los rechazos (ver clean()).
+    content = models.TextField(blank=True, verbose_name='Detalle')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, verbose_name='Dictamen',
+    )
+    rejection_reason = models.CharField(
+        max_length=20, choices=REJECTION_REASONS, blank=True,
+        verbose_name='Motivo del rechazo',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Registrado el')
+    verified_signature = models.BooleanField(
+        default=True, verbose_name='Firma verificada',
+    )
+
+    class Meta:
+        verbose_name = 'Dictamen'
+        verbose_name_plural = 'Dictámenes'
+        constraints = [
+            # Sólo el médico declara apto; el enfermero pre-aprueba; ambos pueden rechazar.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status='REJECTED')
+                    | models.Q(status='PRE_APPROVED', reviewer_role='NURSE')
+                    | models.Q(status='APPROVED', reviewer_role='DOCTOR')
+                ),
+                name='verdict_matches_reviewer_role',
+                violation_error_message=(
+                    'La aprobación corresponde sólo al médico y la '
+                    'pre-aprobación sólo al enfermero auxiliar.'
+                ),
+            ),
+            # Todo rechazo lleva motivo y detalle; nada más lleva motivo.
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(status='REJECTED')
+                     & ~models.Q(rejection_reason='') & ~models.Q(content=''))
+                    | (~models.Q(status='REJECTED') & models.Q(rejection_reason=''))
+                ),
+                name='rejection_has_reason_and_detail',
+                violation_error_message=(
+                    'Todo rechazo requiere motivo y detalle, y sólo un '
+                    'rechazo lleva motivo.'
+                ),
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+        # Spec §15.9: nadie dictamina sobre sus propios estudios. La unidad tiene
+        # un solo médico y puede ser además buzo; sin esto se declara apto solo.
+        # Va acá y no en una CheckConstraint porque comparar el revisor contra el
+        # dueño del estudio exige un join, que SQLite no admite dentro de un
+        # CHECK. El spec pide la validación, no la interfaz, y esta es la capa.
+        if self.block_id and self.doctor_id == self.block.user_id:
+            errors['doctor'] = 'Nadie puede dictaminar sobre sus propios estudios.'
+        if self.status == 'APPROVED' and self.reviewer_role == 'NURSE':
+            errors['status'] = 'La aprobación corresponde sólo al médico.'
+        elif self.status == 'PRE_APPROVED' and self.reviewer_role == 'DOCTOR':
+            errors['status'] = 'La pre-aprobación corresponde sólo al enfermero auxiliar.'
+        if self.status == 'REJECTED':
+            if not self.rejection_reason:
+                errors['rejection_reason'] = 'Todo rechazo requiere un motivo.'
+            if not self.content.strip():
+                errors['content'] = 'Todo rechazo requiere un detalle para el buzo.'
+        elif self.rejection_reason:
+            errors['rejection_reason'] = 'Sólo un rechazo lleva motivo.'
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return f"Comment by {self.doctor.username} on {self.block.title}"
@@ -108,3 +234,61 @@ class DiveLog(models.Model):
 
     def __str__(self):
         return f"Log - {'Completed' if self.is_completed else 'Pending'}"
+
+
+class HabilitationWindow(models.Model):
+    """Fecha de habilitación: un rango de días dentro de un ciclo anual.
+
+    Cada ciclo tiene hasta tres (1.ª, 2.ª y complementaria), que se cargan de a
+    una: un ciclo incompleto es el estado normal. Toda vigencia se mide contra
+    este rango, y el estudio debe estar vigente todos los días, o sea hasta
+    `end_date`.
+    """
+    FIRST = 'FIRST'
+    SECOND = 'SECOND'
+    COMPLEMENTARY = 'COMPLEMENTARY'
+    SLOT_CHOICES = [
+        (FIRST, '1.ª fecha'),
+        (SECOND, '2.ª fecha'),
+        (COMPLEMENTARY, 'Complementaria'),
+    ]
+
+    cycle = models.PositiveIntegerField(verbose_name='Ciclo (año)')
+    slot = models.CharField(
+        max_length=13, choices=SLOT_CHOICES, verbose_name='Lugar en el ciclo',
+    )
+    start_date = models.DateField(verbose_name='Fecha de inicio')
+    end_date = models.DateField(verbose_name='Fecha de fin')
+
+    class Meta:
+        verbose_name = 'Fecha de habilitación'
+        verbose_name_plural = 'Fechas de habilitación'
+        ordering = ['start_date']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cycle', 'slot'], name='unique_window_slot_per_cycle',
+                violation_error_message='Ya existe una fecha con ese lugar en el ciclo.',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(end_date__gte=models.F('start_date')),
+                name='window_end_not_before_start',
+                violation_error_message='La fecha de fin no puede ser anterior a la de inicio.',
+            ),
+        ]
+
+    def clean(self):
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError('La fecha de fin no puede ser anterior a la de inicio.')
+
+    @property
+    def anexo27_earliest_date(self):
+        """Primer día en que el Anexo 27 sigue vigente para todo el rango."""
+        return self.end_date - timedelta(days=30)
+
+    def __str__(self):
+        label = self.get_slot_display()
+        if self.start_date == self.end_date:
+            rango = f"{self.start_date:%d/%m/%Y}"
+        else:
+            rango = f"{self.start_date:%d/%m/%Y} al {self.end_date:%d/%m/%Y}"
+        return f"{label} {self.cycle}: {rango}"

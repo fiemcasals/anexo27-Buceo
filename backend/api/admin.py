@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import HabilitationWindow
+
+
+@admin.register(HabilitationWindow)
+class HabilitationWindowAdmin(admin.ModelAdmin):
+    list_display = ('cycle', 'slot', 'start_date', 'end_date')
+    list_filter = ('cycle', 'slot')

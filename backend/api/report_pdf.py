@@ -3,6 +3,18 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from .models import StudyBlock
 
+# Texto y color de cada dictamen en el formulario. La pre-aprobación del
+# enfermero auxiliar no es ni una aprobación ni un rechazo (§6: su aprobación no
+# es definitiva, su rechazo sí), así que lleva los suyos: sin esta rama el
+# formulario oficial imprimía "RECHAZADO" en rojo sobre un estudio pre-revisado.
+# Los textos siguen las etiquetas de Comment.STATUS_CHOICES, en mayúsculas como
+# ya venía el formulario.
+VERDICT_PRINT = {
+    'APPROVED': ('APROBADO', colors.green),
+    'PRE_APPROVED': ('PRE-REVISADO', colors.orange),
+    'REJECTED': ('RECHAZADO', colors.red),
+}
+
 def generate_anexo_27(output, user):
     p = canvas.Canvas(output, pagesize=letter)
     width, height = letter
@@ -29,7 +41,7 @@ def generate_anexo_27(output, user):
     p.drawString(100, height - 210, "Estudios y Notaciones Médicas")
     
     y_position = height - 240
-    blocks = StudyBlock.objects.filter(user=user)
+    blocks = StudyBlock.objects.filter(user=user, is_current=True)
     
     for block in blocks:
         if y_position < 100:
@@ -47,9 +59,14 @@ def generate_anexo_27(output, user):
         comments = block.comments.all()
         for comment in comments:
             p.setFont("Helvetica-BoldOblique", 10)
-            status_text = "APROBADO" if comment.status == "APPROVED" else "RECHAZADO"
-            p.setFillColor(colors.green if comment.status == "APPROVED" else colors.red)
-            p.drawString(140, y_position, f"[{status_text}] Médico ({comment.doctor.username}):")
+            status_text, status_color = VERDICT_PRINT[comment.status]
+            # Quién dictaminó sale de `reviewer_role`: la etiqueta fija "Médico"
+            # le atribuía al médico lo que había dictaminado un enfermero.
+            reviewer_label = comment.get_reviewer_role_display()
+            p.setFillColor(status_color)
+            p.drawString(
+                140, y_position,
+                f"[{status_text}] {reviewer_label} ({comment.doctor.username}):")
             p.setFillColor(colors.black)
             y_position -= 12
             
