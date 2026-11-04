@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import api from '../api'
 import { comprimirEnElNavegador } from '../lib/comprimir-imagen'
+import { primerMensajeDelCuerpo } from '../lib/primer-mensaje-del-cuerpo'
 
 // Los dos campos de la carga: la fecha impresa en el documento y el archivo. El
 // punto (`code`) ya viene determinado por la pantalla, que es quien muestra el
@@ -45,8 +46,11 @@ function CargarEstudio({ code, onSubido }) {
           }
         })
         if (!atado) {
-          const resto = cuerpo.non_field_errors || cuerpo.detail
-          setErrorGeneral(resto ? mensajeDe(resto) : ERROR_GENERICO)
+          // El servidor ata el rechazo a su campo (p. ej. `study_code` cuando el
+          // médico ya revisó el estudio). Si no es uno de los dos campos del
+          // formulario, se muestra el mensaje que vino: el genérico invita a
+          // reintentar algo que nunca va a andar.
+          setErrorGeneral(primerMensajeDelCuerpo(cuerpo) || ERROR_GENERICO)
         }
       } else {
         setErrorGeneral(ERROR_GENERICO)
