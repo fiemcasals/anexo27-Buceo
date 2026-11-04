@@ -145,7 +145,7 @@ class StudyBlockSerializer(serializers.ModelSerializer):
                        .prefetch_related('comments').first())
             if not puede_reemplazarse(vigente):
                 raise serializers.ValidationError({
-                    'study_code': 'Este estudio ya fue aprobado por el médico '
+                    'study_code': 'El estudio ya fue revisado por el médico '
                                   'y no puede reemplazarse.'})
         return attrs
 
