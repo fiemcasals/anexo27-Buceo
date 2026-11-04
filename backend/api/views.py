@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -20,6 +20,8 @@ from .serializers import (
     DiveActivitySerializer, DiveLogSerializer,
     HabilitationWindowSerializer, InscripcionSerializer,
 )
+from . import serializers as _serializers
+from .estado import armar_estado
 from .images import ArchivoRechazado, comprimir
 from .report_pdf import generate_anexo_27
 # §5, en su propio modulo porque tambien lo consultan los serializadores.
@@ -439,3 +441,26 @@ class MiFechaView(APIView):
         profile.save(update_fields=['habilitation_window'])
         return Response({'window': profile.habilitation_window_id})
 
+
+class MiEstadoView(APIView):
+    """El estado del que llama, tal como lo muestra su pantalla.
+
+    Sólo lectura y sin parámetros: lee el perfil de `request.user`, así que no
+    hay forma de pedir el de otro. Trae el perfil con su ventana, y los
+    estudios vigentes con sus dictámenes, en un número fijo de consultas.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        UserProfile.objects.get_or_create(user=request.user)
+        profile = UserProfile.objects.select_related(
+            'user', 'habilitation_window',
+        ).prefetch_related(
+            Prefetch(
+                'user__study_blocks',
+                queryset=StudyBlock.objects.filter(is_current=True)
+                .prefetch_related('comments'),
+            ),
+        ).get(user=request.user)
+        # La fecha sale de la costura de `serializers`, que los tests congelan.
+        return Response(armar_estado(profile, _serializers.hoy(), request=request))
