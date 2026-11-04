@@ -700,22 +700,22 @@ class RosterPerformanceTests(TestCase):
 
 
 class PuedeReemplazarseTests(TestCase):
-    """El buzo reemplaza lo suyo salvo lo que el médico ya aprobó.
+    """El buzo reemplaza lo suyo salvo lo que el médico aprobó y sigue vigente.
 
     La regla vive en `fitness` y no dentro del serializador porque la pantalla
-    del buzo necesita la misma respuesta para decidir si ofrece el reemplazo.
+    del buzo necesita la misma respuesta para decidir si ofrece el reemplazo. Y
+    sale del estado y no del último dictamen porque la fecha manda sobre el
+    dictamen: un aprobado vencido es EXPIRED y se renueva.
     """
 
     def setUp(self):
         self.profile = _diver(birth_year=1988, window=_november_2026())
 
-    def _puede(self, dictamenes):
-        block = _upload(self.profile, "c", VALID_FOR_EVERY_POINT,
-                        dictamenes=dictamenes)
-        return fitness.puede_reemplazarse(block)
-
-    def test_sin_carga_vigente_se_puede(self):
-        self.assertTrue(fitness.puede_reemplazarse(None))
+    def _puede(self, dictamenes, study_date=VALID_FOR_EVERY_POINT):
+        _upload(self.profile, "c", study_date, dictamenes=dictamenes)
+        profile = UserProfile.objects.get(pk=self.profile.pk)
+        state = _slot_of(fitness.diver_summary(profile, TODAY), "c").state
+        return fitness.puede_reemplazarse(state)
 
     def test_en_revision_se_puede(self):
         self.assertTrue(self._puede([]))
@@ -726,7 +726,7 @@ class PuedeReemplazarseTests(TestCase):
     def test_rechazado_se_puede(self):
         self.assertTrue(self._puede([("REJECTED", "DOCTOR")]))
 
-    def test_aprobado_por_el_medico_no_se_puede(self):
+    def test_aprobado_por_el_medico_y_vigente_no_se_puede(self):
         self.assertFalse(self._puede([("APPROVED", "DOCTOR")]))
 
     def test_pre_aprobado_y_despues_aprobado_no_se_puede(self):
@@ -737,3 +737,18 @@ class PuedeReemplazarseTests(TestCase):
         # Vale el último dictamen, no que alguna vez haya existido una aprobación.
         self.assertTrue(self._puede(
             [("APPROVED", "DOCTOR"), ("REJECTED", "DOCTOR")]))
+
+    def test_aprobado_pero_vencido_se_puede(self):
+        # La fecha manda sobre el dictamen: es EXPIRED, y renovarlo es el trámite.
+        self.assertTrue(self._puede([("APPROVED", "DOCTOR")],
+                                    study_date=date(2025, 1, 10)))
+
+    def test_aprobado_pero_fechado_en_el_futuro_se_puede(self):
+        self.assertTrue(self._puede([("APPROVED", "DOCTOR")],
+                                    study_date=date(2026, 12, 1)))
+
+    def test_el_unico_estado_que_bloquea_es_el_aprobado(self):
+        for state in StudyState:
+            with self.subTest(state=state):
+                self.assertEqual(fitness.puede_reemplazarse(state),
+                                 state is not StudyState.APPROVED)

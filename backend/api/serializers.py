@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
-from .fitness import puede_reemplazarse
+from django.utils import timezone
+from .fitness import StudyState, diver_summary, puede_reemplazarse
 from .roles import es_revisor
 from users.models import UserProfile, ProfileFieldTemplate
 
@@ -139,15 +140,28 @@ class StudyBlockSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         if self.instance is None and user is not None and 'study_code' in attrs:
-            vigente = (StudyBlock.objects
-                       .filter(user=user, study_code=attrs['study_code'],
-                               is_current=True)
-                       .prefetch_related('comments').first())
-            if not puede_reemplazarse(vigente):
+            if not puede_reemplazarse(self._estado_del_punto(user, attrs['study_code'])):
                 raise serializers.ValidationError({
                     'study_code': 'El estudio ya fue revisado por el médico '
                                   'y no puede reemplazarse.'})
         return attrs
+
+    @staticmethod
+    def _estado_del_punto(user, code):
+        """Estado del punto `code` del buzo, el mismo que le muestra su pantalla.
+
+        Sale de `diver_summary` y no de mirar el último dictamen: la fecha manda
+        sobre el dictamen, así que un aprobado vencido es EXPIRED y se renueva.
+        """
+        profile = (UserProfile.objects
+                   .select_related('user', 'habilitation_window')
+                   .prefetch_related('user__study_blocks__comments')
+                   .filter(user=user).first())
+        if profile is None:
+            # Sin perfil no hay ventana: nada exigido, nada aprobado que cuidar.
+            return StudyState.NOT_REQUIRED
+        summary = diver_summary(profile, timezone.localdate())
+        return next(s.state for s in summary.slots if s.code == code)
 
     def get_access_level(self, obj):
         request = self.context.get('request')

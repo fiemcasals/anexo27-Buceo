@@ -249,21 +249,16 @@ def _latest_dictamen(block: StudyBlock) -> Comment | None:
     return dictamenes[-1] if dictamenes else None
 
 
-def puede_reemplazarse(block: StudyBlock | None) -> bool:
-    """Si el buzo puede volver a cargar el punto cuya carga vigente es ``block``.
+def puede_reemplazarse(state: StudyState) -> bool:
+    """Si el buzo puede volver a cargar un punto que está en ese estado.
 
-    Sí cuando no hay carga vigente, o cuando la hay y su último dictamen no es
-    la aprobación del médico: en revisión, pre-aprobada o rechazada se
-    reemplaza. Lo aprobado por el médico no se pisa; si hubo un error, lo
-    resuelve el médico, no el buzo. Vale el último dictamen, no que alguna vez
-    haya habido una aprobación.
+    Sólo lo aprobado por el médico **y vigente** se protege: es el único estado
+    donde el papel sirve y alguien ya lo dio por bueno. Un aprobado que venció
+    llega acá como ``EXPIRED`` (la fecha manda sobre el dictamen), y renovarlo
+    es justamente el trámite de la aplicación; ``DATE_INVALID`` y ``REJECTED``
+    piden otra carga, y lo que está en revisión o pre-revisado se reemplaza.
     """
-    if block is None:
-        return True
-    dictamen = _latest_dictamen(block)
-    return not (dictamen is not None
-                and dictamen.status == "APPROVED"
-                and dictamen.reviewer_role == _DOCTOR)
+    return state is not StudyState.APPROVED
 
 
 def _slot_status(code: str, block: StudyBlock | None,

@@ -117,6 +117,10 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
     queryset = StudyBlock.objects.all()
     serializer_class = StudyBlockSerializer
     permission_classes = [permissions.IsAuthenticated, SoloElDuenoDelEstudio]
+    # Sin PUT ni PATCH: un estudio no se edita, se reemplaza con un POST al mismo
+    # punto. Editar el archivo en el lugar esquivaba la regla del reemplazo y la
+    # compresión, y le cambiaba el papel al médico a sus espaldas (§15.10).
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_queryset(self):
         try:

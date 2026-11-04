@@ -20,7 +20,7 @@ from PIL import Image
 from rest_framework.test import APIClient, APITestCase
 
 from api.images import ArchivoRechazado, comprimir
-from api.models import Comment, Permission, StudyBlock
+from api.models import Comment, HabilitationWindow, Permission, StudyBlock
 from users.models import UserProfile
 
 URL = "/api/blocks/"
@@ -210,10 +210,12 @@ class StudyBlockDeletionTests(APITestCase):
         self.assertTrue(StudyBlock.objects.filter(pk=self.mine.pk).exists())
 
     def test_a_reviewer_who_does_see_the_study_still_cannot_edit_it(self):
+        # Desde que el viewset no admite PATCH ni PUT, lo que lo impide es el
+        # método (405) y no el permiso de objeto.
         response = _client(self.doctor).patch(
             f"{URL}{self.mine.pk}/", {"study_date": "2020-01-01"},
             format="json")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self.mine.refresh_from_db()
         self.assertEqual(self.mine.study_date, date(2026, 10, 1))
 
@@ -363,10 +365,10 @@ class AccessLevelSaleDelRolTests(APITestCase):
 from api.tests.test_images import _archivo, _imagen, _pdf  # noqa: E402
 
 
-def _estudio(buzo, code):
+def _estudio(buzo, code, study_date=date(2026, 9, 1)):
     """La carga vigente de un punto, sin dictamen."""
     return StudyBlock.objects.create(
-        user=buzo, study_code=code, study_date=date(2026, 9, 1))
+        user=buzo, study_code=code, study_date=study_date)
 
 
 def _dictamen(block, reviewer, status):
@@ -387,6 +389,13 @@ class _ConBuzoYRevisores(APITestCase):
         self.buzo = _user("buzo1", "USER")
         self.medico = _user("medico", "DOCTOR")
         self.enfermero = _user("enfermero", "NURSE")
+        # Con ventana y fecha de nacimiento los ocho puntos tienen estado: sin
+        # ellos todo es NOT_REQUIRED y nada se podría proteger.
+        self.ventana = HabilitationWindow.objects.create(
+            cycle=2026, slot="FIRST",
+            start_date=date(2026, 11, 18), end_date=date(2026, 11, 20))
+        UserProfile.objects.filter(user=self.buzo).update(
+            birth_date=date(1988, 6, 15), habilitation_window=self.ventana)
 
 
 class ElPuntoLoDecideElBotonTests(_ConBuzoYRevisores):
@@ -474,6 +483,16 @@ class ElReemplazoTests(_ConBuzoYRevisores):
                  .values_list("pk", "is_current")),
             [(anterior.pk, True)])
 
+    def test_se_puede_reemplazar_uno_aprobado_pero_vencido(self):
+        # La fecha manda sobre el dictamen: el aprobado que venció es EXPIRED y
+        # la pantalla le ofrece subirlo; el servidor no puede contestar 400.
+        anterior = _estudio(self.buzo, "c", date(2025, 1, 10))
+        _dictamen(anterior, self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 201, r.content)
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.is_current)
+
     def test_se_puede_reemplazar_uno_rechazado(self):
         _dictamen(_estudio(self.buzo, "c"), self.medico, "REJECTED")
         self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
@@ -494,3 +513,33 @@ class ElReemplazoTests(_ConBuzoYRevisores):
         anterior.refresh_from_db()
         self.assertFalse(anterior.is_current)
         self.assertTrue(Comment.objects.filter(block=anterior).exists())
+
+
+class UnEstudioNoSeEditaTests(_ConBuzoYRevisores):
+    """Un reemplazo es un POST al mismo punto. PATCH y PUT no existen."""
+
+    def test_el_dueno_no_puede_pisar_su_estudio_aprobado_con_un_patch(self):
+        estudio = _estudio(self.buzo, "c")
+        _dictamen(estudio, self.medico, "APPROVED")
+        r = _client(self.buzo).patch(
+            f"{URL}{estudio.pk}/", {"pdf_attachment": _pdf()})
+        self.assertEqual(r.status_code, 405, r.content)
+        estudio.refresh_from_db()
+        self.assertFalse(estudio.pdf_attachment)
+
+    def test_un_patch_sobre_un_estudio_propio_da_405(self):
+        estudio = _estudio(self.buzo, "c")
+        r = _client(self.buzo).patch(
+            f"{URL}{estudio.pk}/", {"study_date": "2026-10-02"}, format="json")
+        self.assertEqual(r.status_code, 405, r.content)
+
+    def test_un_put_sobre_un_estudio_propio_da_405(self):
+        estudio = _estudio(self.buzo, "c")
+        r = _client(self.buzo).put(f"{URL}{estudio.pk}/", _carga("c"))
+        self.assertEqual(r.status_code, 405, r.content)
+
+    def test_borrar_y_listar_siguen_andando(self):
+        estudio = _estudio(self.buzo, "c")
+        self.assertEqual(_client(self.buzo).get(URL).status_code, 200)
+        self.assertEqual(
+            _client(self.buzo).delete(f"{URL}{estudio.pk}/").status_code, 204)
