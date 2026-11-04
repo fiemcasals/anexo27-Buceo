@@ -91,6 +91,8 @@ def armar_estado(profile, today: date, request=None) -> dict:
         estudios.append({
             'code': slot.code,
             'texto': catalog.get(slot.code).text,
+            # Tal como está en el catálogo: '' cuando el punto no tiene aviso.
+            'upload_hint': catalog.get(slot.code).upload_hint,
             'estado': slot.state.name,
             'corresponde': corresponde,
             'motivo_no_corresponde': (

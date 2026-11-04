@@ -20,6 +20,7 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient, APITestCase
 
+from api import catalog
 from api.models import Comment, HabilitationWindow, StudyBlock
 from users.models import UserProfile
 
@@ -140,7 +141,21 @@ class ElEstadoDelBuzoTests(_ConBuzo):
             'total_exigidos', 'correo', 'estudios'})
         self.assertEqual(set(_punto(cuerpo, 'c')), {
             'code', 'texto', 'estado', 'corresponde', 'motivo_no_corresponde',
-            'vence_el', 'desde_cuando', 'rechazo', 'puede_reemplazarse', 'archivo'})
+            'vence_el', 'desde_cuando', 'rechazo', 'puede_reemplazarse', 'archivo',
+            'upload_hint'})
+
+    def test_los_puntos_d_y_f_traen_el_aviso_del_catalogo(self):
+        cuerpo = _get(self.buzo)
+        for code in 'df':
+            esperado = catalog.get(code).upload_hint
+            self.assertTrue(esperado, code)  # el catalogo lo tiene: si no, el test no mide nada
+            self.assertEqual(_punto(cuerpo, code)['upload_hint'], esperado, code)
+
+    def test_un_punto_sin_aviso_lo_trae_vacio(self):
+        cuerpo = _get(self.buzo)
+        for code in 'abceg':
+            self.assertEqual(catalog.get(code).upload_hint, '', code)
+            self.assertEqual(_punto(cuerpo, code)['upload_hint'], '', code)
 
     def test_el_correo_es_el_del_que_llama(self):
         self.assertEqual(_get(self.buzo)['correo'], 'buzo@armada.example')
