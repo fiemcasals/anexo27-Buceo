@@ -759,3 +759,34 @@ class PuedeReemplazarseTests(TestCase):
         for dictamenes in ([], [("PRE_APPROVED", "NURSE")], [("REJECTED", "DOCTOR")]):
             with self.subTest(dictamenes=dictamenes):
                 self.assertTrue(self._puede(dictamenes, window=None))
+
+
+class EstadosFijadosTests(TestCase):
+    """Fija los nueve estados, porque la pantalla del buzo los mapea a mano.
+
+    `frontend/src/lib/agrupar-estudios.js` traduce cada estado a uno de los
+    cuatro grupos del parrafo 8.3, y lo hace con un mapa escrito a mano que no
+    puede leer este archivo. Un decimo estado agregado aca cae del lado del
+    descarte, y el buzo lo ve en "Falta subir" aunque no haya nada que subir.
+
+    El mapa del frontend tiene su propia tabla escrita a mano, pero esa tabla
+    solo prueba los estados que ya conoce: no puede saber que aparecio uno
+    nuevo. Este test es el unico lugar donde se nota, asi que si lo rompes,
+    actualiza tambien el mapa del frontend antes de ponerlo en verde.
+    """
+
+    def test_son_exactamente_estos_nueve(self):
+        self.assertEqual(
+            sorted(e.name for e in fitness.StudyState),
+            sorted([
+                'NOT_REQUIRED', 'MISSING', 'BEFORE_WINDOW', 'IN_REVIEW',
+                'PRE_REVIEWED', 'APPROVED', 'REJECTED', 'EXPIRED',
+                'DATE_INVALID',
+            ]))
+
+    def test_el_nombre_y_el_valor_coinciden(self):
+        # El endpoint serializa `estado` con el *nombre*, y el frontend mapea
+        # ese nombre. Si alguno divergiera del valor, el frontend recibiria una
+        # cadena que su mapa no conoce.
+        for estado in fitness.StudyState:
+            self.assertEqual(estado.name, estado.value)

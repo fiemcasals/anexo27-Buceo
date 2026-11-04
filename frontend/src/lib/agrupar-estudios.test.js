@@ -47,10 +47,21 @@ describe('agrupar', () => {
       NOT_REQUIRED: 'No corresponde',
     }
     expect(Object.keys(esperado)).toHaveLength(9)
-    for (const [estado, titulo] of Object.entries(esperado)) {
-      const grupos = agrupar([{ code: 'x', estado }])
-      const donde = grupos.filter(g => g.estudios.length > 0).map(g => g.titulo)
-      expect(donde, estado).toEqual([titulo])
+    // Se espia `console.error` y se exige que NO se llame. Sin esto, borrar del
+    // mapa cualquiera de los cinco estados de "Falta subir" es indetectable: el
+    // camino de caida los manda al mismo grupo que la tabla espera, asi que el
+    // test queda verde con el mapa incompleto. El rastro en consola es lo unico
+    // que distingue "esta en el mapa" de "cayo por descarte".
+    const espia = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      for (const [estado, titulo] of Object.entries(esperado)) {
+        const grupos = agrupar([{ code: 'x', estado }])
+        const donde = grupos.filter(g => g.estudios.length > 0).map(g => g.titulo)
+        expect(donde, estado).toEqual([titulo])
+        expect(espia, estado).not.toHaveBeenCalled()
+      }
+    } finally {
+      espia.mockRestore()
     }
   })
 
