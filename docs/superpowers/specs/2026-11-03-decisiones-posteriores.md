@@ -56,9 +56,20 @@ mantener el orden original.
    tests).
 2. **Plan 2 — Pantalla del buzo y subida de estudios.** Incluye la compresión de imágenes y el
    soporte HEIC del §11, y rehace `Profile.jsx`, que el plan 1 dejó sin poder guardar.
-3. **Plan 3 — Circuito del médico y los enfermeros auxiliares.** Incluye derivar
-   `reviewer_role` del usuario autenticado en el servidor y convertir las violaciones de
-   constraint en 400 con mensaje legible.
+3. **Plan 3 — Circuito del médico y los enfermeros auxiliares.** Incluye convertir las
+   violaciones de constraint en 400 con mensaje legible.
+
+   > **Adelantado al cierre del plan 1 (2026-11-04):** derivar `reviewer_role` del usuario
+   > autenticado ya está hecho. Esta línea lo enunciaba como prolijidad, y la re-revisión midió lo
+   > que en realidad habilitaba: `reviewer_role` lo mandaba el cliente y nada lo cotejaba contra el
+   > perfil, así que un **enfermero designado** posteaba
+   > `{status: "APPROVED", reviewer_role: "DOCTOR"}` y recibía 201 — la fila quedaba indistinguible
+   > de la palabra final del médico, que el §6 declara "lo único que el médico no puede delegar", y
+   > `fitness.py` la lee como tal contando `reviewer_role == DOCTOR`. La `CheckConstraint` no lo
+   > atrapaba porque acopla el estado con el rol **declarado**, no con el real. Por D-3 eso es
+   > integridad del circuito, no perímetro, así que no se difirió. De paso quedó el pareo
+   > estado/rol en `CommentSerializer.validate` para que el desajuste salga 400 y no 500, que es
+   > un primer caso de lo que esta línea sí sigue debiendo.
 4. **Plan 4 — Panel del admin (D-1), los tres correos del §9 y los procesos programados.**
 
 ---
@@ -82,6 +93,20 @@ esto.**
 
 **Lo que el plan 3 tiene que cubrir:** `update` y `destroy` de `Comment` restringidos a quien
 dictaminó, o a nadie si el dictamen es definitivo. El §15.9 ya está cubierto en la creación.
+
+> **Cerrado en el cierre del plan 1, no diferido al plan 3 (2026-11-04).** `SoloQuienDictamino`
+> restringe `update` y `destroy` a quien emitió el dictamen, y el §15.9 también se aplica sobre el
+> bloque destino. La re-revisión ajustó después el borde que faltaba: hace falta **seguir**
+> designado, no haberlo estado. Sin eso, el enfermero al que el admin le sacaba la designación
+> convertía su pre-aprobación en la aprobación del médico (`PATCH {status: "APPROVED"}` → 200,
+> verificado), que es el mismo riesgo de falsificación con un paso previo; y la asimetría lo
+> delataba — ya no podía **ver** el estudio pero sí reescribir el dictamen sobre ese estudio. El
+> §5 condiciona la facultad a la designación en presente y su tabla no tiene una fila para
+> "ex-médico". La **lectura** de lo que uno firmó se conserva (`Q(doctor=user)` en el
+> `get_queryset`): es parte del registro y ocultárselo no protege a nadie.
+>
+> El criterio de este D-3 —integridad del circuito, no perímetro— es el que se aplicó a todo lo
+> demás que la re-revisión encontró. Ver D-2 y D-5.
 
 ---
 
@@ -146,6 +171,54 @@ los estudios.
 en `App.jsx:43` quedan concediendo algo que ya nadie consulta. El plan 2, que rehace las
 pantallas del buzo, tiene que sacarla. No se toco ahora porque el frontend es de planes
 posteriores.
+
+**`access_level` le quedaba mintiendo al medico. Corregido en el mismo cierre.**
+`StudyBlockSerializer.get_access_level` seguia resolviendo por `Permission`, asi que al revisor
+designado le informaba `"NONE"` sobre los estudios que la misma respuesta le estaba sirviendo.
+`frontend/src/components/Dashboard.jsx:477` abre el cuadro de dictamen con
+`s.access_level === 'MODIFY'`, de modo que **el unico camino de interfaz existente para escribir
+un dictamen quedaba oculto justo para el medico designado**: el backend le aceptaba el dictamen y
+la pantalla no se lo ofrecia. Verificado en la app corriendo — el medico veia "Solo Lectura" en
+los 71 estudios.
+
+Ahora el revisor designado recibe `MODIFY`, que es lo que en el vocabulario de este codigo
+significa "puede dictaminar" (`Permissions.jsx:262` lo rotula "Medico"), no "puede editar el
+estudio": eso lo sigue impidiendo `SoloElDuenoDelEstudio`. Sale antes de consultar `Permission`,
+asi que de paso le ahorra al revisor una consulta por fila — eran N+1 y el listado del medico
+paso de 0 a ~1.200 filas, que es lo que el §13 marca como la cosa a vigilar.
+
+**Carry-forward para el plan 3:** cuando construya la pantalla del medico conviene reemplazar
+este campo por uno honesto —`MODIFY` dice "modificar" y lo que habilita es dictaminar—, y el §13
+ya preve reemplazar ese listado por un endpoint contado.
+
+**Completado despues, en el mismo cierre (segundo pase del item 4):** la re-revision encontro que
+el item 4 habia convertido dos de los cuatro endpoints que exponen el legajo. Se cerraron los
+otros dos:
+
+- **`UserProfileViewSet`**. El rol era **escribible por su propio dueno**: un
+  `PATCH /api/profiles/me/ {"role": "DOCTOR"}` devolvia 200, y con el registro abierto y sin
+  verificacion de correo cualquiera se hacia medico, leia el legajo de los 150 buzos y firmaba la
+  palabra final. El item 4 habia convertido `role` en la **unica credencial de autorizacion del
+  sistema** sin cerrar su puerta de escritura — hasta entonces el campo no se leia en ninguna
+  parte (es lo que dice el parrafo de arriba), asi que escribirlo era cosmetico. Ahora `role` y
+  `is_instructor` son de solo lectura en el serializador y los designa el admin. Ademas el
+  queryset servia los perfiles de quien te concediera `PERSONAL_DATA`/`ALL` y no habia control a
+  nivel de objeto, asi que un grantee de **solo lectura** reescribia y borraba el perfil del
+  grantor: mismo agujero que el cierre tapo en `StudyBlock`. Hoy sirve solo el perfil propio, con
+  `SoloElDuenoDelPerfil` encima.
+- **`Anexo27View`**. Decidia por `is_staff`, que es la llave del admin de Django y no tiene nada
+  que ver con el §5: **el medico designado recibia 403** sobre el formulario que el sistema existe
+  para producir. Ahora el revisor designado lo emite. El acceso del admin se conserva a proposito
+  (ver D-1: el admin de Django queda como acceso crudo, asi que ya ve los estudios y los
+  dictamenes; negarle este endpoint mientras el panel sirve los mismos datos no protegeria nada).
+
+**Carry-forward para el plan 3 — el listado de 150 buzos del §8.1 no tiene via de datos.**
+`UserProfileViewSet` sirve solo el perfil propio, asi que el medico no tiene de donde sacar el
+listado con grado, nombre y unidad que el §8.1 le pide. Es el mismo sintoma que este D-5 describe
+para los estudios, ahora para los perfiles. No se ensancho el queryset en el cierre porque le
+cambiaria la respuesta a `Dashboard.jsx:56` sin pantalla que la use: lo construye, con el rol como
+base, el plan que haga la pantalla del medico. Cuando lo haga, `SoloElDuenoDelPerfil` ya esta
+puesto para que ver 150 perfiles no se vuelva poder reescribirlos.
 
 **Lo que esto explica:** el 500 del circuito de revision (D-4) no era el unico problema. Incluso
 sin ese error, el medico no tenia acceso a ningun estudio. El mecanismo de concesiones nunca iba
