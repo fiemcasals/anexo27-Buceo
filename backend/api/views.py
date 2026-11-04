@@ -16,6 +16,7 @@ from .serializers import (
     UserProfileSerializer, ProfileFieldTemplateSerializer,
     DiveActivitySerializer, DiveLogSerializer
 )
+from .images import ArchivoRechazado, comprimir
 from .report_pdf import generate_anexo_27
 # §5, en su propio modulo porque tambien lo consultan los serializadores.
 from .roles import REVIEWER_ROLES, es_revisor  # noqa: F401  (re-export)
@@ -144,7 +145,13 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
             raise
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Las fotos se reducen en el servidor, antes de guardarlas: un rechazo
+        # del archivo es un 400 con el mensaje ya redactado, no un 500.
+        try:
+            archivo = comprimir(serializer.validated_data['pdf_attachment'])
+        except ArchivoRechazado as e:
+            raise ValidationError({'pdf_attachment': e.mensaje})
+        serializer.save(user=self.request.user, pdf_attachment=archivo)
 
 class Anexo27View(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]

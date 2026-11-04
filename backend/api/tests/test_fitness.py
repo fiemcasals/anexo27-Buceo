@@ -697,3 +697,43 @@ class RosterPerformanceTests(TestCase):
         with self.assertNumQueries(0):
             states = [fitness.diver_summary(p, TODAY).state for p in profiles]
         self.assertEqual(states, [DiverState.APTO] * 3)
+
+
+class PuedeReemplazarseTests(TestCase):
+    """El buzo reemplaza lo suyo salvo lo que el médico ya aprobó.
+
+    La regla vive en `fitness` y no dentro del serializador porque la pantalla
+    del buzo necesita la misma respuesta para decidir si ofrece el reemplazo.
+    """
+
+    def setUp(self):
+        self.profile = _diver(birth_year=1988, window=_november_2026())
+
+    def _puede(self, dictamenes):
+        block = _upload(self.profile, "c", VALID_FOR_EVERY_POINT,
+                        dictamenes=dictamenes)
+        return fitness.puede_reemplazarse(block)
+
+    def test_sin_carga_vigente_se_puede(self):
+        self.assertTrue(fitness.puede_reemplazarse(None))
+
+    def test_en_revision_se_puede(self):
+        self.assertTrue(self._puede([]))
+
+    def test_pre_aprobado_se_puede(self):
+        self.assertTrue(self._puede([("PRE_APPROVED", "NURSE")]))
+
+    def test_rechazado_se_puede(self):
+        self.assertTrue(self._puede([("REJECTED", "DOCTOR")]))
+
+    def test_aprobado_por_el_medico_no_se_puede(self):
+        self.assertFalse(self._puede([("APPROVED", "DOCTOR")]))
+
+    def test_pre_aprobado_y_despues_aprobado_no_se_puede(self):
+        self.assertFalse(self._puede(
+            [("PRE_APPROVED", "NURSE"), ("APPROVED", "DOCTOR")]))
+
+    def test_aprobado_y_despues_rechazado_se_puede(self):
+        # Vale el último dictamen, no que alguna vez haya existido una aprobación.
+        self.assertTrue(self._puede(
+            [("APPROVED", "DOCTOR"), ("REJECTED", "DOCTOR")]))

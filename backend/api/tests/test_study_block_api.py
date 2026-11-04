@@ -16,8 +16,10 @@ Dos reglas distintas conviven acá y conviene no confundirlas:
 from datetime import date
 
 from django.contrib.auth.models import User
+from PIL import Image
 from rest_framework.test import APIClient, APITestCase
 
+from api.images import ArchivoRechazado, comprimir
 from api.models import Comment, Permission, StudyBlock
 from users.models import UserProfile
 
@@ -352,3 +354,143 @@ class AccessLevelSaleDelRolTests(APITestCase):
         sobre_permisos = [q["sql"] for q in captured.captured_queries
                           if "api_permission" in q["sql"]]
         self.assertEqual(sobre_permisos, [])
+
+
+# Los helpers de archivos se importan de test_images y no se duplican: son los
+# que ya fijan qué es una foto, un PDF y un archivo que no es ninguno de los dos,
+# y una copia podría desviarse sin que ningún test lo note. Importar sólo los
+# helpers (no las clases) evita que el runner corra los tests de imágenes dos veces.
+from api.tests.test_images import _archivo, _imagen, _pdf  # noqa: E402
+
+
+def _estudio(buzo, code):
+    """La carga vigente de un punto, sin dictamen."""
+    return StudyBlock.objects.create(
+        user=buzo, study_code=code, study_date=date(2026, 9, 1))
+
+
+def _dictamen(block, reviewer, status):
+    role = reviewer.profile.role
+    extra = ({"content": "Falta la firma.", "rejection_reason": "OTHER"}
+             if status == "REJECTED" else {})
+    return Comment.objects.create(
+        block=block, doctor=reviewer, reviewer_role=role, status=status, **extra)
+
+
+def _carga(code):
+    return {"study_code": code, "study_date": "2026-10-01",
+            "pdf_attachment": _pdf()}
+
+
+class _ConBuzoYRevisores(APITestCase):
+    def setUp(self):
+        self.buzo = _user("buzo1", "USER")
+        self.medico = _user("medico", "DOCTOR")
+        self.enfermero = _user("enfermero", "NURSE")
+
+
+class ElPuntoLoDecideElBotonTests(_ConBuzoYRevisores):
+    def test_crear_sin_study_code_da_400(self):
+        r = _client(self.buzo).post(URL, {
+            "study_date": "2026-10-01", "pdf_attachment": _pdf()})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("study_code", r.data)
+
+    def test_el_title_que_manda_el_cliente_se_ignora(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "title": "Electrocardiograma de esfuerzo", "pdf_attachment": _pdf()})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(StudyBlock.objects.get(pk=r.data["id"]).title,
+                         "Electroencefalograma")
+
+    def test_se_puede_crear_sin_mandar_title(self):
+        # El title lo pone el catálogo: el cliente no tiene por qué mandarlo.
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 201, r.content)
+
+
+class LaFotoSeComprimeAlRecibirlaTests(_ConBuzoYRevisores):
+    def test_una_foto_grande_queda_guardada_en_2000_pixeles(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "pdf_attachment": _imagen(4032, 3024, "JPEG")})
+        self.assertEqual(r.status_code, 201, r.content)
+        bloque = StudyBlock.objects.get(pk=r.data["id"])
+        self.addCleanup(bloque.pdf_attachment.delete, save=False)
+        with Image.open(bloque.pdf_attachment) as guardada:
+            self.assertEqual(max(guardada.size), 2000)
+
+    def test_un_archivo_rechazado_sale_como_400_y_no_como_500(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "pdf_attachment": _archivo(b"PK\x03\x04", "informe.docx")})
+        self.assertEqual(r.status_code, 400)
+        # El 400 tiene que ser por el archivo y llevar el mensaje de `images`
+        # tal cual, no por cualquier otro campo.
+        with self.assertRaises(ArchivoRechazado) as ctx:
+            comprimir(_archivo(b"PK\x03\x04", "informe.docx"))
+        self.assertEqual(str(r.data["pdf_attachment"]), ctx.exception.mensaje)
+        self.assertEqual(StudyBlock.objects.count(), 0)
+
+
+class ElReemplazoTests(_ConBuzoYRevisores):
+    def test_se_puede_reemplazar_un_estudio_en_revision(self):
+        anterior = _estudio(self.buzo, "c")            # sin dictamen
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.is_current)
+
+    def test_se_puede_reemplazar_uno_pre_revisado(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.enfermero, "PRE_APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+
+    def test_NO_se_puede_reemplazar_uno_aprobado_por_el_medico(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400)
+        # Por el punto aprobado y no por otro campo mal armado.
+        self.assertIn("study_code", r.data)
+        anterior.refresh_from_db()
+        self.assertTrue(anterior.is_current)
+
+    def test_el_rechazo_por_aprobado_es_un_error_del_study_code(self):
+        _dictamen(_estudio(self.buzo, "c"), self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(list(r.data), ["study_code"])
+
+    def test_el_estudio_aprobado_sigue_siendo_el_vigente_despues_del_rechazo(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.medico, "APPROVED")
+        r = _client(self.buzo).post(URL, _carga("c"))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("study_code", r.data)
+        # Una sola carga en el punto, y es la aprobada: la nueva no se guardó.
+        self.assertEqual(
+            list(StudyBlock.objects.filter(user=self.buzo, study_code="c")
+                 .values_list("pk", "is_current")),
+            [(anterior.pk, True)])
+
+    def test_se_puede_reemplazar_uno_rechazado(self):
+        _dictamen(_estudio(self.buzo, "c"), self.medico, "REJECTED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+
+    def test_la_aprobacion_de_un_punto_no_frena_la_carga_de_otro(self):
+        _dictamen(_estudio(self.buzo, "c"), self.medico, "APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("d")).status_code, 201)
+
+    def test_la_aprobacion_de_otro_buzo_no_frena_la_carga(self):
+        otro = _user("buzo2", "USER")
+        _dictamen(_estudio(otro, "c"), self.medico, "APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+
+    def test_el_dictamen_anterior_queda_en_el_historial(self):
+        anterior = _estudio(self.buzo, "c")
+        _dictamen(anterior, self.enfermero, "PRE_APPROVED")
+        self.assertEqual(_client(self.buzo).post(URL, _carga("c")).status_code, 201)
+        anterior.refresh_from_db()
+        self.assertFalse(anterior.is_current)
+        self.assertTrue(Comment.objects.filter(block=anterior).exists())

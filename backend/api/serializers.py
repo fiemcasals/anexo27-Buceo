@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .fitness import puede_reemplazarse
 from .roles import es_revisor
 from users.models import UserProfile, ProfileFieldTemplate
 
@@ -126,7 +127,27 @@ class StudyBlockSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudyBlock
         fields = ['id', 'user', 'user_details', 'study_code', 'is_current', 'title', 'description', 'created_at', 'study_date', 'pdf_attachment', 'comments', 'access_level']
-        read_only_fields = ['user']
+        # `title` lo pone `StudyBlock.save()` desde el catálogo: el punto de la
+        # directiva lo decide el botón con que el buzo entró, no un texto libre.
+        read_only_fields = ['user', 'title']
+        extra_kwargs = {'study_code': {'required': True}}
+
+    def validate(self, attrs):
+        # Un reemplazo es un POST al mismo punto. Lo aprobado por el médico no
+        # se reemplaza: la carga nueva bajaría la vigente y el buzo se quedaría
+        # sin su estudio aprobado. Sin request no hay buzo, y no hay qué cotejar.
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if self.instance is None and user is not None and 'study_code' in attrs:
+            vigente = (StudyBlock.objects
+                       .filter(user=user, study_code=attrs['study_code'],
+                               is_current=True)
+                       .prefetch_related('comments').first())
+            if not puede_reemplazarse(vigente):
+                raise serializers.ValidationError({
+                    'study_code': 'Este estudio ya fue aprobado por el médico '
+                                  'y no puede reemplazarse.'})
+        return attrs
 
     def get_access_level(self, obj):
         request = self.context.get('request')
