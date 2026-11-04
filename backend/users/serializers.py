@@ -17,8 +17,22 @@ FALTA = 'Falta completar este dato.'
 OBLIGATORIO = {'required': FALTA, 'blank': FALTA, 'null': FALTA}
 CORREO_INVALIDO = 'Debe indicarse una dirección de correo válida.'
 CORREO_EN_USO = 'Ese correo ya está en uso.'
+FECHA_INVALIDA = 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.'
 DNI_REPETIDO = 'Ya existe un registro con ese DNI.'
-ERRORES_DE_CORREO = {**OBLIGATORIO, 'invalid': CORREO_INVALIDO}
+# 254 es el largo de `User.email`: sin tope, SQLite guarda un correo que el
+# modelo declara imposible y otro motor devolvería un 500 en lugar de un 400.
+LARGO_DE_CORREO = 254
+ERRORES_DE_CORREO = {
+    **OBLIGATORIO,
+    'invalid': CORREO_INVALIDO,
+    'max_length': f'El correo no puede superar los {LARGO_DE_CORREO} caracteres.',
+}
+# Los `max_length` y `invalid` de un CharField también salen en inglés de DRF.
+ERRORES_DE_TEXTO = {
+    **OBLIGATORIO,
+    'max_length': 'Este dato no puede superar los {max_length} caracteres.',
+    'invalid': 'Este dato no es válido.',
+}
 
 
 def _correo_en_uso(correo, excluyendo=None):
@@ -39,15 +53,17 @@ class RegistroSerializer(RegisterSerializer):
     # El buzo no tiene un nombre de usuario: entra por correo y allauth genera
     # uno interno. Sin esto el registro exigía un campo que nadie sabe qué es.
     username = serializers.CharField(required=False)
-    email = serializers.EmailField(error_messages=ERRORES_DE_CORREO)
+    email = serializers.EmailField(
+        max_length=LARGO_DE_CORREO, error_messages=ERRORES_DE_CORREO)
     # §15.11: el correo se pide dos veces; no hay paso de verificación.
     email2 = serializers.EmailField(
-        write_only=True, error_messages=ERRORES_DE_CORREO)
+        write_only=True, max_length=LARGO_DE_CORREO,
+        error_messages=ERRORES_DE_CORREO)
     password1 = serializers.CharField(write_only=True, error_messages=OBLIGATORIO)
     password2 = serializers.CharField(write_only=True, error_messages=OBLIGATORIO)
-    first_name = serializers.CharField(max_length=150, error_messages=OBLIGATORIO)
-    last_name = serializers.CharField(max_length=150, error_messages=OBLIGATORIO)
-    dni = serializers.CharField(max_length=20, error_messages=OBLIGATORIO)
+    first_name = serializers.CharField(max_length=150, error_messages=ERRORES_DE_TEXTO)
+    last_name = serializers.CharField(max_length=150, error_messages=ERRORES_DE_TEXTO)
+    dni = serializers.CharField(max_length=20, error_messages=ERRORES_DE_TEXTO)
     # La lista sale del modelo (§5): no se redefine acá ni en el frontend.
     rank = serializers.ChoiceField(
         choices=UserProfile.RANK_VALUES,
@@ -56,11 +72,13 @@ class RegistroSerializer(RegisterSerializer):
             'invalid_choice': 'El grado debe elegirse de la lista.',
         },
     )
-    destination = serializers.CharField(max_length=100, error_messages=OBLIGATORIO)
+    destination = serializers.CharField(
+        max_length=100, error_messages=ERRORES_DE_TEXTO)
     birth_date = serializers.DateField(
         error_messages={
             **OBLIGATORIO,
-            'invalid': 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.',
+            'invalid': FECHA_INVALIDA,
+            'date': FECHA_INVALIDA,
         },
     )
     # `role` no se declara: un cliente no puede pedirlo. El rol buzo es el

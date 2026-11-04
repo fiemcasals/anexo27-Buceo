@@ -68,6 +68,14 @@ class LoQueElRegistroExigeTests(APITestCase):
         self.assertEqual(r.status_code, 400)
         self.assertIn('dni', r.data)
 
+    def test_un_dni_mas_largo_que_el_maximo_da_400_por_el_dni_y_no_en_ingles(self):
+        r = _registrar(dni='1' * 21)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('dni', r.data)
+        mensaje = ' '.join(str(m) for m in r.data['dni'])
+        self.assertNotIn('Ensure', mensaje)
+        self.assertNotIn('this field', mensaje)
+
     def test_sin_grado_da_400_por_ese_campo(self):
         r = _registrar(rank=None)
         self.assertEqual(r.status_code, 400)
@@ -214,6 +222,34 @@ class ElCorreoSePideDosVecesTests(APITestCase):
         self.assertEqual(r.status_code, 400)
         self.assertIn('email', r.data)
         self.assertEqual(User.objects.filter(email__iexact='a@b.com').count(), 1)
+
+    def test_un_correo_de_otro_usuario_sin_fila_en_allauth_se_rechaza_con_otras_mayusculas(self):
+        # Un usuario creado por consola (createsuperuser) no tiene fila en
+        # EmailAddress: la segunda capa del chequeo no existe y lo unico que
+        # ataja el duplicado es el `iexact` de la consulta a `User`.
+        jefe = User.objects.create_user(
+            username='jefe', email='jefe@ara.mil.ar', password=CLAVE)
+        self.assertFalse(EmailAddress.objects.filter(user=jefe).exists())
+        r = _registrar(email='JEFE@ara.mil.ar')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('email', r.data)
+        self.assertEqual(User.objects.filter(email__iexact='jefe@ara.mil.ar').count(), 1)
+
+    def test_un_correo_de_mas_de_254_caracteres_da_400_por_el_correo(self):
+        # 254 es el largo de User.email. Sin tope, SQLite lo guarda igual.
+        largo = 'a@' + '.'.join(['d' * 60] * 5) + '.com'
+        self.assertGreater(len(largo), 254)
+        r = _registrar(email=largo)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('email', r.data)
+        self.assertFalse(User.objects.filter(email=largo).exists())
+
+    def test_el_segundo_correo_tambien_tiene_tope_de_254(self):
+        largo = 'a@' + '.'.join(['d' * 60] * 5) + '.com'
+        # Con los dos iguales, el unico motivo posible para `email2` es el largo.
+        r = _registrar(email=largo, email2=largo)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('email2', r.data)
 
 
 class ElGradoEsListaCerradaTests(APITestCase):
