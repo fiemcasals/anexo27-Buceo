@@ -17,10 +17,15 @@ pillow_heif.register_heif_opener()
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 LADO_MAYOR = 2000
 CALIDAD = 75
+# Una foto de 48 MP (8000x6000) entra. Una imagen que se expande a cientos de MiB
+# no: el tope de bytes no la ve, porque el archivo comprimido puede pesar poco.
+MAX_PIXELES = 60_000_000
 
 _CABECERA_PDF = b'%PDF'
 _MENSAJE_NO_IMAGEN = (
     'El archivo no es una imagen ni un PDF. Debe subirse una imagen o un archivo PDF.')
+_MENSAJE_DEMASIADOS_PIXELES = (
+    'La resolución de la imagen supera el máximo permitido de 60 megapíxeles.')
 
 
 class ArchivoRechazado(Exception):
@@ -30,7 +35,8 @@ class ArchivoRechazado(Exception):
 
 
 def comprimir(archivo: UploadedFile) -> UploadedFile:
-    # El tope se mira antes de abrir nada: una carga enorme no llega a Pillow.
+    # El tope mide el archivo comprimido, no los píxeles en que se expande:
+    # el límite de píxeles está más abajo, después de abrir la imagen.
     if archivo.size > MAX_UPLOAD_BYTES:
         raise ArchivoRechazado(
             'El archivo supera el tamaño máximo permitido de 12 MB.')
@@ -44,6 +50,10 @@ def comprimir(archivo: UploadedFile) -> UploadedFile:
     archivo.seek(0)
     try:
         imagen = Image.open(archivo)
+        # Pillow lee el encabezado al abrir, así que el tamaño ya se conoce. Se
+        # chequea antes de transponer o convertir, que es donde se reserva la memoria.
+        if imagen.width * imagen.height > MAX_PIXELES:
+            raise ArchivoRechazado(_MENSAJE_DEMASIADOS_PIXELES)
         # Antes de descartar el EXIF: la rotación de la foto vive ahí.
         imagen = ImageOps.exif_transpose(imagen)
         imagen = imagen.convert('RGB')

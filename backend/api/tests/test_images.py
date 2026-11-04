@@ -5,6 +5,7 @@ binario. Ningún test toca la base ni HTTP, por eso alcanza con SimpleTestCase.
 """
 
 import io
+import warnings
 from unittest import mock
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -72,6 +73,15 @@ class ReduceLasFotosDeCelularTests(SimpleTestCase):
     def test_sale_sin_metadatos_exif_de_la_camara(self):
         self.assertFalse(Image.open(comprimir(_imagen_con_exif(4032, 3024))).getexif())
 
+    def test_la_salida_se_comprime_con_calidad_75(self):
+        # La calidad queda escrita en las tablas de cuantización del JPEG. Con 30
+        # el análisis se vuelve borroso; con 95 el disco se llena.
+        referencia = io.BytesIO()
+        Image.new('RGB', (64, 64), (120, 60, 30)).save(referencia, 'JPEG', quality=75)
+        esperadas = Image.open(io.BytesIO(referencia.getvalue())).quantization
+        salida = comprimir(_imagen(800, 600, 'JPEG'))
+        self.assertEqual(Image.open(salida).quantization, esperadas)
+
     def test_la_foto_en_vertical_sale_derecha(self):
         # Si se descarta el EXIF sin aplicar la rotación antes, la foto le llega
         # al médico acostada. La orientación 6 es la de una foto en vertical.
@@ -122,6 +132,20 @@ class LoQueNoSeAceptaTests(SimpleTestCase):
     def test_un_jpg_mentido_que_no_es_imagen_se_rechaza_sin_traza_de_pillow(self):
         with self.assertRaises(ArchivoRechazado):
             comprimir(_archivo(b'no soy una imagen', 'mentira.jpg'))
+
+    def test_una_imagen_con_demasiados_pixeles_se_rechaza_aunque_pese_poco(self):
+        # Una imagen de 12000x12000 pesa poco porque es de un solo color, pero al
+        # decodificarla ocupa cientos de MiB. El tope de bytes no la ve, así que
+        # el rechazo tiene que venir del tope de píxeles. Se usa 1 bit por píxel
+        # para que armar el fixture no ocupe cientos de MiB.
+        buffer = io.BytesIO()
+        Image.new('1', (12000, 12000)).save(buffer, 'PNG')
+        # Pillow avisa con DecompressionBombWarning por encima de su límite; el
+        # aviso es esperado aquí y no dice nada nuevo.
+        with warnings.catch_warnings(), self.assertRaises(ArchivoRechazado) as cm:
+            warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+            comprimir(_archivo(buffer.getvalue(), 'enorme.png'))
+        self.assertIn('megapíxeles', cm.exception.mensaje)
 
     def test_una_imagen_que_se_expande_demasiado_se_rechaza(self):
         # Una imagen chica que declara muchísimos píxeles es una bomba de
