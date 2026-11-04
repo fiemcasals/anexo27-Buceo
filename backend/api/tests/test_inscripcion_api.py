@@ -77,6 +77,12 @@ class LasFechasPublicadasTests(_ConBuzo):
         _fecha(slot='FIRST', inicio='2026-11-02', fin='2026-11-04')
         self.assertFalse(_client(self.buzo).get('/api/fechas/').data[0]['ya_paso'])
 
+    def test_una_fecha_cuyo_ultimo_dia_fue_ayer_ya_paso(self):
+        # El otro lado del borde: una fecha de enero no distingue "ayer" de
+        # "hace diez meses", y la regla entera es decidir que dia cuenta.
+        _fecha(slot='FIRST', inicio='2026-11-01', fin='2026-11-03')
+        self.assertTrue(_client(self.buzo).get('/api/fechas/').data[0]['ya_paso'])
+
     def test_no_se_pueden_cargar_fechas_desde_aca(self):
         r = _client(self.buzo).post('/api/fechas/', {})
         self.assertEqual(r.status_code, 405)
@@ -118,6 +124,38 @@ class InscribirseTests(_ConBuzo):
         hoy = _fecha(slot='FIRST', inicio='2026-11-02', fin='2026-11-04')
         r = _client(self.buzo).put('/api/mi-fecha/', {'window': hoy.pk})
         self.assertEqual(r.status_code, 200)
+
+    def test_una_fecha_que_termino_ayer_ya_no_se_puede_elegir(self):
+        ayer = _fecha(slot='FIRST', inicio='2026-11-01', fin='2026-11-03')
+        r = _client(self.buzo).put('/api/mi-fecha/', {'window': ayer.pk})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('window', r.data)
+        self.perfil.refresh_from_db()
+        self.assertIsNone(self.perfil.habilitation_window_id)
+
+    def _mensaje(self, cuerpo):
+        r = _client(self.buzo).put('/api/mi-fecha/', cuerpo, format='json')
+        self.assertEqual(r.status_code, 400)
+        return str(r.data['window'][0]).lower()
+
+    # Los textos visibles van en castellano. No se fija la oracion: se exige que
+    # nombre "fecha", palabra que ningun mensaje por defecto de DRF contiene
+    # ("Invalid pk ... object does not exist", "This field is required.",
+    # "Incorrect type ..."). Si desaparece el `error_messages`, vuelve el ingles
+    # y estos tests fallan; una reescritura legitima que siga hablando de la
+    # fecha no los rompe.
+    def test_el_mensaje_de_un_id_inexistente_esta_en_castellano(self):
+        self.assertIn('fecha', self._mensaje({'window': 9999}))
+
+    def test_el_mensaje_de_un_campo_ausente_esta_en_castellano(self):
+        self.assertIn('fecha', self._mensaje({}))
+
+    def test_el_mensaje_de_un_tipo_incorrecto_esta_en_castellano(self):
+        self.assertIn('fecha', self._mensaje({'window': 'abc'}))
+
+    def test_el_mensaje_de_una_fecha_pasada_esta_en_castellano(self):
+        pasada = _fecha(slot='FIRST', inicio='2026-01-10', fin='2026-01-12')
+        self.assertIn('fecha', self._mensaje({'window': pasada.pk}))
 
     def test_un_id_que_no_existe_da_400_por_la_fecha(self):
         r = _client(self.buzo).put('/api/mi-fecha/', {'window': 9999})
