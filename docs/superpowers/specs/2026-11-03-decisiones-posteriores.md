@@ -223,3 +223,68 @@ puesto para que ver 150 perfiles no se vuelva poder reescribirlos.
 **Lo que esto explica:** el 500 del circuito de revision (D-4) no era el unico problema. Incluso
 sin ese error, el medico no tenia acceso a ningun estudio. El mecanismo de concesiones nunca iba
 a hacer funcionar su pantalla.
+
+---
+
+## D-6. Los estudios marcados "g" no se recuperan: esa base se recrea, no se migra
+
+**Pregunta que quedaba abierta desde el cierre del plan 1:** la migracion `api/0008` agrego
+`study_code` con `default='g'`, asi que convirtio **todo** estudio preexistente de texto libre en
+"Ficha de control odontologica (actualizada)", sin poder saber a que punto de la directiva
+correspondia cada uno. Quedo anotado que habia que resolverlo mirando los datos reales, con el
+usuario.
+
+**Decision (usuario, 2026-11-04), textual:** "la app funciono y se podian cargar estudios y
+verlos, pero fue solo para probarla, no hace falta recuperar los datos que se cargaron en ese
+momento".
+
+**Consecuencia: no se escribe ninguna migracion que clasifique por titulo.** Seria codigo que no
+va a correr nunca sobre datos que importen.
+
+### Lo que se verifico antes de decidir
+
+- `db.sqlite3` y `backend/media/` **nunca estuvieron versionados** (en `.gitignore` desde el
+  commit inicial), asi que git no tiene copia en ninguna rama.
+- En la maquina del usuario hay **una sola base del proyecto**, la sembrada por
+  `create_test_data.py`: 72 estudios, todos del 2026-11-03, codigos repartidos de la `a` a la
+  `h`, **cero PDFs subidos**, y solo los 15 usuarios ficticios. Los 9 marcados `g` son fichas
+  odontologicas de verdad.
+- `create_test_data.py` **solo borra los usuarios de su propia lista**, asi que datos reales
+  habrian sobrevivido a la resiembra. No hay ninguno.
+- No hay CI ni scripts de despliegue, y el `docker-compose.yml` monta `./backend/db.sqlite3` como
+  volumen: un despliegue desde esa carpeta usa ese mismo archivo.
+
+### La advertencia que esto deja, y es la parte util de D-6
+
+Se midio que pasa al migrar una base que tenga filas anteriores a `0008`. Se armo una en ese
+estado, con cinco estudios de texto libre de un buzo, y se migro hasta el final:
+
+====  ======  =======  ==========================================
+id    codigo  vigente  titulo que queda
+====  ======  =======  ==========================================
+1     g       False    'Ecocardiograma Dr. Gomez marzo'
+2     g       False    'RX torax frente y perfil'
+3     g       False    'Analisis de sangre completo lab central'
+4     g       False    'Electro de esfuerzo 2026'
+5     g       True     'Odontologia ficha'
+====  ======  =======  ==========================================
+
+El `migrate` **no falla** —`0014` cumple su funcion, que era el riesgo que PD-2 registraba— pero
+el buzo queda con **un solo estudio vigente, una ficha odontologica**, los otros cuatro
+escondidos como historial reemplazado, y 7 de los 8 puntos de la directiva marcados como
+faltantes.
+
+**El titulo original sobrevive la migracion, y un solo `save()` lo destruye.** `StudyBlock.save()`
+reescribe `title` desde el catalogo (`models.py`), asi que la primera vez que algo toca una de
+esas filas —el buzo corrigiendo una coma en la descripcion alcanza— se pierde la unica evidencia
+de que ese estudio era un ecocardiograma. Medido:
+
+.. code-block:: text
+
+    antes de cualquier save(): 'Ecocardiograma Dr. Gomez marzo'
+    despues de UN save()     : 'Ficha de control odontologica (actualizada)'
+
+**Entonces: si la instancia de prueba todavia existe en algun lado, su base no se migra hacia
+adelante. Se recrea.** Es mas barato y no deja un registro medico que miente. Vale para cualquier
+base que tenga filas anteriores a `0008`; las de esta rama ya nacen con `study_code` y no estan
+alcanzadas.
