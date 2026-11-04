@@ -5,6 +5,7 @@ import { agrupar } from '../lib/agrupar-estudios'
 import { enCastellano } from '../lib/fecha-castellano'
 import { rangoEnCastellano } from '../lib/rango-de-fechas'
 import { efectoDelCambioDeFecha } from '../lib/efecto-del-cambio-de-fecha'
+import CargarEstudio from './CargarEstudio'
 
 // §15.19: el botón de subir sale del ESTADO del punto y no de
 // `puede_reemplazarse`, que responde otra pregunta —si el servidor dejaría
@@ -511,7 +512,7 @@ function BloqueDeCorreo({ correo, onGuardado }) {
 // que no hay desplegable de tipo de estudio (§8.3). Los dos campos —la fecha
 // impresa en el documento y el archivo— son de `CargarEstudio` (Tarea 8), que
 // se monta acá adentro; esta hoja aporta el marco y el punto elegido.
-function HojaDeCarga({ estudio, onCerrar }) {
+function HojaDeCarga({ estudio, onCerrar, onSubido }) {
   return (
     <>
       <div className="position-fixed top-0 start-0 w-100 h-100"
@@ -533,7 +534,8 @@ function HojaDeCarga({ estudio, onCerrar }) {
              style={{ background: '#f4f8fe', fontSize: '12px', color: '#2f5fa8', lineHeight: 1.5 }}>
           La imagen se reduce automáticamente antes de enviarse. No se requiere ninguna acción.
         </div>
-        <button type="button" className="btn btn-outline-secondary w-100 mt-3 py-2"
+        <CargarEstudio code={estudio.code} onSubido={onSubido} />
+        <button type="button" className="btn btn-outline-secondary w-100 mt-2 py-2"
                 style={{ borderRadius: '11px' }} onClick={onCerrar}>
           Cerrar
         </button>
@@ -703,7 +705,8 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
       </div>
 
       {estudioACargar && (
-        <HojaDeCarga estudio={estudioACargar} onCerrar={() => setEstudioACargar(null)} />
+        <HojaDeCarga estudio={estudioACargar} onCerrar={() => setEstudioACargar(null)}
+                     onSubido={() => { setEstudioACargar(null); traer().catch(() => setError(ERROR_AL_TRAER)) }} />
       )}
     </div>
   )
