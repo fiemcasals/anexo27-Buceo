@@ -266,6 +266,40 @@ class LoQueFaltaEsLoQueNecesitaUnaCargaAhoraTests(_ConBuzo):
         self.assertEqual(cuerpo['faltan'], len(tarjetas))
 
 
+class UnEstudioSinArchivoTests(_ConBuzo):
+    # `blank=False` es validacion de formulario, no de base: un bloque creado por
+    # la consola, la siembra o el admin puede no tener archivo, y la pantalla no
+    # puede caerse por eso. (Los fixtures de arriba siempre adjuntan archivo.)
+    def _sin_archivo(self, code='d'):
+        bloque = StudyBlock.objects.create(
+            user=self.buzo, study_code=code, study_date=ESTUDIO_VIGENTE)
+        self.assertFalse(bloque.pdf_attachment)
+        return bloque
+
+    def test_responde_200_y_el_archivo_viene_null(self):
+        self._sin_archivo()
+        respuesta = _client(User.objects.get(pk=self.buzo.pk)).get(URL)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIsNone(_punto(json.loads(respuesta.content), 'd')['archivo'])
+
+    def test_el_resto_de_la_fila_se_sirve_igual(self):
+        bloque = self._sin_archivo()
+        punto_d = _punto(_get(self.buzo), 'd')
+        self.assertEqual(punto_d['estado'], 'IN_REVIEW')
+        self.assertTrue(punto_d['corresponde'])
+        self.assertTrue(punto_d['puede_reemplazarse'])
+        self.assertEqual(punto_d['vence_el'], str(ESTUDIO_VIGENTE + timedelta(days=365)))
+        _dictamen(bloque, self.medico, 'APPROVED')
+        punto_d = _punto(_get(self.buzo), 'd')
+        self.assertEqual(punto_d['estado'], 'APPROVED')
+        self.assertFalse(punto_d['puede_reemplazarse'])
+
+    def test_los_otros_puntos_conservan_su_archivo(self):
+        self._sin_archivo()
+        cuerpo = _get(self.buzo)
+        self.assertTrue(_punto(cuerpo, 'c')['archivo'].startswith('http'))
+
+
 class ElEstadoEsSoloDelQueLlamaTests(_ConBuzo):
     def test_hay_que_estar_autenticado(self):
         self.assertIn(APIClient().get(URL).status_code, (401, 403))

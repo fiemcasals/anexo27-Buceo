@@ -66,7 +66,14 @@ def _rechazo(slot) -> dict | None:
 def _archivo(slot, request) -> str | None:
     if slot.block is None:
         return None
-    url = slot.block.pdf_attachment.url
+    archivo = slot.block.pdf_attachment
+    # `blank=False` no es una restricción de la base: puede haber un bloque sin
+    # archivo, y pedirle `.url` a un FieldFile vacío levanta ValueError. Se
+    # pregunta por el archivo, no se atrapa la excepción: un archivo que existe
+    # pero falta en el disco tiene que notarse, no confundirse con "sin archivo".
+    if not archivo:
+        return None
+    url = archivo.url
     return request.build_absolute_uri(url) if request is not None else url
 
 
