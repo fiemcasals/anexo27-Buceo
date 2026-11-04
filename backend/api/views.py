@@ -211,7 +211,13 @@ class CommentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(
                 'Sólo el médico o un enfermero auxiliar designados pueden '
                 'dictaminar sobre un estudio médico.')
-        serializer.save(doctor=self.request.user)
+        # `reviewer_role` sale del perfil, no del cuerpo del pedido: es en
+        # calidad de qué firma, y el §6 dice que "lo único que el médico no
+        # puede delegar es decir que alguien está apto". `es_revisor` de arriba
+        # ya garantizó que el perfil existe y que el rol es uno de los dos.
+        serializer.save(
+            doctor=self.request.user,
+            reviewer_role=self.request.user.profile.role)
 
     def create(self, request, *args, **kwargs):
         try:

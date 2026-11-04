@@ -52,7 +52,14 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['id', 'block', 'doctor', 'doctor_name', 'reviewer_role', 'content', 'status', 'rejection_reason', 'created_at', 'verified_signature']
-        read_only_fields = ['doctor']
+        # `reviewer_role` lo deriva la vista del perfil del que dictamina: es en
+        # calidad de qué firma, no un dato que el firmante declare. Mandado por
+        # el cliente, un enfermero designado posteaba
+        # `{status: APPROVED, reviewer_role: DOCTOR}` y la fila quedaba
+        # indistinguible de la palabra final del médico, que el §6 declara lo
+        # único que el médico no puede delegar. La CheckConstraint no lo
+        # atrapaba: acopla el estado con el rol declarado, no con el real.
+        read_only_fields = ['doctor', 'reviewer_role']
 
     def get_fields(self):
         fields = super().get_fields()
@@ -78,7 +85,37 @@ class CommentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'block': 'Nadie puede dictaminar sobre sus propios estudios.'}
             )
+        # §5: el enfermero auxiliar "no puede declarar apto"; la pre-aprobación
+        # es su acto. Con `reviewer_role` derivado del perfil, el pareo contra el
+        # estado hay que cotejarlo acá: la CheckConstraint lo atrapa igual, pero
+        # sale como IntegrityError —500— y no como un 400 con el motivo. Mismo
+        # pareo que `Comment.clean()`, que DRF no llama.
+        status = attrs.get('status') or getattr(self.instance, 'status', None)
+        role = self._rol_efectivo(user)
+        if role is not None:
+            if status == 'APPROVED' and role == 'NURSE':
+                raise serializers.ValidationError(
+                    {'status': 'La aprobación corresponde sólo al médico.'})
+            if status == 'PRE_APPROVED' and role == 'DOCTOR':
+                raise serializers.ValidationError(
+                    {'status': 'La pre-aprobación corresponde sólo al '
+                               'enfermero auxiliar.'})
         return attrs
+
+    def _rol_efectivo(self, user):
+        """En calidad de qué va a quedar firmada la fila, o None si no se sabe.
+
+        Al crear es el rol del perfil del que dictamina —el mismo que
+        `CommentViewSet.perform_create` graba—; al editar, el que la fila ya
+        tiene, porque `reviewer_role` es de sólo lectura. None cuando no hay
+        request ni fila: el serializador se usa suelto en los tests y sin
+        usuario no hay rol que cotejar. El pareo igual queda cubierto por la
+        CheckConstraint y por `clean()`.
+        """
+        if self.instance is not None:
+            return self.instance.reviewer_role
+        profile = getattr(user, 'profile', None) if user is not None else None
+        return profile.role if profile is not None else None
 
 class StudyBlockSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)

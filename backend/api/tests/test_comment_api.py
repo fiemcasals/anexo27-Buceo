@@ -136,3 +136,68 @@ class DictamenNoSeFabricaTests(APITestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual([row["id"] for row in response.json()],
                          [self.verdict.pk])
+
+
+class ElRolDelDictamenEsElRealTests(APITestCase):
+    """§6: "Lo único que el médico no puede delegar es decir que alguien está apto."
+
+    `reviewer_role` lo mandaba el cliente y nada lo cotejaba contra el rol real
+    del perfil: `perform_create` comprobaba que el usuario fuera **uno de los
+    dos** roles revisores y después confiaba en el cuerpo del pedido. Un
+    enfermero designado posteaba `{status: APPROVED, reviewer_role: DOCTOR}` y la
+    fila quedaba indistinguible de la palabra final del médico — el §5 le dice
+    expresamente "**No puede declarar apto.**", y `fitness.py` deriva el estado
+    de esa fila contando `reviewer_role == DOCTOR`.
+
+    La `CheckConstraint verdict_matches_reviewer_role` no lo atrapaba porque
+    acopla el estado con el rol **declarado**, no con el real.
+    """
+
+    URL = "/api/comments/"
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.doctor = _user("medico", "DOCTOR")
+        self.nurse = _user("enfermero", "NURSE")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+
+    def _post(self, user, **payload):
+        payload.setdefault("block", self.block.pk)
+        return _client(user).post(self.URL, payload, format="json")
+
+    def test_a_nurse_cannot_declare_a_diver_fit_by_declaring_themselves_doctor(self):
+        response = self._post(
+            self.nurse, status="APPROVED", reviewer_role="DOCTOR")
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_the_stored_role_is_the_designated_one_not_the_declared_one(self):
+        response = self._post(
+            self.nurse, status="PRE_APPROVED", reviewer_role="DOCTOR")
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Comment.objects.get().reviewer_role, "NURSE")
+
+    def test_the_doctor_cannot_pre_approve(self):
+        # La pre-aprobación es el acto del enfermero (§6). Con el rol derivado
+        # del perfil, el pareo lo tiene que rechazar la API con 400, no la
+        # CheckConstraint con un 500.
+        response = self._post(
+            self.doctor, status="PRE_APPROVED", reviewer_role="NURSE")
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_the_doctors_approval_still_works_and_is_signed_as_doctor(self):
+        response = self._post(self.doctor, status="APPROVED")
+        self.assertEqual(response.status_code, 201, response.content)
+        verdict = Comment.objects.get()
+        self.assertEqual(verdict.reviewer_role, "DOCTOR")
+        self.assertEqual(verdict.doctor, self.doctor)
+
+    def test_a_nurse_can_still_reject(self):
+        # Rechazar lo pueden los dos (§5): el pareo no se pasó de restrictivo.
+        response = self._post(
+            self.nurse, status="REJECTED", rejection_reason="ILLEGIBLE",
+            content="La foto está cortada.")
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Comment.objects.get().reviewer_role, "NURSE")
