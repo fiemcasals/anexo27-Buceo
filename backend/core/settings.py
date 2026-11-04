@@ -150,6 +150,11 @@ REST_FRAMEWORK = {
     ]
 }
 
+# Registro abierto: pide los datos del §5 y el correo dos veces (§15.11).
+REST_AUTH = {
+    'REGISTER_SERIALIZER': 'users.serializers.RegistroSerializer',
+}
+
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
 

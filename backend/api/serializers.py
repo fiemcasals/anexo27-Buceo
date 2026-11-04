@@ -13,6 +13,14 @@ def hoy():
     return timezone.localdate()
 
 
+def validar_fecha_de_nacimiento(valor):
+    """Una fecha de nacimiento no puede ser posterior a hoy."""
+    if valor is not None and valor > hoy():
+        raise serializers.ValidationError(
+            'La fecha de nacimiento no puede ser posterior a hoy.')
+    return valor
+
+
 class HabilitationWindowSerializer(serializers.ModelSerializer):
     """Una fecha publicada, de sólo lectura. `ya_paso`: su último día ya pasó."""
     slot_display = serializers.CharField(source='get_slot_display', read_only=True)
@@ -65,6 +73,23 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # `is_instructor` va por lo mismo: lo da `promote-instructor`
         # (`IsAdminUser`) y habilita a firmar la bitácora de otros.
         read_only_fields = ['role', 'is_instructor']
+        # No es de sólo lectura: el buzo corrige un error de tipeo. Lo que no
+        # puede es dejarla vacía (ver `validate_birth_date`).
+        extra_kwargs = {
+            'birth_date': {'error_messages': {
+                'invalid': 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.',
+            }},
+        }
+
+    def validate_birth_date(self, valor):
+        # El registro la exige y de ella depende qué estudios corresponden: un
+        # dato obligatorio que después se puede borrar no es obligatorio. Las
+        # cuentas anteriores al registro nuevo que no la tienen pueden seguir
+        # guardando otros datos.
+        if valor is None and self.instance is not None and self.instance.birth_date:
+            raise serializers.ValidationError(
+                'La fecha de nacimiento no puede quedar vacía; sólo puede corregirse.')
+        return validar_fecha_de_nacimiento(valor)
 
     def update(self, instance, validated_data):
         # Correct way to handle multiple pops from same nested dict if mapped by source

@@ -4,7 +4,7 @@ from .views import (
     UserProfileViewSet, ProfileFieldTemplateViewSet,
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
     Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
-    FechasView, MiFechaView, MiEstadoView,
+    FechasView, MiFechaView, MiEstadoView, GradosView, MiCorreoView,
 )
 
 router = DefaultRouter()
@@ -22,5 +22,7 @@ urlpatterns = [
     path('fechas/', FechasView.as_view(), name='fechas'),
     path('mi-fecha/', MiFechaView.as_view(), name='mi-fecha'),
     path('mi-estado/', MiEstadoView.as_view(), name='mi-estado'),
+    path('grados/', GradosView.as_view(), name='grados'),
+    path('mi-correo/', MiCorreoView.as_view(), name='mi-correo'),
     path('', include(router.urls)),
 ]

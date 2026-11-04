@@ -20,6 +20,7 @@ from .serializers import (
     DiveActivitySerializer, DiveLogSerializer,
     HabilitationWindowSerializer, InscripcionSerializer,
 )
+from users.serializers import CorregirCorreoSerializer
 from . import serializers as _serializers
 from .estado import armar_estado
 from .images import ArchivoRechazado, comprimir
@@ -440,6 +441,45 @@ class MiFechaView(APIView):
         profile.habilitation_window = serializer.validated_data['window']
         profile.save(update_fields=['habilitation_window'])
         return Response({'window': profile.habilitation_window_id})
+
+
+class GradosView(APIView):
+    """La lista cerrada de grados (§5), agrupada y en orden jerárquico.
+
+    Sale del modelo para que el desplegable del frontend no la redefina. Es
+    pública: el registro la necesita antes de que exista una sesión, y un token
+    viejo en el navegador no tiene que impedir verla.
+    """
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response([
+            {
+                'grupo': grupo,
+                'grados': [
+                    {'valor': valor, 'etiqueta': etiqueta}
+                    for valor, etiqueta in grados
+                ],
+            }
+            for grupo, grados in UserProfile.RANK_CHOICES
+        ])
+
+
+class MiCorreoView(APIView):
+    """Corrige el correo del que llama (§15.11).
+
+    Es lo único que repara un correo mal tipeado en el registro, que no verifica
+    la dirección. Actúa siempre sobre `request.user`: no recibe ningún id.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        serializer = CorregirCorreoSerializer(
+            data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response({'email': user.email})
 
 
 class MiEstadoView(APIView):
