@@ -192,7 +192,7 @@ class StudyBlockSerializer(serializers.ModelSerializer):
         profile = (UserProfile.objects.select_related('habilitation_window')
                    .filter(user=user).first())
         window = None if profile is None else profile.habilitation_window
-        return puede_reemplazarse(code, vigente, window, timezone.localdate())
+        return puede_reemplazarse(code, vigente, window, hoy())
 
     def get_access_level(self, obj):
         request = self.context.get('request')
