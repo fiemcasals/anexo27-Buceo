@@ -1,7 +1,7 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 import uuid
-from django.contrib.auth.models import User
 
 class StudyBlock(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_blocks')
@@ -118,3 +118,87 @@ class DiveLog(models.Model):
 
     def __str__(self):
         return f"Log - {'Completed' if self.is_completed else 'Pending'}"
+
+
+class AuditorScope(models.Model):
+    """Lectura/dictamen que otorga el admin sobre todos los buzos de un rango de edad.
+
+    A diferencia de Permission, aca no hay un buzo que otorgue: el alcance se
+    evalua en cada consulta contra la edad del perfil, asi un buzo que se registra
+    manana ya queda alcanzado sin que nadie toque nada.
+    """
+    ACCESS_CHOICES = Permission.ACCESS_CHOICES
+
+    grantee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auditor_scopes')
+    access_level = models.CharField(max_length=10, choices=ACCESS_CHOICES, default='VIEW')
+    age_min = models.PositiveIntegerField(null=True, blank=True)
+    age_max = models.PositiveIntegerField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='auditor_scopes_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['grantee__email', 'age_min']
+
+    def __str__(self):
+        return f"{self.grantee.email} ({self.access_level}) {self.age_label}"
+
+    @property
+    def age_label(self):
+        if self.age_min is None and self.age_max is None:
+            return "todas las edades"
+        if self.age_min is None:
+            return f"hasta {self.age_max} anos"
+        if self.age_max is None:
+            return f"desde {self.age_min} anos"
+        return f"{self.age_min} a {self.age_max} anos"
+
+    def diver_q(self):
+        """Q sobre UserProfile para los buzos que alcanza este scope.
+
+        Un perfil sin edad cargada no entra en ningun rango con tope: age__gte /
+        age__lte ya descartan los nulos.
+        """
+        q = Q()
+        if self.age_min is not None:
+            q &= Q(age__gte=self.age_min)
+        if self.age_max is not None:
+            q &= Q(age__lte=self.age_max)
+        return q
+
+    def covers_user(self, user):
+        if self.age_min is None and self.age_max is None:
+            return True
+        age = getattr(getattr(user, 'profile', None), 'age', None)
+        if age is None:
+            return False
+        return ((self.age_min is None or age >= self.age_min)
+                and (self.age_max is None or age <= self.age_max))
+
+    @classmethod
+    def divers_for(cls, grantee, access_level=None):
+        """Ids de buzos cuyos estudios puede ver `grantee` por asignacion del admin."""
+        from users.models import UserProfile
+
+        if not grantee.is_authenticated:
+            return set()
+        scopes = cls.objects.filter(grantee=grantee)
+        if access_level:
+            scopes = scopes.filter(access_level=access_level)
+        ids = set()
+        for scope in scopes:
+            ids.update(UserProfile.objects.filter(scope.diver_q())
+                       .exclude(user=grantee).values_list('user_id', flat=True))
+        return ids
+
+    @classmethod
+    def covering(cls, user, access_level=None):
+        """Scopes que alcanzan a `user`, para mostrarle quien lo tiene habilitado.
+
+        ponytail: filtra en Python sobre todos los scopes; son un punado. Si llegan
+        a cientos, pasar el rango a la consulta por edad del perfil.
+        """
+        scopes = cls.objects.select_related('grantee')
+        if access_level:
+            scopes = scopes.filter(access_level=access_level)
+        return [s for s in scopes if s.grantee_id != user.id and s.covers_user(user)]

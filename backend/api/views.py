@@ -8,12 +8,13 @@ from django.http import HttpResponse
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
-from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog, AuditorScope
 from users.models import UserProfile, ProfileFieldTemplate, Specialty
 from .serializers import (
     StudyBlockSerializer, CommentSerializer, PermissionSerializer,
     UserProfileSerializer, ProfileFieldTemplateSerializer,
-    DiveActivitySerializer, DiveLogSerializer, SpecialtySerializer
+    DiveActivitySerializer, DiveLogSerializer, SpecialtySerializer,
+    AuditorScopeSerializer
 )
 from .report_pdf import generate_anexo_27
 
@@ -56,7 +57,10 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         for p in shared_perms:
             if "ALL" in p.shared_items or "PERSONAL_DATA" in p.shared_items:
                 grantor_ids.append(p.grantor_id)
-        
+
+        # Buzos habilitados por el admin segun rango de edad
+        grantor_ids.extend(AuditorScope.divers_for(user))
+
         q_shared = Q(user_id__in=grantor_ids)
         return UserProfile.objects.filter(q_own | q_shared).distinct()
 
@@ -104,6 +108,9 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
                         except (ValueError, TypeError):
                             continue
             
+            # Habilitacion institucional por rango de edad (panel de administracion)
+            grantor_ids.extend(AuditorScope.divers_for(user))
+
             q_shared = Q(user_id__in=grantor_ids) | Q(id__in=specific_ids)
             return StudyBlock.objects.filter(q_own | q_shared).distinct().prefetch_related(
                 'comments__doctor__profile__specialty'
@@ -128,7 +135,8 @@ class Anexo27View(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         user = User.objects.get(pk=pk)
         # Check if user has permission or is staff
-        if request.user != user and not request.user.is_staff:
+        if (request.user != user and not request.user.is_staff
+                and user.id not in AuditorScope.divers_for(request.user)):
             return HttpResponse("Unauthorized", status=403)
         
         response = HttpResponse(content_type='application/pdf')
@@ -153,6 +161,12 @@ class CommentViewSet(viewsets.ModelViewSet):
                     grantor=block.user, grantee=user, access_level='MODIFY'
                 )
             )
+
+            if not has_permission:
+                has_permission = any(
+                    scope.covers_user(block.user)
+                    for scope in AuditorScope.objects.filter(grantee=user, access_level='MODIFY')
+                )
 
             if not has_permission:
                 raise PermissionDenied("No tienes permisos de Médico Auditor para comentar en este estudio.")
@@ -284,6 +298,30 @@ class DiveLogViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(log)
         return Response(serializer.data)
+
+class AuditorScopeViewSet(viewsets.ModelViewSet):
+    """Habilitaciones de lectura/dictamen por rango de edad.
+
+    El admin las administra; cualquier usuario puede listar (solo lectura) las que
+    lo alcanzan, para ver quien tiene acceso a sus estudios sin haberlo compartido.
+    """
+    queryset = AuditorScope.objects.select_related('grantee')
+    serializer_class = AuditorScopeSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return self.queryset
+        return self.queryset.filter(id__in=[s.id for s in AuditorScope.covering(user)])
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 class SuperUserViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAdminUser]

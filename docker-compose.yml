@@ -5,6 +5,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    environment:
+      # el default de settings.py quedo horneado con el dominio viejo
+      FRONTEND_URL: https://buceo.nuestrocamino.cloud
     volumes:
       - ./backend/db.sqlite3:/app/db.sqlite3
       - ./backend/media:/app/media

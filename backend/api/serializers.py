@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog
+from .models import StudyBlock, Comment, Permission, DiveActivity, DiveLog, AuditorScope
 from users.models import UserProfile, ProfileFieldTemplate, Specialty
 
 class UserSerializer(serializers.ModelSerializer):
@@ -87,6 +87,13 @@ class StudyBlockSerializer(serializers.ModelSerializer):
         for p in Permission.objects.filter(grantor=obj.user, grantee=request.user):
             if p.covers(obj.id):
                 return p.access_level
+        # Habilitacion institucional por rango de edad; MODIFY manda sobre VIEW
+        levels = [s.access_level for s in AuditorScope.objects.filter(grantee=request.user)
+                  if s.covers_user(obj.user)]
+        if 'MODIFY' in levels:
+            return 'MODIFY'
+        if levels:
+            return 'VIEW'
         return 'NONE'
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -123,3 +130,40 @@ class DiveLogSerializer(serializers.ModelSerializer):
         model = DiveLog
         fields = '__all__'
         read_only_fields = ['token', 'diver', 'is_completed', 'completed_at']
+
+
+class AuditorScopeSerializer(serializers.ModelSerializer):
+    grantee_email = serializers.EmailField(write_only=True, required=False)
+    grantee_details = UserSerializer(source='grantee', read_only=True)
+    age_label = serializers.ReadOnlyField()
+    divers_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditorScope
+        fields = ['id', 'grantee', 'grantee_details', 'grantee_email', 'access_level',
+                  'age_min', 'age_max', 'age_label', 'divers_count', 'created_at']
+        read_only_fields = ['grantee']
+
+    def get_divers_count(self, obj):
+        from users.models import UserProfile
+        return UserProfile.objects.filter(obj.diver_q()).exclude(user=obj.grantee).count()
+
+    def validate(self, attrs):
+        low = attrs.get('age_min', getattr(self.instance, 'age_min', None))
+        high = attrs.get('age_max', getattr(self.instance, 'age_max', None))
+        if low is not None and high is not None and low > high:
+            raise serializers.ValidationError(
+                {'age_max': 'La edad máxima no puede ser menor que la mínima.'})
+        return attrs
+
+    def create(self, validated_data):
+        email = (validated_data.pop('grantee_email', '') or '').strip()
+        if not email:
+            raise serializers.ValidationError({'grantee_email': 'Indicá el correo del profesional.'})
+        # email no es unico en User; si hay repetidos tomamos el primero
+        grantee = User.objects.filter(email__iexact=email).first()
+        if not grantee:
+            raise serializers.ValidationError(
+                {'grantee_email': 'No hay ningún usuario registrado con ese correo.'})
+        validated_data['grantee'] = grantee
+        return super().create(validated_data)

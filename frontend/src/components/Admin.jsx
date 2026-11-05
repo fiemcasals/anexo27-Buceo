@@ -15,13 +15,20 @@ const Admin = ({ onLogout }) => {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newInstructorEmail, setNewInstructorEmail] = useState('');
 
+  const EMPTY_SCOPE = { grantee_email: '', access_level: 'VIEW', age_min: '', age_max: '' };
+  const [scopes, setScopes] = useState([]);
+  const [scopeForm, setScopeForm] = useState(EMPTY_SCOPE);
+
   useEffect(() => {
     (async () => {
       try {
         const [pRes, sRes] = await Promise.all([api.get('profiles/me/'), api.get('specialties/')]);
         setProfile(pRes.data);
         setSpecialties(sRes.data);
-        if (pRes.data?.user?.is_superuser) fetchPrivileged();
+        if (pRes.data?.user?.is_superuser) {
+          fetchPrivileged();
+          fetchScopes();
+        }
       } catch (err) {
         console.error('Error cargando panel de administración', err);
       } finally {
@@ -31,6 +38,38 @@ const Admin = ({ onLogout }) => {
   }, []);
 
   const fetchSpecialties = async () => setSpecialties((await api.get('specialties/')).data);
+  const fetchScopes = async () => {
+    try {
+      setScopes((await api.get('auditor-scopes/')).data);
+    } catch { /* sin permisos */ }
+  };
+
+  const addScope = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('auditor-scopes/', {
+        ...scopeForm,
+        age_min: scopeForm.age_min === '' ? null : Number(scopeForm.age_min),
+        age_max: scopeForm.age_max === '' ? null : Number(scopeForm.age_max),
+      });
+      setScopeForm(EMPTY_SCOPE);
+      fetchScopes();
+    } catch (err) {
+      const d = err.response?.data || {};
+      alert(d.grantee_email || d.age_max || d.age_min || 'Error al otorgar el acceso');
+    }
+  };
+
+  const deleteScope = async (s) => {
+    if (!window.confirm(`¿Quitar el acceso de ${s.grantee_details?.email} a los buzos de ${s.age_label}?`)) return;
+    try {
+      await api.delete(`auditor-scopes/${s.id}/`);
+      fetchScopes();
+    } catch {
+      alert('Error al quitar el acceso');
+    }
+  };
+
   const fetchPrivileged = async () => {
     try {
       setPrivilegedUsers((await api.get('superusers/privileged/')).data);
@@ -134,7 +173,7 @@ const Admin = ({ onLogout }) => {
       <div className="main-content flex-grow-1 p-5 bg-light overflow-auto">
         <div className="mb-5">
           <h2 className="fw-bold mb-1">Panel de Administración</h2>
-          <p className="text-muted">Especialidades del sistema y permisos de usuarios.</p>
+          <p className="text-muted">Especialidades del sistema, permisos de usuarios y accesos de lectura por rango de edad.</p>
         </div>
 
         <div className="nav nav-tabs border-0 mb-4 gap-2">
@@ -146,7 +185,86 @@ const Admin = ({ onLogout }) => {
                   onClick={() => setActiveTab('usuarios')}>
             Permisos de Usuarios
           </button>
+          <button className={`nav-link rounded-pill border-0 px-4 ${activeTab === 'auditores' ? 'bg-primary text-white' : 'text-muted'}`}
+                  onClick={() => setActiveTab('auditores')}>
+            Lectores y Auditores ({scopes.length})
+          </button>
         </div>
+
+        {activeTab === 'auditores' && (
+          <div className="row g-4">
+            <div className="col-lg-5">
+              <div className="card border-0 shadow-sm p-4">
+                <h5 className="fw-bold mb-3">Habilitar por Rango de Edad</h5>
+                <form onSubmit={addScope}>
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold text-uppercase text-muted">Correo del profesional</label>
+                    <input type="email" className="form-control rounded-pill" placeholder="medico@ejercito.mil.ar"
+                           value={scopeForm.grantee_email}
+                           onChange={e => setScopeForm({ ...scopeForm, grantee_email: e.target.value })} required />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold text-uppercase text-muted">Nivel de acceso</label>
+                    <select className="form-select rounded-pill" value={scopeForm.access_level}
+                            onChange={e => setScopeForm({ ...scopeForm, access_level: e.target.value })}>
+                      <option value="VIEW">Lector (solo ver los estudios)</option>
+                      <option value="MODIFY">Auditor (ver y dictaminar)</option>
+                    </select>
+                  </div>
+                  <div className="row g-2 mb-3">
+                    <div className="col-6">
+                      <label className="form-label small fw-bold text-uppercase text-muted">Edad desde</label>
+                      <input type="number" min="0" className="form-control rounded-pill" placeholder="22"
+                             value={scopeForm.age_min}
+                             onChange={e => setScopeForm({ ...scopeForm, age_min: e.target.value })} />
+                    </div>
+                    <div className="col-6">
+                      <label className="form-label small fw-bold text-uppercase text-muted">Edad hasta</label>
+                      <input type="number" min="0" className="form-control rounded-pill" placeholder="25"
+                             value={scopeForm.age_max}
+                             onChange={e => setScopeForm({ ...scopeForm, age_max: e.target.value })} />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary w-100 rounded-pill py-2 fw-bold">Otorgar Acceso</button>
+                </form>
+                <p className="text-muted small mt-3 mb-0">
+                  El profesional ve los estudios de todos los buzos dentro del rango sin que cada uno
+                  se lo comparta. Dejá una edad vacía para no poner tope por ese lado; las dos vacías
+                  habilitan todos los buzos. Un buzo que no cargó su edad no entra en ningún rango con tope.
+                </p>
+              </div>
+            </div>
+
+            <div className="col-lg-7">
+              <div className="card border-0 shadow-sm p-4">
+                <h5 className="fw-bold mb-4">Accesos Otorgados</h5>
+                {scopes.length === 0 && <p className="text-muted small">No hay lectores ni auditores habilitados.</p>}
+                {scopes.map(s => (
+                  <div key={s.id} className="d-flex justify-content-between align-items-center py-3 border-bottom gap-2">
+                    <div>
+                      <div className="fw-medium small">
+                        {s.grantee_details?.first_name || s.grantee_details?.last_name
+                          ? `${s.grantee_details.first_name} ${s.grantee_details.last_name}`.trim()
+                          : s.grantee_details?.email}
+                      </div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>{s.grantee_details?.email}</div>
+                      <div className="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                        <span className={`badge rounded-pill px-3 ${s.access_level === 'MODIFY' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'}`}>
+                          {s.access_level === 'MODIFY' ? 'Auditor' : 'Lector'}
+                        </span>
+                        <span className="badge bg-light text-dark rounded-pill px-3">{s.age_label}</span>
+                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>{s.divers_count} buzos alcanzados</span>
+                      </div>
+                    </div>
+                    <button className="btn btn-outline-danger btn-sm rounded-pill px-3" onClick={() => deleteScope(s)}>
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'especialidades' && (
           <div className="row g-4">

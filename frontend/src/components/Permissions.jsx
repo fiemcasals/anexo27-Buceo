@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 
 const Permissions = ({ onLogout }) => {
     const [permissions, setPermissions] = useState([]);
+    const [institutional, setInstitutional] = useState([]);
     const [studies, setStudies] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -18,12 +19,14 @@ const Permissions = ({ onLogout }) => {
 
     const fetchData = async () => {
         try {
-            const [permsRes, studiesRes] = await Promise.all([
+            const [permsRes, studiesRes, scopesRes] = await Promise.all([
                 api.get('permissions/'),
-                api.get('blocks/')
+                api.get('blocks/'),
+                api.get('auditor-scopes/')
             ]);
             setPermissions(permsRes.data);
             setStudies(studiesRes.data);
+            setInstitutional(scopesRes.data);
         } catch (err) {
             console.error("Error fetching data", err);
         } finally {
@@ -94,6 +97,37 @@ const Permissions = ({ onLogout }) => {
                         <p className="text-muted">Gestiona quién puede ver tu información y qué datos específicos compartes.</p>
                     </div>
                 </div>
+
+                {institutional.length > 0 && (
+                    <div className="card border-0 shadow-sm p-4 mb-4">
+                        <h5 className="fw-bold mb-1 d-flex align-items-center gap-2">
+                            <i className="bi bi-bank text-secondary"></i>
+                            Accesos asignados por la institución
+                        </h5>
+                        <p className="text-muted small mb-3">
+                            Estos profesionales ven tus estudios por asignación del administrador, según tu edad.
+                            No hace falta que se los compartas y no se revocan desde acá.
+                        </p>
+                        {institutional.map(s => (
+                            <div key={s.id} className="d-flex justify-content-between align-items-center py-2 border-bottom gap-2 flex-wrap">
+                                <div>
+                                    <div className="fw-medium">
+                                        {s.grantee_details?.first_name || s.grantee_details?.last_name
+                                            ? `${s.grantee_details.first_name} ${s.grantee_details.last_name}`.trim()
+                                            : s.grantee_details?.email}
+                                    </div>
+                                    <div className="small text-muted">{s.grantee_details?.email}</div>
+                                </div>
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className={`badge rounded-pill px-3 ${s.access_level === 'MODIFY' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'}`}>
+                                        {s.access_level === 'MODIFY' ? 'Puede dictaminar' : 'Solo lectura'}
+                                    </span>
+                                    <span className="badge bg-light text-dark rounded-pill px-3">Buzos de {s.age_label}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 <div className="row g-4">
                     <div className="col-lg-5">

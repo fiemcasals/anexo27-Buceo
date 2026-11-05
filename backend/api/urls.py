@@ -4,7 +4,7 @@ from .views import (
     UserProfileViewSet, ProfileFieldTemplateViewSet,
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
     Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
-    SpecialtyViewSet, SupportViewSet
+    SpecialtyViewSet, SupportViewSet, AuditorScopeViewSet
 )
 
 router = DefaultRouter()
@@ -17,6 +17,7 @@ router.register(r'permissions', PermissionViewSet, basename='permission')
 router.register(r'anexo27', Anexo27View, basename='anexo27')
 router.register(r'dive-activities', DiveActivityViewSet, basename='diveactivity')
 router.register(r'dive-logs', DiveLogViewSet, basename='divelog')
+router.register(r'auditor-scopes', AuditorScopeViewSet, basename='auditorscope')
 router.register(r'support', SupportViewSet, basename='support')
 router.register(r'superusers', SuperUserViewSet, basename='superuser')
 
