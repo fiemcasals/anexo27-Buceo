@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import CampoFecha from './CampoFecha';
 import {
   textoDeFecha,
   filaDeRol,
@@ -160,14 +161,12 @@ function Fechas({ ciclo, fechas, editado, onEditar, onGuardar, guardando, errore
                      style={{ fontSize: '13px' }}>
                 {ROTULOS[f.slot] || f.etiqueta}
               </label>
-              <input
-                type="date"
+              <CampoFecha
                 id={`fecha-${f.slot}`}
-                className={`form-control${error ? ' is-invalid' : ''}`}
                 value={editado[f.slot] || ''}
-                onChange={(e) => onEditar(f.slot, e.target.value)}
+                onChange={(iso) => onEditar(f.slot, iso)}
+                error={error}
               />
-              {error && <div className="invalid-feedback d-block">{error}</div>}
               <div className="form-text">
                 Guardada: {textoDeFecha(f.fecha)}
               </div>
