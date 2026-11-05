@@ -1,0 +1,34 @@
+# Autodeploy de buceo.nuestrocamino.cloud.
+#
+# Dispara con el push a `produccion`, no a `main`: main es una linea de
+# desarrollo paralela que se separo de esta en 8d3f8d3 (junio 2026) y tiene
+# migraciones que chocan de numero con contenido distinto. Desplegar main sobre
+# esta base rompe el esquema. Mientras las dos lineas no se reconcilien, el sitio
+# en vivo sale de `produccion`.
+name: Desplegar produccion
+
+on:
+  push:
+    branches: [produccion]
+  # Para redesplegar a demanda sin inventar un commit.
+  workflow_dispatch:
+
+jobs:
+  desplegar:
+    name: Desplegar en el VPS
+    # La etiqueta propia no es decorativa: todos los runners traen `self-hosted`
+    # de fabrica y en esta maquina ya vive el de project-manager.
+    runs-on: [self-hosted, vps-buceo]
+    concurrency:
+      group: despliegue-buceo
+      cancel-in-progress: false
+    # El build de vite es lo que tarda; 25 min es holgado.
+    timeout-minutes: 25
+
+    steps:
+      # Sin actions/checkout: `docker compose build` toma el arbol del clon real
+      # en /root, no el del workspace del runner. deploy.sh hace el pull.
+      - name: deploy.sh
+        run: |
+          cd /root/anexo27-Buceo/anexo27-Buceo
+          ./deploy.sh produccion
