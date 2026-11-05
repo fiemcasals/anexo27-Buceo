@@ -16,11 +16,16 @@ falta es el otro lado del mostrador — que alguien los mire y diga sí o no.
 Hoy esa pantalla existe pero es la vieja, anterior a todo este trabajo, y tiene
 dos problemas que no son de estética.
 
-**Se baja todo.** `frontend/src/components/Dashboard.jsx:56-58` hace tres
-llamadas: `profiles/me/`, `blocks/` —todos los estudios del sistema— y
-`profiles/` —todos los perfiles—, y después filtra en JavaScript. La paginación
-está apagada a mano en `backend/api/views.py:422`. Con 150 buzos son más de
-1.200 estudios con sus dictámenes en cada carga.
+**Se baja todo.** `frontend/src/components/Dashboard.jsx:56-58` pide `blocks/`
+—todos los estudios del sistema, sin paginar— y después filtra en JavaScript.
+Con 150 buzos son más de 1.200 estudios con sus dictámenes en cada carga.
+
+DRF no tiene `DEFAULT_PAGINATION_CLASS` configurado, así que **la paginación
+nunca estuvo prendida**: el endpoint nuevo tiene que traer la suya. (El
+`pagination_class = None` de `views.py:422` es de `FechasView`, que sirve las
+fechas de habilitación, y no tiene que ver con esto.) La llamada a `profiles/`
+ya no baja el plantel: `UserProfileViewSet.get_queryset` filtra por el usuario
+autenticado desde la decisión D-5.
 
 **No distingue al médico del enfermero.** El backend sí: `api/models.py:141-143`
 y `api/serializers.py:162-165` hacen cumplir que el enfermero pre-aprueba y no
@@ -128,44 +133,124 @@ El buscador —nombre, apellido, DNI y grado en un solo campo—, los cuatro
 filtros, el filtro por turno, el orden y los contadores del encabezado se
 resuelven todos en el servidor.
 
-**Los conteos van anotados en la consulta.** Calcularlos llamando a
-`diver_summary` una vez por fila es el N+1 que el §13 nombra; con 150 buzos son
-150 consultas por pantalla.
+### Los conteos NO se reimplementan en SQL
 
-**El estado derivado no se precalcula ni se guarda.** Depende de la fecha de
-hoy: un estudio aprobado se vuelve vencido sin que nadie toque nada. Se calcula
-en la consulta.
+Esto es lo más importante del documento y es fácil equivocarse al revés.
 
-### El riesgo central: dos caminos para el mismo número
+**`diver_summary` es la única implementación de la regla.** El listado la llama
+una vez por buzo, igual que la ficha.
 
-El listado saca los contadores de una consulta anotada. La ficha los saca de
-`diver_summary`. **Son dos implementaciones de la misma regla**, y cuando se
-separen nadie se va a dar cuenta: el listado va a decir 6/7 y la ficha 5/7, sin
+Parece un N+1 y no lo es. `api/fitness.py:24` dice que las funciones **no
+consultan la base**, y el propio archivo trae escrito el `select_related` /
+`prefetch_related` con el que el llamador baja *"el plantel entero (unos 150
+buzos) de una sola vez"*; el motor filtra `is_current` y ordena los dictámenes
+**en memoria** para aprovechar ese cache. Con ese prefetch, evaluar los 150
+buzos son **unas tres consultas en total**, no 150. El plan 1 lo construyó así a
+propósito, y tanto su plan como `2026-11-03-decisiones-posteriores.md` lo dejan
+dicho: *"el mismo prefetch sirve acá"*.
+
+La alternativa —anotar los conteos en el ORM— obligaría a reescribir en SQL,
+sobre SQLite, la vigencia contra `end_date` con días distintos por punto (365,
+y 30 para el Anexo 27), el último dictamen por bloque, el conjunto exigido según
+la edad, y la precedencia de `DiverState`. Eso es **exactamente la "segunda
+definición de la misma regla" que este documento declara su anti-objetivo**. No
+se hace.
+
+**El estado derivado tampoco se precalcula ni se guarda.** Depende de la fecha
+de hoy: un estudio aprobado se vuelve vencido sin que nadie toque nada. Sale de
+`DiverState` en cada pedido.
+
+**Lo que esto cuesta, y hay que aceptarlo:** el buscador, los filtros, el orden,
+los contadores y la paginación se resuelven **en el servidor pero en Python**,
+sobre los 150 perfiles ya traídos. La paginación de DRF y el `order_by` del ORM
+no sirven tal cual. Es deliberado: es el precio de tener una sola definición de
+la regla, y con 150 filas se paga sin que se note.
+
+Además, los tres contadores del encabezado y los conteos de los cuatro filtros
+son sobre el plantel, así que hay que evaluar a todos igual, pagine o no pagine
+la tabla.
+
+### El riesgo que queda
+
+Alguien va a mirar esto más adelante, va a ver un bucle sobre 150 perfiles, va a
+pensar "esto se arregla con un `annotate`", y va a crear la segunda definición
+sin darse cuenta. A partir de ahí el listado va a decir 6/7 y la ficha 5/7: sin
 error, sin excepción, sin nada en los registros.
 
-Dos cosas lo sostienen, y las dos son obligatorias:
+Dos cosas lo sostienen:
 
-1. `diver_summary` sigue siendo la autoridad para un buzo. La consulta anotada
-   es una optimización de lectura, nunca una segunda definición.
-2. **Un test que, sobre el mismo conjunto de datos, compare fila por fila lo que
-   devuelve el endpoint del listado contra lo que devuelve `diver_summary` para
-   cada uno de esos buzos, y falle ante cualquier diferencia.** Tiene que cubrir
-   los casos donde las dos reglas más fácilmente se separan: el buzo de 40 años
-   justos, el que no se inscribió a ningún turno, el que tiene un estudio
-   vencido y otro rechazado a la vez, y el que no subió nada.
+1. Una prueba de consultas: evaluar el plantel entero tiene que costar un número
+   fijo y chico de consultas, **y el test falla si ese número crece**. Es lo que
+   impide que una optimización ingenua pase inadvertida, y también lo que
+   detecta que alguien rompió el prefetch.
+2. **Un test que compare, sobre los mismos datos, lo que devuelve el endpoint
+   del listado contra `diver_summary` para cada uno de esos buzos**, y falle
+   ante cualquier diferencia. Tiene que cubrir los casos donde más fácil se
+   separan: el buzo de 40 años justos, el que no se inscribió a ningún turno, el
+   que no tiene fecha de nacimiento, el que tiene un vencido y un rechazado a la
+   vez, y el que no subió nada.
 
 ---
 
 ## El listado (§8.1)
 
-Se ve **todo el personal** por defecto. Arriba, tres contadores sobre el total:
-aptos, a revisar, vencidos.
+Se ve **todo el personal** por defecto — o sea los perfiles con rol `USER`: el
+§5 dice que el médico, los enfermeros y el admin no aparecen en "Personal a
+controlar".
+
+### Qué cuentan los contadores
+
+Arriba van tres: aptos, a revisar, vencidos. El boceto aprobado se contradice
+acá —dice "Aptos 2" contando buzos y "A revisar 6" sumando estudios— así que
+queda decidido en este documento:
+
+**Cuentan buzos, no estudios.** "A revisar 3" quiere decir que hay tres
+personas con algo esperando, no seis estudios en la pila. Es gente, que es lo
+que el médico va a ir a buscar, y hace juego con "Aptos", que ya contaba buzos.
+
+**"A revisar" incluye lo pre-revisado.** Todo lo que no tiene la firma final del
+médico cuenta como pendiente: el apto sale sólo de sus aprobaciones, así que
+mientras no firme el trabajo no está terminado. El enfermero ve el mismo
+número, que por lo tanto incluye trabajo que él ya hizo; la columna "A revisar"
+de cada fila igual muestra las dos pilas separadas.
+
+**Un buzo cae en un solo contador**, el que manda `DiverState` con su
+precedencia: vencido y rechazado le ganan a los demás. Por eso un buzo con un
+vencido *y* un rechazado sale como rechazado y no aparece en "Vencidos".
+
+**Los tres se recalculan con el buscador y el filtro de turno.** Si la tabla
+muestra cuatro buzos y arriba dice seis, se lee como un error aunque no lo sea.
+Los números describen siempre lo que se está mirando. Lo mismo vale para el
+conteo que lleva cada uno de los cuatro filtros.
+
+Esto no contradice haber descartado la opción del turno como selector: aquella
+hacía que hubiera que elegir un turno para ver algo, y escondía a los que no se
+anotaron. Acá se sigue entrando al plantel completo.
 
 El turno es **una columna** —con el lugar en el ciclo y la fecha, por ejemplo
 "1ra · 15/03/2027"— y **un filtro** al lado de los cuatro que ya había. Quien no
 se inscribió a ningún turno aparece igual, marcado "Sin turno". *Esta fue la
 opción B de dos que se compararon; la descartada hacía del turno un selector que
 acotaba toda la pantalla y sus contadores.*
+
+### El buzo sin turno, y el que no tiene fecha de nacimiento
+
+Sin turno no hay contra qué medir la vigencia, así que `required_codes` devuelve
+vacío y `DiverSummary` sale con todo en cero. **Un buzo que subió los ocho
+estudios mostraría "0/0" y guiones en todo**: el test de consistencia pasaría,
+porque es lo que devuelve la autoridad, y la pantalla estaría mintiendo.
+
+La fila no dice "0/0". Dice **cuántos estudios tiene subidos y que el exigido no
+se puede determinar** — "8 subidos · sin turno" —, y el estado es el que ya
+existe para eso, `DiverState.NO_WINDOW`. Lo mismo con la fecha de nacimiento sin
+cargar (`UNKNOWN_AGE`): se muestra lo que hay y se dice qué falta para poder
+calcular, en lugar de un cero que se lee como "no presentó nada".
+
+En la columna de edad va **la edad de la regla** —año del turno menos año de
+nacimiento, que es la que decide si corresponden siete estudios u ocho, y puede
+ser un año más que la real— y un guion cuando no hay turno contra el cual
+calcularla. *Decisión mía: lo que importa en esta pantalla es por qué el
+denominador es 7 u 8, no cuántos años cumplió la persona.*
 
 Los cuatro filtros existentes, con su conteo cada uno: Todos · Documentación
 completa · Documentación incompleta · Pendientes de revisar. **"Documentación
@@ -213,9 +298,22 @@ Cuatro contadores: Presentados, **Aprobados**, A revisar, Con problema.
 con su estado del §7. El médico controla contra la lista, así que la ve en el
 orden de la directiva.
 
-**Sólo lo que espera dictamen tiene botones**: Ver, Aprobar, Rechazar. Lo
-resuelto tiene Ver y nada más. Cada dictamen dice quién y cuándo en la propia
-fila, sin abrir nada, y el motivo del rechazo se muestra textual.
+**Sólo lo que espera dictamen tiene botones de dictamen**: Ver, Aprobar,
+Rechazar. Cada dictamen dice quién y cuándo en la propia fila, sin abrir nada, y
+el motivo del rechazo se muestra textual.
+
+**Lo aprobado por el médico lleva además un botón para revertir**, y esto
+corrige un agujero del spec. Hoy una aprobación equivocada no tiene salida: el
+buzo no puede reemplazar lo que el médico aprobó (`fitness.puede_reemplazarse`)
+y la ficha no le ofrece acciones a lo resuelto, así que **un error de un clic
+deja a alguien apto hasta que el estudio venza**. El rechazo sí tiene salida —el
+buzo vuelve a subir— y el pre-revisado también.
+
+Revertir devuelve el punto a "En revisión" y queda asentado quién revirtió y
+cuándo, como cualquier otro dictamen: el §6 pide que el historial diga quién,
+con qué rol, cuándo y qué decidió. El backend ya lo permite —`SoloQuienDictamino`
+deja que el autor edite su dictamen— así que lo que falta es la regla explícita
+y el botón. Sólo el médico revierte lo que él aprobó.
 
 Volver al listado conserva los filtros.
 
@@ -241,6 +339,15 @@ Quedan en pie las otras dos diferencias:
 - **Entra ordenado al revés que el médico**: primero lo que nadie tocó, lo más
   viejo arriba — la pila cruda. El médico entra viendo la pila rápida, lo
   pre-revisado esperando su firma.
+
+  "Lo más viejo" no existe como campo. **Es la fecha de subida (`created_at`)
+  del estudio sin dictamen más antiguo que tenga ese buzo**; un buzo sin nada
+  esperando va al fondo. No sirve "Última vez revisado", que cuenta sólo
+  dictámenes del médico y por eso está vacía justo en la pila cruda.
+
+  **Los dos órdenes son opciones del desplegable, no sólo valores iniciales.**
+  Si fueran sólo el arranque, el médico que ordena por apellido pierde para
+  siempre la pila rápida, que es la razón por la que entra así.
 - **Sus botones son Aprobar y Rechazar**, iguales a los del médico, pero su
   aprobación deja el estudio en **Pre-revisado**. El apto sale únicamente de las
   aprobaciones del médico. Esto el backend ya lo hace cumplir; la pantalla tiene
@@ -259,6 +366,27 @@ su usuario.
 importante; que el servidor de correo esté caído no puede impedir que el médico
 trabaje. Que el correo no salió tiene que quedar registrado en algún lado que
 alguien pueda mirar después.
+
+### Un 500 en el camino del diálogo
+
+`Comment` tiene una `CheckConstraint` llamada `rejection_has_reason_and_detail`
+que exige que todo rechazo lleve motivo y detalle. **`CommentSerializer.validate`
+no la cubre**: valida el §15.9 y el pareo rol/estado, pero `rejection_reason` y
+`content` son `blank=True` y nadie los exige. Un `POST comments/` con
+`status: "REJECTED"` y motivo vacío pasa el serializador y revienta en la base
+como `IntegrityError` — **500 con traceback, porque `DEBUG = True`**.
+
+Ese es exactamente el POST que manda el diálogo de rechazo que este plan
+construye. Se arregla acá, con su test: el serializador exige motivo y detalle
+en un rechazo y devuelve 400 con el mensaje. El mismo archivo ya trata así el
+pareo rol/estado, y su comentario explica por qué: *"la CheckConstraint lo
+atrapa igual, pero sale como IntegrityError —500— y no como un 400 con el
+motivo"*. Es la deuda que `2026-11-03-decisiones-posteriores.md` (D-2) ya le
+había asignado a este plan.
+
+---
+
+## El cableado del correo
 
 El cableado ya está hecho y commiteado (`8494c47`): las credenciales salen de
 `backend/.env`, que no va a git, y `backend/.env.example` está versionado con
@@ -280,6 +408,22 @@ sistema no lo emite. Hoy el generador existe pero ningún botón lo llama:
 Se va todo junto: `backend/api/report_pdf.py`, sus tests
 (`api/tests/test_report_pdf.py`), `Anexo27View` (`views.py:167`), su registro en
 `urls.py:17`, el import de `views.py:27`, y la función muerta del frontend.
+
+### La red de seguridad del ruteo
+
+`frontend/src/App.jsx` usa hoy `Dashboard` como **fallback cuando falla la
+consulta del perfil**, con un comentario que dice que una falla de red no tiene
+que mostrarle a nadie la pantalla del rol equivocado. Si `/dashboard` pasa a ser
+el listado del revisor y sigue siendo el fallback, **un buzo cuya consulta de
+perfil falló aterriza en una pantalla que le va a dar 403**.
+
+El fallback deja de ser una pantalla y pasa a ser **un cartel que dice que no se
+pudo determinar el rol, con un botón para reintentar**. Sin rol confirmado no se
+muestra ninguna de las tres pantallas.
+
+Al borrar `Dashboard.jsx` se pierde además su pestaña "Mis estudios", con carga
+y borrado. Es a propósito: según el §5, el médico, los enfermeros y el admin no
+presentan estudios.
 
 ---
 
