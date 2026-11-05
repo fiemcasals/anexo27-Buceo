@@ -4,7 +4,7 @@ from rest_framework import generics, viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from django.db.models import Prefetch, Q
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -21,6 +21,7 @@ from .serializers import (
 from users.serializers import CorregirCorreoSerializer
 from . import correo
 from . import plantel
+from .ficha import armar_ficha
 from . import serializers as _serializers
 from .estado import armar_estado
 from .images import ArchivoRechazado, comprimir
@@ -753,3 +754,29 @@ class PlantelView(APIView):
             'paginas': paginas,
             'filas': filas[desde:desde + FILAS_POR_PAGINA],
         })
+
+
+class FichaView(APIView):
+    """`GET /api/plantel/<id>/`: la ficha de un buzo, por el id de su perfil.
+
+    Sólo el plantel: el id de un médico, un enfermero o el administrador da 404,
+    igual que si no existiera. Trae el perfil con la misma receta que el
+    listado, así que cuesta un número fijo de consultas.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsRevisor]
+
+    def get(self, request, pk):
+        perfil = (UserProfile.objects
+                  .filter(role='USER', pk=pk)
+                  .select_related('user', 'habilitation_window')
+                  .prefetch_related(Prefetch(
+                      'user__study_blocks',
+                      queryset=StudyBlock.objects.filter(is_current=True)
+                      .prefetch_related('comments__doctor'),
+                  ))
+                  .first())
+        if perfil is None:
+            raise NotFound('No hay ningún buzo con ese número.')
+        return Response(armar_ficha(
+            perfil, _serializers.hoy(), request.user, request=request))
