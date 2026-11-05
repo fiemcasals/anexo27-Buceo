@@ -19,3 +19,6 @@ build/
 .idea/
 .DS_Store
 db.sqlite3.bak-*
+
+# Respaldos locales
+datos/
