@@ -1,6 +1,7 @@
 """Tests de la fila del plantel: un buzo convertido en lo que el médico lista."""
 
 from datetime import date, datetime, time
+from datetime import timezone as dt_timezone
 
 from django.db.models import Prefetch
 from django.test import TestCase
@@ -153,3 +154,247 @@ class FilaDeUnBuzoTests(TestCase):
         self.assertEqual(fila['vencidos'], 2)
         self.assertEqual(fila['rechazados'], 1)
         self.assertEqual(fila['estado'], 'REJECTED')
+
+
+def _f(**kw):
+    """Una fila a mano, con las claves de ``fila()``; sólo se pisa lo que importa."""
+    base = {
+        'id': 0, 'grado': 'Marinero', 'apellido': 'Zeta', 'nombre': 'Ana',
+        'unidad': 'Base', 'dni': '1', 'edad': 30, 'turno': None,
+        'presentados': 0, 'exigidos': None, 'a_revisar': 0, 'sin_tocar': 0,
+        'pre_revisados': 0, 'vencidos': 0, 'rechazados': 0,
+        'ultima_revision': None, 'estado': 'NO_WINDOW',
+        'subida_mas_vieja_sin_dictamen': None,
+    }
+    base.update(kw)
+    return base
+
+
+def _turno(pk):
+    return {'id': pk, 'slot': 'S', 'slot_display': 'S',
+            'start_date': date(2026, 11, 1), 'end_date': date(2026, 11, 30)}
+
+
+def _ts(dia):
+    return datetime(2026, 10, dia, 12, 0, tzinfo=dt_timezone.utc)
+
+
+class _Plantel:
+    """Ocho buzos armados a mano, sin base: las funciones son puras."""
+
+    def setUp(self):
+        self.turno_1ra, self.turno_2da = 1, 2
+        # Apto, turno 1, todo presentado.
+        self.fila_gomez = _f(
+            id=1, grado='Cabo', apellido='Gómez', nombre='María',
+            dni='12.345.675', turno=_turno(1), presentados=8, exigidos=8,
+            estado='APTO', ultima_revision=date(2026, 10, 1))
+        # Apto, turno 2.
+        self.fila_apto_2 = _f(
+            id=2, apellido='Álvarez', nombre='Luis', dni='20000000',
+            turno=_turno(2), presentados=8, exigidos=8, estado='APTO',
+            ultima_revision=date(2026, 9, 1))
+        # Todo subido y un estudio rechazado: el papel está presentado.
+        self.fila_con_todo_subido_y_uno_rechazado = _f(
+            id=3, apellido='Benítez', turno=_turno(1), presentados=8,
+            exigidos=8, rechazados=1, estado='REJECTED',
+            ultima_revision=date(2026, 10, 20))
+        # Subió ocho sin inscribirse: exigidos desconocido.
+        self.fila_sin_turno = _f(
+            id=4, apellido='Cruz', presentados=8, exigidos=None,
+            estado='NO_WINDOW')
+        # Tres con pendientes, seis estudios entre todos.
+        self.fila_pre = _f(
+            id=5, apellido='Díaz', turno=_turno(1), presentados=3, exigidos=8,
+            a_revisar=3, sin_tocar=1, pre_revisados=2, estado='TO_REVIEW',
+            subida_mas_vieja_sin_dictamen=_ts(10),
+            ultima_revision=date(2026, 8, 1))
+        self.fila_con_la_subida_mas_vieja = _f(
+            id=6, apellido='Ferrari', turno=_turno(2), presentados=2,
+            exigidos=8, a_revisar=2, sin_tocar=2, estado='TO_REVIEW',
+            subida_mas_vieja_sin_dictamen=_ts(2))
+        self.fila_cruda_2 = _f(
+            id=7, apellido='Gil', turno=_turno(2), presentados=1, exigidos=8,
+            a_revisar=1, sin_tocar=1, estado='TO_REVIEW',
+            subida_mas_vieja_sin_dictamen=_ts(5))
+        # Nada esperando, incompleto.
+        self.fila_sin_nada_pendiente = _f(
+            id=8, apellido='Herrera', turno=_turno(1), presentados=4,
+            exigidos=8, estado='INCOMPLETE')
+        self.fila_con_vencido_y_rechazado = _f(
+            id=9, apellido='Ibarra', turno=_turno(1), presentados=8,
+            exigidos=8, vencidos=1, rechazados=1, estado='REJECTED')
+        self.filas = [
+            self.fila_gomez, self.fila_apto_2,
+            self.fila_con_todo_subido_y_uno_rechazado, self.fila_sin_turno,
+            self.fila_pre, self.fila_con_la_subida_mas_vieja,
+            self.fila_cruda_2, self.fila_sin_nada_pendiente]
+
+
+def _ids(filas):
+    return [f['id'] for f in filas]
+
+
+class BuscarTests(_Plantel, TestCase):
+    def test_busca_por_apellido_nombre_dni_y_grado_en_un_solo_campo(self):
+        for texto in ('gomez', 'María', '12.345.675', 'Cabo'):
+            self.assertIn(self.fila_gomez, plantel.buscar(self.filas, texto))
+
+    def test_ignora_mayusculas_acentos_y_puntos_del_dni(self):
+        self.assertIn(self.fila_gomez, plantel.buscar(self.filas, 'GOMEZ'))
+        self.assertIn(self.fila_gomez, plantel.buscar(self.filas, 'gómez'))
+        self.assertIn(self.fila_gomez, plantel.buscar(self.filas, '12345675'))
+
+    def test_no_devuelve_los_que_no_coinciden(self):
+        self.assertEqual(plantel.buscar(self.filas, 'gomez'), [self.fila_gomez])
+
+    def test_texto_vacio_o_en_blanco_devuelve_todo(self):
+        self.assertEqual(plantel.buscar(self.filas, ''), self.filas)
+        self.assertEqual(plantel.buscar(self.filas, '   '), self.filas)
+        self.assertEqual(plantel.buscar(self.filas, None), self.filas)
+
+    def test_varias_palabras_deben_coincidir_todas(self):
+        self.assertEqual(plantel.buscar(self.filas, 'cabo maria'),
+                         [self.fila_gomez])
+        self.assertEqual(plantel.buscar(self.filas, 'cabo luis'), [])
+
+    def test_un_dni_parcial_sin_puntos_encuentra(self):
+        self.assertEqual(plantel.buscar(self.filas, '2345'), [self.fila_gomez])
+
+    def test_conserva_el_orden_de_entrada(self):
+        # 'a' está en Álvarez, Gómez (María), Cruz (Ana)...: más de uno.
+        self.assertEqual(_ids(plantel.buscar(self.filas, 'ana')),
+                         [3, 4, 5, 6, 7, 8])
+
+
+class FiltrarTests(_Plantel, TestCase):
+    def test_documentacion_completa_no_mira_el_dictamen(self):
+        # Spec §8.1: un rechazado cuenta como completo, el papel está presentado.
+        completas = plantel.filtrar(self.filas, filtro='completa')
+        self.assertIn(self.fila_con_todo_subido_y_uno_rechazado, completas)
+
+    def test_sin_turno_se_filtra_con_el_literal_sin(self):
+        self.assertEqual(plantel.filtrar(self.filas, turno='sin'),
+                         [self.fila_sin_turno])
+
+    def test_el_de_exigidos_desconocido_no_cuenta_como_completo(self):
+        self.assertNotIn(self.fila_sin_turno,
+                         plantel.filtrar(self.filas, filtro='completa'))
+
+    def test_el_de_exigidos_desconocido_es_incompleto(self):
+        self.assertIn(self.fila_sin_turno,
+                      plantel.filtrar(self.filas, filtro='incompleta'))
+
+    def test_completa_e_incompleta_se_reparten_todo(self):
+        c = plantel.filtrar(self.filas, filtro='completa')
+        i = plantel.filtrar(self.filas, filtro='incompleta')
+        self.assertEqual(len(c) + len(i), len(self.filas))
+        self.assertEqual(_ids(c), [1, 2, 3])
+
+    def test_pendientes_son_los_de_a_revisar_mayor_a_cero(self):
+        self.assertEqual(
+            _ids(plantel.filtrar(self.filas, filtro='pendientes')), [5, 6, 7])
+
+    def test_todos_o_sin_filtro_no_filtra(self):
+        self.assertEqual(plantel.filtrar(self.filas, filtro='todos'), self.filas)
+        self.assertEqual(plantel.filtrar(self.filas), self.filas)
+
+    def test_por_turno_compara_el_id(self):
+        self.assertEqual(_ids(plantel.filtrar(self.filas, turno=2)), [2, 6, 7])
+
+    def test_filtro_y_turno_se_combinan(self):
+        self.assertEqual(
+            _ids(plantel.filtrar(self.filas, filtro='pendientes', turno=2)),
+            [6, 7])
+
+    def test_filtro_desconocido_falla(self):
+        with self.assertRaises(ValueError):
+            plantel.filtrar(self.filas, filtro='inventado')
+
+
+class ContarTests(_Plantel, TestCase):
+    def test_cuenta_buzos_y_no_estudios(self):
+        # Tres buzos con pendientes, que entre todos suman seis estudios.
+        self.assertEqual(plantel.contar(self.filas)['a_revisar'], 3)
+
+    def test_un_buzo_cae_en_un_solo_contador(self):
+        # Con un vencido y un rechazado, DiverState lo manda a REJECTED:
+        # sale de "vencidos" y no hay doble conteo.
+        c = plantel.contar([self.fila_con_vencido_y_rechazado])
+        self.assertEqual(c['vencidos'], 0)
+
+    def test_vencidos_cuenta_buzos_de_estado_expired_y_no_estudios(self):
+        vencido = _f(id=10, estado='EXPIRED', vencidos=2)
+        self.assertEqual(plantel.contar(self.filas + [vencido])['vencidos'], 1)
+
+    def test_contar_sobre_lo_filtrado_da_lo_filtrado(self):
+        del_turno = plantel.filtrar(self.filas, turno=self.turno_1ra)
+        self.assertEqual(plantel.contar(del_turno)['aptos'], 1)
+        self.assertEqual(plantel.contar(self.filas)['aptos'], 2)
+
+    def test_por_filtro_trae_los_cuatro_conteos(self):
+        self.assertEqual(plantel.contar(self.filas)['por_filtro'], {
+            'todos': 8, 'completa': 3, 'incompleta': 5, 'pendientes': 3})
+
+    def test_lista_vacia_da_ceros(self):
+        self.assertEqual(plantel.contar([]), {
+            'aptos': 0, 'a_revisar': 0, 'vencidos': 0,
+            'por_filtro': {'todos': 0, 'completa': 0, 'incompleta': 0,
+                           'pendientes': 0}})
+
+
+class OrdenarTests(_Plantel, TestCase):
+    def test_pila_rapida_pone_primero_lo_pre_revisado(self):
+        primera = plantel.ordenar(self.filas, 'pila_rapida')[0]
+        self.assertGreater(primera['pre_revisados'], 0)
+
+    def test_pila_rapida_pone_mas_pre_revisados_antes(self):
+        menos = _f(id=11, apellido='Aaa', a_revisar=1, pre_revisados=1,
+                   estado='TO_REVIEW')
+        orden = plantel.ordenar(self.filas + [menos], 'pila_rapida')
+        self.assertEqual(_ids(orden[:2]), [5, 11])
+
+    def test_pila_cruda_pone_primero_la_subida_mas_vieja_sin_dictamen(self):
+        primera = plantel.ordenar(self.filas, 'pila_cruda')[0]
+        self.assertEqual(primera, self.fila_con_la_subida_mas_vieja)
+
+    def test_los_que_no_tienen_nada_esperando_van_al_fondo_en_pila_cruda(self):
+        self.assertEqual(plantel.ordenar(self.filas, 'pila_cruda')[-1],
+                         self.fila_sin_nada_pendiente)
+
+    def test_pila_cruda_ordena_las_fechas_de_mas_vieja_a_mas_nueva(self):
+        orden = plantel.ordenar(self.filas, 'pila_cruda')
+        self.assertEqual(_ids(orden[:3]), [6, 7, 5])
+
+    def test_apellido_ignora_acentos_y_mayusculas(self):
+        orden = plantel.ordenar(
+            [_f(id=1, apellido='Zeta'), _f(id=2, apellido='álvarez'),
+             _f(id=3, apellido='Bravo')], 'apellido')
+        self.assertEqual(_ids(orden), [2, 3, 1])
+
+    def test_apellido_desempata_por_nombre(self):
+        orden = plantel.ordenar(
+            [_f(id=1, apellido='Paz', nombre='Zoe'),
+             _f(id=2, apellido='Paz', nombre='Ana')], 'apellido')
+        self.assertEqual(_ids(orden), [2, 1])
+
+    def test_pendientes_pone_primero_al_de_mas_estudios_por_revisar(self):
+        orden = plantel.ordenar(self.filas, 'pendientes')
+        self.assertEqual(_ids(orden[:3]), [5, 6, 7])
+
+    def test_ultima_revision_pone_primero_al_que_nunca_fue_revisado(self):
+        orden = plantel.ordenar(self.filas, 'ultima_revision')
+        self.assertIsNone(orden[0]['ultima_revision'])
+        con_fecha = [f['ultima_revision'] for f in orden
+                     if f['ultima_revision'] is not None]
+        self.assertEqual(con_fecha, sorted(con_fecha))
+        self.assertEqual(len(con_fecha), 4)
+
+    def test_criterio_desconocido_falla(self):
+        with self.assertRaises(ValueError):
+            plantel.ordenar(self.filas, 'inventado')
+
+    def test_no_modifica_la_lista_de_entrada(self):
+        copia = list(self.filas)
+        plantel.ordenar(self.filas, 'pila_cruda')
+        self.assertEqual(self.filas, copia)
