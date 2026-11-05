@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
+import Soporte from './Soporte'
 import { agrupar } from '../lib/agrupar-estudios'
 import {
   llevaBoton, estaCompleto, oracionDelContador, cuantosFaltan,
@@ -702,6 +703,8 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
 
                 <BloqueDeCorreo correo={estado.correo}
                                 onGuardado={correo => setEstado({ ...estado, correo })} />
+
+                <Soporte />
               </>
             )}
           </div>

@@ -5,7 +5,7 @@ from .views import (
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
     Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
     FechasView, MiFechaView, MiEstadoView, GradosView, MiCorreoView,
-    RolesAdminView, FechasAdminView,
+    RolesAdminView, FechasAdminView, SupportViewSet,
 )
 
 router = DefaultRouter()
@@ -18,6 +18,7 @@ router.register(r'anexo27', Anexo27View, basename='anexo27')
 router.register(r'dive-activities', DiveActivityViewSet, basename='diveactivity')
 router.register(r'dive-logs', DiveLogViewSet, basename='divelog')
 router.register(r'superusers', SuperUserViewSet, basename='superuser')
+router.register(r'support', SupportViewSet, basename='support')
 
 urlpatterns = [
     path('fechas/', FechasView.as_view(), name='fechas'),

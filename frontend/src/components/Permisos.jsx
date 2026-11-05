@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import Soporte from './Soporte';
 import CampoFecha from './CampoFecha';
 import {
   textoDeFecha,
@@ -352,6 +353,7 @@ const Permisos = ({ onLogout, perfil }) => {
               />
             </>
           )}
+          <Soporte />
         </div>
       </div>
     </div>

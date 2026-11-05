@@ -25,7 +25,10 @@ build/
 # Respaldos locales
 datos/
 db.sqlite3.bak-*
-# Scripts de un solo uso (avisos por mail, extraccion de la base vieja)
+db.sqlite3.linea-anterior
+# Scripts de un solo uso: el aviso por mail del pase a main, y la extraccion y
+# siembra de los usuarios de la base anterior.
 backend/send_*.py
 backend/extraer_usuarios.py
+backend/sembrar_usuarios.py
 backend/usuarios_semilla.json
