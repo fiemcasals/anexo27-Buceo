@@ -20,17 +20,12 @@ from .fitness import REVIEW_STATES
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
     from users.models import UserProfile
 
-#: Los dos estados sin dictamen del médico que dejan la subida en la pila cruda.
-_SIN_DICTAMEN_DEL_MEDICO = REVIEW_STATES
-
 
 def fila(profile: UserProfile, today: date) -> dict:
     """La fila del listado para un buzo. No hace consultas.
 
-    ``presentados`` cuenta los slots que tienen bloque; cuando los exigidos se
-    conocen se restringe a ellos, que es lo que hace ``DiverSummary.presented``,
-    y cuando no se conocen se cuentan todos. Es una sola cuenta sobre dos
-    conjuntos, no dos caminos de conteo.
+    ``presentados`` cuenta los slots que tienen bloque: los exigidos si hay turno
+    y fecha de nacimiento, los ocho del catálogo si falta alguno de los dos.
     """
     resumen = fitness.diver_summary(profile, today)
     window = profile.habilitation_window
@@ -91,6 +86,6 @@ def _subida_mas_vieja(resumen: fitness.DiverSummary):
     """
     subidas = [
         slot.block.created_at for slot in resumen.slots
-        if slot.state in _SIN_DICTAMEN_DEL_MEDICO and slot.block is not None
+        if slot.state in REVIEW_STATES and slot.block is not None
     ]
     return min(subidas) if subidas else None
