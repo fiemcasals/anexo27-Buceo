@@ -12,15 +12,37 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
+import environ
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Los secretos salen de `backend/.env`, que `.gitignore` deja afuera.
+#
+# Este repositorio es **publico**. Una contraseña escrita en este archivo queda
+# publicada para cualquiera y queda ademas en el historial de git, donde
+# borrarla despues no la saca. Con la contraseña de aplicacion del correo se
+# puede mandar correo haciendose pasar por la division.
+#
+# `.env.example` esta versionado y lista los nombres sin los valores, para que
+# se sepa que hay que completar al levantar el sistema en otra maquina.
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qolcesum08%5v#mx=)v+9xd)-hrj#n%(jnr&swud3=5zd93gym'
+#
+# El valor por defecto es el que venia escrito aca, para que nada se rompa al
+# hacer este cambio: cambiar la clave invalida las sesiones abiertas y los
+# enlaces de recuperacion de contraseña que esten dando vuelta. En el servidor
+# hay que poner una propia en `DJANGO_SECRET_KEY`, porque esta ya es publica.
+SECRET_KEY = env(
+    'DJANGO_SECRET_KEY',
+    default='django-insecure-qolcesum08%5v#mx=)v+9xd)-hrj#n%(jnr&swud3=5zd93gym',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -200,15 +222,34 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_ADAPTER = 'users.adapters.CustomAccountAdapter'
 
-FRONTEND_URL = 'http://localhost:5173'
+# Con que direccion se arman los enlaces que van dentro de los correos, como
+# el de recuperar la contraseña. En el servidor tiene que ser la direccion
+# publica real, o el enlace apunta a la maquina de quien recibe el correo.
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
 
-# SMTP Email Configuration (Real Email)
-# Reemplaza estas credenciales con un correo real (ej. Gmail App Password)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'tu_correo@gmail.com' # <--- COLOCA TU CORREO AQUI
-EMAIL_HOST_PASSWORD = 'tu_contraseña_de_aplicacion' # <--- COLOCA TU CONTRASEÑA AQUI
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# Correo saliente.
+#
+# Las credenciales salen de `backend/.env`. La contraseña NO es la del correo:
+# Gmail pide una "contraseña de aplicacion", que se genera aparte y se revoca
+# sola sin tocar la cuenta.
+#
+# Mientras `EMAIL_HOST_PASSWORD` este vacio no se manda nada de verdad: se usa
+# el backend de consola, que imprime el correo en la terminal. Asi se puede
+# trabajar y probar sin credenciales, y nadie recibe un correo de prueba por
+# accidente. Con la contraseña puesta, pasa a mandar por SMTP sola.
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+
+EMAIL_BACKEND = (
+    'django.core.mail.backends.smtp.EmailBackend'
+    if EMAIL_HOST_PASSWORD
+    else 'django.core.mail.backends.console.EmailBackend'
+)
+
+# De quien figura que viene el correo. Si no se dice otra cosa, la misma
+# casilla que lo manda.
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
