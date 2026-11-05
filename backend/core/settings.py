@@ -251,6 +251,10 @@ EMAIL_PORT = env.int('EMAIL_PORT', default=587)
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+# Segundos que se espera al servidor de correo. Django no define un tope: un
+# SMTP que cuelga, en vez de fallar, dejaria el POST del medico esperando para
+# siempre, y ningun `except` lo cubre porque no hay excepcion que atrapar.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
 
 EMAIL_BACKEND = (
     'django.core.mail.backends.smtp.EmailBackend'

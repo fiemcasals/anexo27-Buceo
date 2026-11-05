@@ -36,6 +36,8 @@ def avisar_rechazo(comment) -> bool:
 
     No dice quién revisó: el buzo necesita saber qué corregir. Nunca propaga:
     un servidor de correo caído no puede impedir que el médico dictamine.
+    La espera la acota `settings.EMAIL_TIMEOUT`: un servidor que cuelga no
+    lanza excepción, y sin tope el médico quedaría esperando.
     """
     try:
         destino = comment.block.user.email

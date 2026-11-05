@@ -368,11 +368,21 @@ class ElCorreoDeRechazoTests(APITestCase):
         self.assertIn(self.titulo_del_estudio, cuerpo)
 
     def test_no_dice_quien_reviso(self):
-        self.rechazar()
-        correo = mail.outbox[0]
-        texto = correo.subject + correo.body
-        for dato in ("medico", "DOCTOR", "Médico", "REJECTED", "ILLEGIBLE"):
-            self.assertNotIn(dato, texto)
+        # Ni el rol ni el usuario de quien revisó, sea médico o enfermero.
+        # "médico" en minúscula no se busca: está en el asunto, que es el
+        # nombre del estudio y no el revisor.
+        for revisor, datos in (
+            (self.doctor, ("medico", "Médico", "DOCTOR")),
+            (self.nurse, ("enfermero", "Enfermero", "NURSE")),
+        ):
+            with self.subTest(revisor=revisor.username):
+                mail.outbox.clear()
+                self.dictamenes_del_punto().delete()
+                self.rechazar(como=revisor)
+                correo = mail.outbox[0]
+                texto = correo.subject + "\n" + correo.body
+                for dato in datos + ("REJECTED", "ILLEGIBLE"):
+                    self.assertNotIn(dato, texto)
 
     def test_el_enlace_sale_de_frontend_url(self):
         with self.settings(FRONTEND_URL="https://ejemplo.test"):
