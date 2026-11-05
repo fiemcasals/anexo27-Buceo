@@ -16,8 +16,11 @@ import { Link, useLocation } from 'react-router-dom';
 const PANTALLA_PRINCIPAL = {
   USER: { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse' },
   ADMIN: { texto: 'Permisos', icono: 'bi-shield-lock' },
-  DOCTOR: { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse' },
-  NURSE: { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse' },
+  // El médico y el enfermero trabajan en el listado del plantel, que tiene su
+  // propia ruta: ahí es donde el enlace tiene que quedar marcado, también al
+  // abrir la ficha de un buzo (`/plantel/:id`).
+  DOCTOR: { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse', ruta: '/plantel' },
+  NURSE: { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse', ruta: '/plantel' },
 };
 
 const POR_DEFECTO = { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse' };
@@ -34,6 +37,9 @@ const BarraLateral = ({ role, onLogout }) => {
   // algo desconocido no puede dejar la pantalla rota.
   const principal = PANTALLA_PRINCIPAL[role] || POR_DEFECTO;
 
+  const rutaPrincipal = principal.ruta || '/dashboard';
+  const enLaPrincipal = pathname === rutaPrincipal || pathname.startsWith(`${rutaPrincipal}/`);
+
   const clase = (ruta) =>
     `nav-link d-flex align-items-center${pathname === ruta ? ' active' : ''}`;
 
@@ -48,7 +54,9 @@ const BarraLateral = ({ role, onLogout }) => {
       </div>
 
       <nav className="nav flex-column gap-2 flex-grow-1">
-        <Link to="/dashboard" className={clase('/dashboard')} onClick={cerrarElMenu}>
+        <Link to={rutaPrincipal}
+              className={`nav-link d-flex align-items-center${enLaPrincipal ? ' active' : ''}`}
+              onClick={cerrarElMenu}>
           <i className={`bi ${principal.icono} me-3`}></i>
           <span>{principal.texto}</span>
         </Link>

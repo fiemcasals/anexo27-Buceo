@@ -127,6 +127,15 @@ class CommentSerializer(serializers.ModelSerializer):
         # atrapaba: acopla el estado con el rol declarado, no con el real.
         read_only_fields = ['doctor', 'reviewer_role']
 
+    def validate_status(self, value):
+        # `REVERTED` sólo sale de `CommentViewSet.revertir`, que verifica que
+        # haya una aprobación vigente del propio médico. Por la vía común
+        # deshacería una aprobación saltándose esas reglas.
+        if value == 'REVERTED':
+            raise serializers.ValidationError(
+                'Una aprobación se revierte con la acción de revertir.')
+        return value
+
     def get_fields(self):
         fields = super().get_fields()
         # Un dictamen pertenece al estudio sobre el que se emitió: después de la
@@ -166,6 +175,31 @@ class CommentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'status': 'La pre-aprobación corresponde sólo al '
                                'enfermero auxiliar.'})
+        # Todo rechazo lleva motivo y detalle, y nada más lleva motivo. La
+        # CheckConstraint `rejection_has_reason_and_detail` lo atrapa igual,
+        # pero como IntegrityError, o sea un 500, y es el POST exacto que manda
+        # el diálogo de rechazo si se aprieta "Rechazar" sin elegir motivo.
+        # Mismo criterio que `Comment.clean()`, que DRF no llama.
+        if 'rejection_reason' in attrs:
+            reason = attrs['rejection_reason']
+        else:
+            reason = getattr(self.instance, 'rejection_reason', '')
+        if 'content' in attrs:
+            content = attrs['content']
+        else:
+            content = getattr(self.instance, 'content', '')
+        if status == 'REJECTED':
+            errors = {}
+            if not reason:
+                errors['rejection_reason'] = 'Todo rechazo requiere un motivo.'
+            if not (content or '').strip():
+                errors['content'] = (
+                    'Todo rechazo requiere un detalle para el buzo.')
+            if errors:
+                raise serializers.ValidationError(errors)
+        elif reason:
+            raise serializers.ValidationError(
+                {'rejection_reason': 'Sólo un rechazo lleva motivo.'})
         return attrs
 
     def _rol_efectivo(self, user):

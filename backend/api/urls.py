@@ -3,9 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     UserProfileViewSet, ProfileFieldTemplateViewSet,
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
-    Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
+    DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
     FechasView, MiFechaView, MiEstadoView, GradosView, MiCorreoView,
-    RolesAdminView, FechasAdminView,
+    RolesAdminView, FechasAdminView, PlantelView, FichaView,
 )
 
 router = DefaultRouter()
@@ -14,7 +14,6 @@ router.register(r'templates', ProfileFieldTemplateViewSet, basename='template')
 router.register(r'blocks', StudyBlockViewSet, basename='block')
 router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'permissions', PermissionViewSet, basename='permission')
-router.register(r'anexo27', Anexo27View, basename='anexo27')
 router.register(r'dive-activities', DiveActivityViewSet, basename='diveactivity')
 router.register(r'dive-logs', DiveLogViewSet, basename='divelog')
 router.register(r'superusers', SuperUserViewSet, basename='superuser')
@@ -29,5 +28,8 @@ urlpatterns = [
     # router para que `admin/` no la agarre ninguna ruta generada.
     path('admin/roles/', RolesAdminView.as_view(), name='admin-roles'),
     path('admin/fechas/', FechasAdminView.as_view(), name='admin-fechas'),
+    # El plantel del médico. Antes del router por la misma razón que arriba.
+    path('plantel/', PlantelView.as_view(), name='plantel'),
+    path('plantel/<int:pk>/', FichaView.as_view(), name='ficha'),
     path('', include(router.urls)),
 ]
