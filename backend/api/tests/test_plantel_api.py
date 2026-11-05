@@ -392,6 +392,14 @@ class NoHayNMasUnoTests(_ConPlantel):
     arreglá el prefetch. Si falla porque el número **cambió** al agregar algo
     legítimo a la vista, subí `CONSULTAS` sabiendo qué consulta nueva es y que no
     depende de la cantidad de buzos.
+
+    Si el número **baja**, alguien dejó de usar `fitness`: no ajustes la
+    constante, averiguá por qué. Un `annotate` que reemplace al motor da menos
+    consultas, y bajar `CONSULTAS` para que pase deja la segunda definición de la
+    regla adentro. Este test sólo vigila una mitad: un `annotate` que además
+    conservara el prefetch quedaría en 4 consultas y no se vería acá. Esa otra
+    mitad de la red es `ElListadoYLaFichaDicenLoMismoTests`, que compara cada
+    fila contra `diver_summary`.
     """
 
     #: Medido, no estimado: el perfil de quien pide (el permiso) + los buzos con
@@ -546,6 +554,20 @@ class ElListadoYLaFichaDicenLoMismoTests(APITestCase):
             'NO_WINDOW', 'UNKNOWN_AGE', 'APTO', 'REJECTED', 'INCOMPLETE',
             'TO_REVIEW', 'APTO',
         ]))
+
+    def test_los_subidos_sin_exigidos_son_los_que_cargaron_los_fixtures(self):
+        # Literales, no recalculados: si la implementación y el test de arriba
+        # contaran mal de la misma forma, coincidirían igual. Acá el número sale
+        # de lo que `setUp` subió: tres estudios el buzo sin turno, dos el que no
+        # tiene fecha de nacimiento.
+        filas = self.get_filas()
+        sin_turno = next(f for f in filas if f['turno'] is None)
+        self.assertIsNone(sin_turno['exigidos'])
+        self.assertEqual(sin_turno['presentados'], 3)
+        sin_nacimiento = next(f for f in filas
+                              if f['turno'] is not None and f['edad'] is None)
+        self.assertIsNone(sin_nacimiento['exigidos'])
+        self.assertEqual(sin_nacimiento['presentados'], 2)
 
     def test_el_de_cuarenta_justos_debe_ocho(self):
         fila = next(f for f in self.get_filas() if f['edad'] == 40)
