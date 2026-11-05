@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { QRCodeSVG } from 'qrcode.react';
 
 const Profile = ({ onLogout }) => {
   const [profile, setProfile] = useState({
@@ -17,7 +16,6 @@ const Profile = ({ onLogout }) => {
     profile_data: {}
   });
   const [loading, setLoading] = useState(true);
-  const [showQRModal, setShowQRModal] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -98,10 +96,6 @@ const Profile = ({ onLogout }) => {
             <i className="bi bi-person-circle-fill me-3"></i>
             <span>Mi Perfil</span>
           </Link>
-          <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-book me-3"></i>
-            <span>Bitácora de Buceo</span>
-          </Link>
         </nav>
 
         <div className="mt-auto">
@@ -119,31 +113,7 @@ const Profile = ({ onLogout }) => {
             <h2 className="fw-bold mb-1">Configuración del Perfil</h2>
             <p className="text-muted">Asegúrate de que tus datos personales estén actualizados.</p>
           </div>
-          <div className="text-center" style={{ cursor: 'pointer' }} onClick={() => setShowQRModal(true)} title="Ampliar QR">
-            <span className="small fw-bold text-muted d-block mb-2">Tu QR Personal</span>
-            <div className="bg-white p-2 rounded shadow-sm d-inline-block animate-hover border">
-              {profile.user?.id ? (
-                <QRCodeSVG value={`USER_ID:${profile.user.id}`} size={80} />
-              ) : (
-                <div style={{width: 80, height: 80}} className="bg-light d-flex align-items-center justify-content-center small text-muted">No disp.</div>
-              )}
-            </div>
-          </div>
         </div>
-
-        {/* Fullscreen QR Modal */}
-        {showQRModal && profile.user?.id && (
-          <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1050 }} onClick={() => setShowQRModal(false)}>
-            <div className="modal-dialog modal-dialog-centered modal-lg d-flex justify-content-center">
-              <div className="bg-white p-5 rounded-4 shadow-lg text-center" onClick={(e) => e.stopPropagation()}>
-                <h4 className="fw-bold mb-4">Tu Firma Digital</h4>
-                <QRCodeSVG value={`USER_ID:${profile.user.id}`} size={300} />
-                <p className="text-muted mt-4 mb-4">Muestra este código al instructor para firmar digitalmente.</p>
-                <button className="btn btn-outline-secondary rounded-pill px-5" onClick={() => setShowQRModal(false)}>Cerrar</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="card shadow-sm border-0 p-4 profile-bg animate-hover">
           <form onSubmit={handleSave}>

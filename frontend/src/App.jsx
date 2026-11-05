@@ -9,11 +9,13 @@ import Login from './components/Login';
 import Registro from './components/Registro';
 import ResetPassword from './components/ResetPassword';
 import Bitacora from './components/Bitacora';
+import Permisos from './components/Permisos';
 import CompleteDiveLog from './components/CompleteDiveLog';
 
 // El rol decide qué pantalla es `/dashboard`. El buzo —rol `USER`— ve la
-// pantalla del §8.3; el médico, el enfermero y el administrador siguen viendo
-// `Dashboard`, que es su herramienta de trabajo y que este plan no reemplaza.
+// pantalla del §8.3; el administrador ve `Permisos`, que es lo único que hace
+// desde la webapp (designar revisores y cargar las fechas del ciclo); el médico
+// y el enfermero siguen viendo `Dashboard`, que es su herramienta de trabajo.
 //
 // El instructor es un buzo (`role === 'USER'` con `is_instructor`): también
 // presenta sus estudios, así que recibe la pantalla nueva. Ser instructor es
@@ -38,6 +40,9 @@ function TableroSegunElRol({ onLogout }) {
   }
   if (perfil && perfil.role === 'USER') {
     return <PantallaBuzo onLogout={onLogout} perfil={perfil} />;
+  }
+  if (perfil && perfil.role === 'ADMIN') {
+    return <Permisos onLogout={onLogout} perfil={perfil} />;
   }
   return <Dashboard onLogout={onLogout} />;
 }
