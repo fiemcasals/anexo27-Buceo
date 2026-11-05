@@ -5,6 +5,7 @@ from .views import (
     StudyBlockViewSet, CommentViewSet, PermissionViewSet,
     Anexo27View, DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
     FechasView, MiFechaView, MiEstadoView, GradosView, MiCorreoView,
+    RolesAdminView, FechasAdminView,
 )
 
 router = DefaultRouter()
@@ -24,5 +25,9 @@ urlpatterns = [
     path('mi-estado/', MiEstadoView.as_view(), name='mi-estado'),
     path('grados/', GradosView.as_view(), name='grados'),
     path('mi-correo/', MiCorreoView.as_view(), name='mi-correo'),
+    # Las dos pantallas del administrador de la unidad. Van antes del
+    # router para que `admin/` no la agarre ninguna ruta generada.
+    path('admin/roles/', RolesAdminView.as_view(), name='admin-roles'),
+    path('admin/fechas/', FechasAdminView.as_view(), name='admin-fechas'),
     path('', include(router.urls)),
 ]

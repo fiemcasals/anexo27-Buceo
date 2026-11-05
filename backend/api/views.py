@@ -393,17 +393,13 @@ class DiveLogViewSet(viewsets.ModelViewSet):
 class SuperUserViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAdminUser]
 
-    @action(detail=False, methods=['post'])
-    def promote(self, request):
-        email = request.data.get('email')
-        try:
-            user = User.objects.get(email=email)
-            user.is_superuser = True
-            user.is_staff = True
-            user.save()
-            return Response({"message": f"{email} is now a superuser."})
-        except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=404)
+    # `promote` salio de aca a proposito. Le ponia `is_superuser` e `is_staff`
+    # a cualquiera a partir de un correo, o sea acceso total al admin de Django
+    # y a los estudios medicos de los 150 buzos, y lo llamaba un formulario de
+    # la bitacora de buceo, que es una seccion aparte del circuito de aptitud.
+    # El superusuario se da desde el admin de Django, que es donde el oficial de
+    # la unidad lo controla. `ElSuperusuarioNoSeDaPorLaApiTests` lo fija para
+    # que nadie lo reponga sin discutirlo.
 
     @action(detail=False, methods=['post'], url_path='promote-instructor')
     def promote_instructor(self, request):
@@ -504,3 +500,115 @@ class MiEstadoView(APIView):
         ).get(user=request.user)
         # La fecha sale de la costura de `serializers`, que los tests congelan.
         return Response(armar_estado(profile, _serializers.hoy(), request=request))
+
+
+# ---------------------------------------------------------------------------
+# Las dos pantallas del administrador de la unidad
+# ---------------------------------------------------------------------------
+class EsElAdministrador(permissions.BasePermission):
+    """Sólo el rol `ADMIN` del §5. No alcanza con entrar al admin de Django.
+
+    Se mira el **rol del perfil** y no `is_staff`, que son dos cosas distintas:
+    `is_staff` es la puerta del admin de Django y la puede tener alguien de
+    sistemas, mientras que designar al médico de la unidad es una potestad del
+    oficial. Un perfil que no existe nunca significa "puede todo": el perfil se
+    crea aparte del `User`, así que su ausencia es un estado real.
+
+    Va siempre junto a `IsAuthenticated`, que responde primero: sin sesión da
+    401 y no 403, porque el frontend manda al login con el 401 y muestra un
+    mensaje con el 403.
+    """
+
+    message = 'Sólo el administrador de la unidad puede hacer esto.'
+
+    def has_permission(self, request, view):
+        perfil = getattr(request.user, 'profile', None)
+        return perfil is not None and perfil.role == 'ADMIN'
+
+
+class RolesAdminView(APIView):
+    """Quién es el médico y quiénes los enfermeros auxiliares, y designarlos.
+
+    Hasta acá los roles se asignaban sólo desde el admin de Django. Lo que la
+    webapp ofrecía era dar permisos de instructor y de superusuario, que son de
+    la bitácora de buceo y no del circuito de aptitud.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def get(self, request):
+        # Las dos llaves van siempre, incluso vacías: la pantalla muestra las
+        # dos filas y una llave faltante le haría desaparecer la del enfermero
+        # en lugar de decir que no hay nadie designado.
+        designados = {rol: [] for rol in REVIEWER_ROLES}
+        perfiles = (UserProfile.objects
+                    .filter(role__in=REVIEWER_ROLES)
+                    .select_related('user')
+                    .order_by('user__last_name', 'user__username'))
+        for perfil in perfiles:
+            designados[perfil.role].append({
+                'email': perfil.user.email,
+                'nombre': _serializers.nombre_para_mostrar(perfil.user),
+                'rank': perfil.rank or '',
+            })
+        return Response(designados)
+
+    def post(self, request):
+        serializer = _serializers.DesignarRevisorSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        perfil = serializer.save()
+        return Response({
+            'email': perfil.user.email,
+            'nombre': _serializers.nombre_para_mostrar(perfil.user),
+            'role': perfil.role,
+        })
+
+
+class FechasAdminView(APIView):
+    """Las tres fechas de habilitación del ciclo: leerlas y cargarlas.
+
+    Los tres lugares vienen siempre, con `fecha` en `null` el que no está
+    cargado: un ciclo incompleto es el estado normal, y si el lugar sin cargar
+    no viniera el formulario tendría dos inputs un día y tres otro.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def _ciclo_pedido(self, request):
+        crudo = request.query_params.get('cycle')
+        if crudo in (None, ''):
+            return _serializers.hoy().year
+        try:
+            return int(crudo)
+        except (TypeError, ValueError):
+            raise ValidationError({'cycle': 'El ciclo es un año, en números.'})
+
+    def get(self, request):
+        return Response(self._ciclo_completo(self._ciclo_pedido(request)))
+
+    def _ciclo_completo(self, ciclo):
+        cargadas = {
+            v.slot: v for v in HabilitationWindow.objects.filter(cycle=ciclo)
+        }
+        return {
+            'cycle': ciclo,
+            'fechas': [
+                {
+                    'slot': slot,
+                    'etiqueta': etiqueta,
+                    'fecha': (cargadas[slot].start_date.isoformat()
+                              if slot in cargadas else None),
+                    'id': cargadas[slot].pk if slot in cargadas else None,
+                }
+                for slot, etiqueta in HabilitationWindow.SLOT_CHOICES
+            ],
+        }
+
+    def put(self, request):
+        serializer = _serializers.CargarFechasSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ciclo = serializer.save()
+        # Se devuelve el ciclo entero recién leído de la base, no lo que vino en
+        # el cuerpo: la pantalla se repinta con lo que quedó guardado, que es lo
+        # único que delata un guardado que no ocurrió.
+        return Response(self._ciclo_completo(ciclo))

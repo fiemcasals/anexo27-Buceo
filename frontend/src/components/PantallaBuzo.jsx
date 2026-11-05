@@ -622,10 +622,6 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
             <i className="bi bi-person-circle me-3"></i>
             <span>Mi Perfil</span>
           </Link>
-          <Link to="/bitacora" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-book me-3"></i>
-            <span>Bitácora de Buceo</span>
-          </Link>
         </nav>
 
         <div className="mt-auto">

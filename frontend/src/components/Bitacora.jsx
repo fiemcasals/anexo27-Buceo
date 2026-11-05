@@ -50,8 +50,6 @@ const Bitacora = ({ onLogout }) => {
   });
   const [diveGraphFile, setDiveGraphFile] = useState(null);
 
-  const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [newInstructorEmail, setNewInstructorEmail] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -159,28 +157,6 @@ const Bitacora = ({ onLogout }) => {
     }
   };
 
-  const promoteUser = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await api.post('superusers/promote/', { email: newAdminEmail });
-      alert(res.data.message);
-      setNewAdminEmail('');
-    } catch (err) {
-      alert(err.response?.data?.error || 'Error al promover usuario');
-    }
-  };
-
-  const promoteInstructor = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await api.post('superusers/promote-instructor/', { email: newInstructorEmail });
-      alert(res.data.message);
-      setNewInstructorEmail('');
-    } catch (err) {
-      alert(err.response?.data?.error || 'Error al dar permisos de instructor');
-    }
-  };
-
   const handleScanSignature = (result) => {
     if (result && result.length > 0 && result[0].rawValue.startsWith('USER_ID:')) {
       const userId = result[0].rawValue.split(':')[1];
@@ -194,7 +170,6 @@ const Bitacora = ({ onLogout }) => {
 
   if (loading && !profile) return <div className="p-5 text-center">Cargando...</div>;
 
-  const isSuperUser = profile?.user?.is_superuser;
   const isInstructor = profile?.is_instructor;
   const myDives = logs.filter(l => l.diver === profile?.user?.id);
   const qrUrl = generatedToken ? `${window.location.origin}/bitacora/scan/${generatedToken}` : '';
@@ -238,11 +213,6 @@ const Bitacora = ({ onLogout }) => {
           {isInstructor && (
             <button className={`nav-link rounded-pill border-0 px-4 ${activeTab === 'instructor' ? 'bg-primary text-white' : 'text-muted'}`} onClick={() => setActiveTab('instructor')}>
               Modo Instructor
-            </button>
-          )}
-          {isSuperUser && (
-            <button className={`nav-link rounded-pill border-0 px-4 ${activeTab === 'admin' ? 'bg-primary text-white' : 'text-muted'}`} onClick={() => setActiveTab('admin')}>
-              Panel Superusuario
             </button>
           )}
         </div>
@@ -481,30 +451,6 @@ const Bitacora = ({ onLogout }) => {
                   <button className="btn btn-primary btn-sm mt-2 rounded-pill px-5" onClick={() => setGeneratedToken(null)}>Ocultar</button>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'admin' && isSuperUser && (
-          <div className="row g-4">
-            <div className="col-md-6">
-              <div className="card border-0 shadow-sm p-4 mb-4">
-                <h5 className="fw-bold mb-3">Dar Permisos de Instructor</h5>
-                <form onSubmit={promoteInstructor} className="d-flex gap-2">
-                  <input type="email" className="form-control rounded-pill" placeholder="Email del usuario" value={newInstructorEmail} onChange={e=>setNewInstructorEmail(e.target.value)} required />
-                  <button type="submit" className="btn btn-primary rounded-pill px-4">Otorgar</button>
-                </form>
-              </div>
-            </div>
-            
-            <div className="col-md-6">
-              <div className="card border-0 shadow-sm p-4 mb-4">
-                <h5 className="fw-bold mb-3 text-danger">Dar Permisos de Superusuario</h5>
-                <form onSubmit={promoteUser} className="d-flex gap-2">
-                  <input type="email" className="form-control rounded-pill" placeholder="Email del usuario" value={newAdminEmail} onChange={e=>setNewAdminEmail(e.target.value)} required />
-                  <button type="submit" className="btn btn-danger rounded-pill px-4">Promover</button>
-                </form>
-              </div>
             </div>
           </div>
         )}

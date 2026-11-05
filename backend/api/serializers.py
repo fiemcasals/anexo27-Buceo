@@ -279,3 +279,123 @@ class DiveLogSerializer(serializers.ModelSerializer):
         model = DiveLog
         fields = '__all__'
         read_only_fields = ['token', 'diver', 'is_completed', 'completed_at']
+
+
+# ---------------------------------------------------------------------------
+# Lo que el administrador de la unidad hace desde la webapp
+# ---------------------------------------------------------------------------
+# Se puede designar revisores y volver a alguien a buzo, y nada mas. `ADMIN`
+# queda deliberadamente afuera: un administrador designa revisores, no fabrica
+# administradores. Esa potestad sigue siendo del admin de Django, que es donde
+# la tiene el oficial de la unidad.
+ROLES_QUE_EL_ADMIN_ASIGNA = ('DOCTOR', 'NURSE', 'USER')
+
+
+def nombre_para_mostrar(user):
+    """Como se nombra a una persona en una lista de 150.
+
+    Por correo no se reconoce a nadie, asi que la pantalla muestra el apellido
+    primero. Sin nombre cargado cae al usuario, que siempre existe.
+    """
+    apellido = (user.last_name or '').strip()
+    nombre = (user.first_name or '').strip()
+    if apellido and nombre:
+        return f'{apellido}, {nombre}'
+    return apellido or nombre or user.username
+
+
+class DesignarRevisorSerializer(serializers.Serializer):
+    """Le pone a una persona el rol de medico, de enfermero, o la vuelve a buzo.
+
+    El correo identifica a la persona porque es con lo que entra al sistema
+    (`ACCOUNT_AUTHENTICATION_METHOD = 'email'`) y es lo que el administrador
+    tiene a mano. Se compara sin distinguir mayusculas: lo escribe a mano
+    mirando una lista en papel.
+    """
+
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(choices=ROLES_QUE_EL_ADMIN_ASIGNA)
+
+    def validate_email(self, valor):
+        encontrados = list(User.objects.filter(email__iexact=valor.strip())[:2])
+        if not encontrados:
+            raise serializers.ValidationError(
+                'No hay ningún usuario registrado con ese correo.')
+        if len(encontrados) > 1:
+            # No deberia pasar: el registro rechaza duplicados. Si pasa, elegir
+            # uno al azar le daria acceso a los estudios de 150 buzos a la
+            # persona equivocada, asi que se para y se dice.
+            raise serializers.ValidationError(
+                'Hay más de un usuario con ese correo. Resolvelo en el admin '
+                'de Django antes de designarlo.')
+        self._usuario = encontrados[0]
+        return valor
+
+    def save(self):
+        # `get_or_create`: el perfil se crea aparte del `User`, asi que puede
+        # no existir todavia. Sin esto, designar a alguien recien creado por
+        # consola levantaria en lugar de designarlo.
+        perfil, _ = UserProfile.objects.get_or_create(user=self._usuario)
+        perfil.role = self.validated_data['role']
+        # `update_fields`: designar al medico no toca ningun otro campo del
+        # perfil, y en particular no toca `is_staff` ni `is_superuser`, que
+        # viven en `User` y son la puerta del admin de Django. Ser medico es
+        # del §5; entrar al admin de Django es otra cosa.
+        perfil.save(update_fields=['role'])
+        return perfil
+
+
+class CargarFechasSerializer(serializers.Serializer):
+    """Carga o corrige las fechas de habilitacion de un ciclo.
+
+    Un input por lugar del ciclo, y la fecha cargada es **un dia solo**: el
+    modelo guarda un rango porque toda vigencia se mide contra `end_date`, asi
+    que `start_date` y `end_date` quedan en el mismo dia. Si no fuera asi, la
+    habilitacion abarcaria dias que el administrador nunca escribio.
+
+    Un lugar que no viene, o que viene vacio, **queda como estaba**. Un campo en
+    blanco es "todavia no la cargue", no "borrala": borrar una fecha desinscribe
+    a todos los buzos anotados en ella, y eso no puede ser el efecto de no
+    tocar un input.
+    """
+
+    cycle = serializers.IntegerField(min_value=2000, max_value=2100)
+    FIRST = serializers.DateField(required=False)
+    SECOND = serializers.DateField(required=False)
+    COMPLEMENTARY = serializers.DateField(required=False)
+
+    LUGARES = ('FIRST', 'SECOND', 'COMPLEMENTARY')
+
+    def to_internal_value(self, data):
+        # Los campos vacios se descartan antes de validar: un `DateField` no
+        # acepta '' y daria 400 por un input que la persona simplemente no toco.
+        limpio = {
+            clave: valor for clave, valor in data.items()
+            if not (isinstance(valor, str) and not valor.strip()) and valor is not None
+        }
+        return super().to_internal_value(limpio)
+
+    def validate(self, datos):
+        if not any(lugar in datos for lugar in self.LUGARES):
+            raise serializers.ValidationError(
+                'No viene ninguna fecha. Cargá al menos una.')
+        return datos
+
+    def save(self):
+        from django.db import transaction
+
+        ciclo = self.validated_data['cycle']
+        with transaction.atomic():
+            for lugar in self.LUGARES:
+                fecha = self.validated_data.get(lugar)
+                if fecha is None:
+                    continue
+                # `update_or_create` y no un create: `cycle` + `slot` es unico,
+                # asi que corregir un tipeo explotaria la segunda vez. Y
+                # actualizar la fila conserva su id, asi que los buzos ya
+                # inscriptos siguen inscriptos: `habilitation_window` es una FK
+                # y volver a crear la fila se los llevaria puestos.
+                HabilitationWindow.objects.update_or_create(
+                    cycle=ciclo, slot=lugar,
+                    defaults={'start_date': fecha, 'end_date': fecha})
+        return ciclo
