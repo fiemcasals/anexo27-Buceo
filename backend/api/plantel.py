@@ -25,7 +25,13 @@ _SIN_DICTAMEN_DEL_MEDICO = REVIEW_STATES
 
 
 def fila(profile: UserProfile, today: date) -> dict:
-    """La fila del listado para un buzo. No hace consultas."""
+    """La fila del listado para un buzo. No hace consultas.
+
+    ``presentados`` cuenta los slots que tienen bloque; cuando los exigidos se
+    conocen se restringe a ellos, que es lo que hace ``DiverSummary.presented``,
+    y cuando no se conocen se cuentan todos. Es una sola cuenta sobre dos
+    conjuntos, no dos caminos de conteo.
+    """
     resumen = fitness.diver_summary(profile, today)
     window = profile.habilitation_window
 
