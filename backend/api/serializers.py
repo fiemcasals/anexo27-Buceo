@@ -127,6 +127,15 @@ class CommentSerializer(serializers.ModelSerializer):
         # atrapaba: acopla el estado con el rol declarado, no con el real.
         read_only_fields = ['doctor', 'reviewer_role']
 
+    def validate_status(self, value):
+        # `REVERTED` sólo sale de `CommentViewSet.revertir`, que verifica que
+        # haya una aprobación vigente del propio médico. Por la vía común
+        # deshacería una aprobación saltándose esas reglas.
+        if value == 'REVERTED':
+            raise serializers.ValidationError(
+                'Una aprobación se revierte con la acción de revertir.')
+        return value
+
     def get_fields(self):
         fields = super().get_fields()
         # Un dictamen pertenece al estudio sobre el que se emitió: después de la

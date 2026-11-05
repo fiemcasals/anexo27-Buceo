@@ -239,6 +239,34 @@ class CommentViewSet(viewsets.ModelViewSet):
             logger.debug("Dictamen: validacion rechazada: %s", e.detail)
             raise
 
+    @action(detail=True, methods=['post'])
+    def revertir(self, request, pk=None):
+        """El médico deshace una aprobación que firmó él: el punto vuelve a
+        `IN_REVIEW`, a la pila del médico, y el buzo puede volver a subir.
+
+        Sin esto una aprobación equivocada era definitiva: el buzo no puede
+        reemplazar lo aprobado (`fitness.puede_reemplazarse`). No borra ni edita
+        nada: agrega un dictamen `REVERTED` con su autor y su fecha, porque el
+        último dictamen manda y un sistema de aptitud no puede deshacer una
+        aprobación sin dejar rastro.
+
+        El permiso es el de siempre: `get_object` corre `SoloQuienDictamino`,
+        que deja pasar sólo al autor del dictamen. Es todo lo que hace falta:
+        un enfermero nunca es autor de una aprobación, y otro médico tampoco.
+        """
+        aprobacion = self.get_object()
+        if aprobacion.status != 'APPROVED':
+            raise ValidationError('Sólo se puede revertir una aprobación.')
+        ultimo = (aprobacion.block.comments.order_by('-created_at', '-pk')
+                  .first())
+        if ultimo.pk != aprobacion.pk:
+            raise ValidationError(
+                'Esa aprobación ya no es la vigente: hubo un dictamen después.')
+        reversion = Comment.objects.create(
+            block=aprobacion.block, doctor=request.user,
+            reviewer_role=request.user.profile.role, status='REVERTED')
+        return Response(self.get_serializer(reversion).data)
+
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
