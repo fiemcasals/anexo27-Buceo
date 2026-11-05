@@ -9,6 +9,7 @@ import { enCastellano } from '../lib/fecha-castellano'
 import { rangoEnCastellano } from '../lib/rango-de-fechas'
 import { efectoDelCambioDeFecha } from '../lib/efecto-del-cambio-de-fecha'
 import CargarEstudio from './CargarEstudio'
+import BarraLateral from './BarraLateral'
 
 // Los que piden una corrección se enmarcan en rojo. "Sin presentar" no: es una
 // tarea pendiente, no un problema, y pintar todo de rojo entrena a ignorarlo.
@@ -592,10 +593,6 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
     else setEstudioACargar(estudio)
   }
 
-  const closeMenu = () => {
-    const toggle = document.getElementById('menu-toggle')
-    if (toggle) toggle.checked = false
-  }
 
   const nombre = [perfil?.last_name, perfil?.first_name].filter(Boolean).join(', ')
   // Con fecha elegida y sin estudios exigidos, lo que falta es la fecha de
@@ -604,34 +601,7 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
-      <div className="sidebar p-4 d-flex flex-column">
-        <div className="d-flex align-items-center mb-5 ps-2">
-          <div className="bg-white rounded-circle d-flex align-items-center justify-content-center me-2"
-               style={{ width: '35px', height: '35px' }}>
-            <i className="bi bi-water text-primary fs-5"></i>
-          </div>
-          <h4 className="m-0 fw-bold">Anexo Buceo</h4>
-        </div>
-
-        <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-clipboard2-pulse me-3"></i>
-            <span>Estudios médicos</span>
-          </Link>
-          <Link to="/profile" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-person-circle me-3"></i>
-            <span>Mi Perfil</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto">
-          <button className="btn btn-outline-light w-100 d-flex align-items-center justify-content-center gap-2 py-2 opacity-75 border-0"
-                  onClick={onLogout}>
-            <i className="bi bi-box-arrow-left"></i>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
-      </div>
+      <BarraLateral role={perfil?.role} onLogout={onLogout} />
 
       <div className="flex-grow-1 bg-light">
         <div className="mx-auto px-3 py-4" style={{ maxWidth: '560px' }}>

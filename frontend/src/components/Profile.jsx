@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import BarraLateral from './BarraLateral';
 
-const Profile = ({ onLogout }) => {
+const Profile = ({ onLogout, perfil }) => {
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -44,10 +45,6 @@ const Profile = ({ onLogout }) => {
     }
   };
 
-  const closeMenu = () => {
-    const toggle = document.getElementById('menu-toggle');
-    if (toggle) toggle.checked = false;
-  };
 
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -79,33 +76,7 @@ const Profile = ({ onLogout }) => {
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
       {/* Sidebar */}
-      <div className="sidebar p-4 d-flex flex-column">
-        <div className="d-flex align-items-center mb-5 ps-2">
-          <div className="bg-white rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '35px', height: '35px' }}>
-            <i className="bi bi-water text-primary fs-5"></i>
-          </div>
-          <h4 className="m-0 fw-bold">Anexo Buceo</h4>
-        </div>
-        
-        <nav className="nav flex-column gap-2 flex-grow-1">
-          <Link to="/dashboard" className="nav-link d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-grid me-3"></i>
-            <span>Dashboard</span>
-          </Link>
-          <Link to="/profile" className="nav-link active d-flex align-items-center" onClick={closeMenu}>
-            <i className="bi bi-person-circle-fill me-3"></i>
-            <span>Mi Perfil</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto">
-          <button className="btn btn-outline-light w-100 d-flex align-items-center justify-content-center gap-2 py-2 opacity-75 border-0" 
-                  onClick={onLogout}>
-            <i className="bi bi-box-arrow-left"></i>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
-      </div>
+      <BarraLateral role={perfil?.role} onLogout={onLogout} />
 
       <div className="flex-grow-1 p-5 bg-light overflow-auto">
         <div className="d-flex justify-content-between align-items-center mb-5">
