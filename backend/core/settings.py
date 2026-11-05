@@ -184,11 +184,20 @@ REST_AUTH = {
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://buceo.misitiowebpersonal.com.ar',
-    'https://*.misitiowebpersonal.com.ar',
-    'http://localhost:5173',
-]
+# Los dominios desde los que se acepta un formulario. El login del admin de
+# Django valida contra esta lista, asi que un dominio que falte acá da un error
+# de CSRF al entrar, aunque la API —que usa token en el encabezado— ande bien.
+#
+# Sale del entorno para que mudar de dominio no sea un cambio de codigo. En
+# `.env` se escriben separados por coma.
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=[
+        'https://buceo.misitiowebpersonal.com.ar',
+        'https://*.misitiowebpersonal.com.ar',
+        'http://localhost:5173',
+    ],
+)
 
 # Authentication Backends
 AUTHENTICATION_BACKENDS = [
