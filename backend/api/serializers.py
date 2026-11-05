@@ -64,7 +64,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name']
+        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name', 'terms_accepted_at']
         # §5: "Cuatro roles. El admin los designa." El rol no es un dato que el
         # usuario edite de su propio perfil, y desde que el acceso sale del rol
         # (D-5) es la única credencial de autorización del sistema: escribible
@@ -72,7 +72,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # de todos los buzos. Se designa por el admin de Django (D-1).
         # `is_instructor` va por lo mismo: lo da `promote-instructor`
         # (`IsAdminUser`) y habilita a firmar la bitácora de otros.
-        read_only_fields = ['role', 'is_instructor']
+        # La sella el endpoint accept-terms, no un PATCH del perfil: si fuera
+        # escribible, aceptar y la constancia de haber aceptado serian la
+        # misma accion y cualquiera podria antedatarla.
+        read_only_fields = ['role', 'is_instructor', 'terms_accepted_at']
         # No es de sólo lectura: el buzo corrige un error de tipeo. Lo que no
         # puede es dejarla vacía (ver `validate_birth_date`).
         extra_kwargs = {

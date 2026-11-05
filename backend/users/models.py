@@ -74,6 +74,11 @@ class UserProfile(models.Model):
         verbose_name='Fecha de habilitación elegida',
     )
     weight = models.FloatField(null=True, blank=True, verbose_name='Peso')
+    # Null mientras no haya aceptado: la fecha es la constancia de cuando lo
+    # hizo, y un booleano no deja rastro de eso.
+    terms_accepted_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='Condiciones aceptadas el',
+    )
     height = models.FloatField(null=True, blank=True, verbose_name='Altura')
 
     class Meta:

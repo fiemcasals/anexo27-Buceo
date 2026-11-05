@@ -11,6 +11,7 @@ import ResetPassword from './components/ResetPassword';
 import Bitacora from './components/Bitacora';
 import Permisos from './components/Permisos';
 import CompleteDiveLog from './components/CompleteDiveLog';
+import Condiciones from './components/Condiciones';
 
 // El rol decide qué pantalla es `/dashboard`. El buzo —rol `USER`— ve la
 // pantalla del §8.3; el administrador ve `Permisos`, que es lo único que hace
@@ -56,6 +57,15 @@ function App() {
     setIsAuthenticated(false);
   };
 
+  // Toda pantalla con sesion pasa por los dos porteros en el mismo orden:
+  // primero hay sesion, despues estan aceptadas las condiciones. Antes cada
+  // ruta repetia el ternario de la sesion.
+  const protegida = (pantalla) => (
+    isAuthenticated
+      ? <Condiciones onLogout={logout}>{pantalla}</Condiciones>
+      : <Navigate to="/login" />
+  );
+
   return (
     <Router>
       {isAuthenticated && (
@@ -69,22 +79,10 @@ function App() {
           <Route path="/login" element={<Login onLogin={login} />} />
           <Route path="/registro" element={<Registro onLogin={login} />} />
           <Route path="/password-reset/:uid/:token" element={<ResetPassword />} />
-          <Route 
-            path="/dashboard" 
-            element={isAuthenticated ? <TableroSegunElRol onLogout={logout} /> : <Navigate to="/login" />}
-          />
-          <Route 
-            path="/profile" 
-            element={isAuthenticated ? <Profile onLogout={logout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/bitacora" 
-            element={isAuthenticated ? <Bitacora onLogout={logout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/bitacora/scan/:token" 
-            element={isAuthenticated ? <CompleteDiveLog /> : <Navigate to="/login" />} 
-          />
+          <Route path="/dashboard" element={protegida(<TableroSegunElRol onLogout={logout} />)} />
+          <Route path="/profile" element={protegida(<Profile onLogout={logout} />)} />
+          <Route path="/bitacora" element={protegida(<Bitacora onLogout={logout} />)} />
+          <Route path="/bitacora/scan/:token" element={protegida(<CompleteDiveLog />)} />
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
       </div>
