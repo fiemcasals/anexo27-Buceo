@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import CampoFecha from './CampoFecha';
 import { QRCodeSVG } from 'qrcode.react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
@@ -369,7 +370,7 @@ const Bitacora = ({ onLogout }) => {
                 <form onSubmit={createActivity}>
                   <h6 className="fw-bold small text-primary mb-3">Lugar y Fecha</h6>
                   <div className="row g-2 mb-4">
-                    <div className="col-md-4"><label className="form-label small text-muted">Fecha</label><input type="date" name="date" className="form-control form-control-sm" value={actData.date} onChange={handleChangeAct} required /></div>
+                    <div className="col-md-4"><label className="form-label small text-muted">Fecha</label><CampoFecha id="bitacora-fecha" className="form-control-sm" value={actData.date} onChange={(iso) => handleChangeAct({ target: { name: 'date', value: iso } })} required /></div>
                     <div className="col-md-4"><label className="form-label small text-muted">Lugar / Coord</label><input type="text" name="location_coords" className="form-control form-control-sm" value={actData.location_coords} onChange={handleChangeAct} required /></div>
                     <div className="col-md-4"><label className="form-label small text-muted">Tipo de Lugar</label><input type="text" name="location_type" className="form-control form-control-sm" value={actData.location_type} onChange={handleChangeAct} /></div>
                   </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import CampoFecha from './CampoFecha';
 
 const STUDY_OPTIONS = [
   "Electrocardiograma de esfuerzo. (solo para mayores de 40 años).",
@@ -569,11 +570,11 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                   <div className="mb-3">
                     <label className="form-label small fw-bold text-muted text-uppercase">Fecha del Estudio</label>
-                    <input 
-                      type="date" 
-                      className="form-control border-0 bg-light" 
+                    <CampoFecha
+                      id="dashboard-fecha-estudio"
+                      className="border-0 bg-light"
                       value={uploadDate}
-                      onChange={(e) => setUploadDate(e.target.value)}
+                      onChange={setUploadDate}
                       required
                     />
                   </div>

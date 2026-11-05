@@ -8,6 +8,8 @@
 // Los tres lugares del ciclo, en el orden del ciclo. Los nombres son los del
 // modelo (`HabilitationWindow.SLOT_CHOICES`); las etiquetas en castellano las
 // manda el servidor, así que no se duplican acá.
+import { aTexto } from './fecha-dd-mm-yyyy'
+
 export const LUGARES = ['FIRST', 'SECOND', 'COMPLEMENTARY']
 
 /** Cómo se muestra una fecha del ciclo, o que todavía no se cargó.
@@ -22,8 +24,7 @@ export const LUGARES = ['FIRST', 'SECOND', 'COMPLEMENTARY']
  */
 export function textoDeFecha(fecha) {
   if (!fecha) return 'Sin cargar'
-  const [año, mes, dia] = fecha.split('-')
-  return `${dia}/${mes}/${año}`
+  return aTexto(fecha)
 }
 
 /** La gente designada en un rol, y si no hay nadie.

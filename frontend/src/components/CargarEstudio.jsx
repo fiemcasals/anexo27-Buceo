@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import api from '../api'
 import { comprimirEnElNavegador } from '../lib/comprimir-imagen'
 import { primerMensajeDelCuerpo } from '../lib/primer-mensaje-del-cuerpo'
+import CampoFecha from './CampoFecha'
 
 // Los dos campos de la carga: la fecha impresa en el documento y el archivo. El
 // punto (`code`) ya viene determinado por la pantalla, que es quien muestra el
@@ -19,7 +20,7 @@ function mensajeDe(valor) {
 }
 
 function CargarEstudio({ code, onSubido }) {
-  const { register, handleSubmit, setError, clearErrors, formState: { errors } } = useForm()
+  const { register, control, handleSubmit, setError, clearErrors, formState: { errors } } = useForm()
   const [enviando, setEnviando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState('')
 
@@ -71,14 +72,20 @@ function CargarEstudio({ code, onSubido }) {
         <div className="mb-2" style={{ fontSize: '12px', color: '#7a8499', lineHeight: 1.5 }}>
           Es la fecha impresa en el estudio, no la de hoy.
         </div>
-        <input id="carga-fecha" type="date"
-               className={`form-control${errors.fecha ? ' is-invalid' : ''}`}
-               aria-invalid={!!errors.fecha}
-               {...register('fecha', {
-                 required: 'Falta la fecha que figura en el documento.',
-                 onChange: alCambiar('fecha'),
-               })} />
-        {errors.fecha && <div className="invalid-feedback d-block">{errors.fecha.message}</div>}
+        <Controller
+          name="fecha"
+          control={control}
+          defaultValue=""
+          rules={{ required: 'Falta la fecha que figura en el documento.' }}
+          render={({ field }) => (
+            <CampoFecha
+              id="carga-fecha"
+              value={field.value || ''}
+              onChange={(iso) => { field.onChange(iso); clearErrors('fecha') }}
+              error={errors.fecha?.message || null}
+            />
+          )}
+        />
       </div>
 
       <div className="mb-3">
