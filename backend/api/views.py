@@ -19,6 +19,7 @@ from .serializers import (
     HabilitationWindowSerializer, InscripcionSerializer,
 )
 from users.serializers import CorregirCorreoSerializer
+from . import plantel
 from . import serializers as _serializers
 from .estado import armar_estado
 from .images import ArchivoRechazado, comprimir
@@ -579,3 +580,134 @@ class FechasAdminView(APIView):
         # el cuerpo: la pantalla se repinta con lo que quedó guardado, que es lo
         # único que delata un guardado que no ocurrió.
         return Response(self._ciclo_completo(ciclo))
+
+
+# ---------------------------------------------------------------------------
+# El plantel del médico
+# ---------------------------------------------------------------------------
+class EsRevisor(permissions.BasePermission):
+    """El médico y los enfermeros auxiliares del §5: los que ven los estudios
+    de todos. El buzo, y también el administrador, reciben 403.
+
+    Delega en `roles.es_revisor`, que ya resuelve el perfil inexistente (nunca
+    significa "ve todo"). Va siempre junto a `IsAuthenticated`, que responde
+    primero: sin sesión da 401 y no 403.
+    """
+
+    message = 'Sólo el médico y los enfermeros auxiliares ven el plantel.'
+
+    def has_permission(self, request, view):
+        return es_revisor(request.user)
+
+
+#: De a cuántas filas se pagina el plantel. DRF no tiene
+#: `DEFAULT_PAGINATION_CLASS` configurada, así que la paginación es de esta vista.
+FILAS_POR_PAGINA = 50
+
+#: Lo que se muestra cuando la dirección no trae un orden válido.
+ORDEN_POR_DEFECTO = 'apellido'
+
+
+def _filtro_pedido(crudo):
+    """El filtro de la dirección, o 'todos' si no es uno de los cuatro.
+
+    `plantel.filtrar` es estricta a propósito (un filtro desconocido lanza
+    `ValueError`, para que un bug no pase inadvertido); pero este valor lo
+    escribe cualquiera en la barra del navegador, así que se normaliza acá.
+    """
+    return crudo if crudo in plantel.FILTROS else 'todos'
+
+
+def _orden_pedido(crudo):
+    """El criterio de la dirección, o el de por defecto si falta o no existe.
+    `plantel.ordenar(filas, None)` lanza `ValueError`."""
+    return crudo if crudo in plantel.CRITERIOS else ORDEN_POR_DEFECTO
+
+
+def _turno_pedido(crudo):
+    """El turno de la dirección, como lo entiende `plantel.filtrar`.
+
+    - Ausente o vacío: `None`, sin filtro. `?turno=` no es "filtrar por nada".
+    - `'sin'`: el literal de los no inscriptos.
+    - Un número: el **entero**. Llega como texto (`'2'`) y el id de la fila es un
+      entero, así que sin convertirlo nunca coinciden y la lista sale vacía, sin
+      ningún error: el médico creería que nadie se anotó a ese turno.
+    - Cualquier otra cosa: `None`. Una dirección escrita a mano no deja la
+      pantalla vacía ni la rompe.
+    """
+    crudo = (crudo or '').strip()
+    if crudo == 'sin':
+        return 'sin'
+    try:
+        return int(crudo)
+    except ValueError:
+        return None
+
+
+def _pagina_pedida(crudo, paginas):
+    """La página de la dirección; la primera si no es un número o no existe."""
+    try:
+        pagina = int(crudo)
+    except (TypeError, ValueError):
+        return 1
+    return pagina if 1 <= pagina <= paginas else 1
+
+
+class PlantelView(APIView):
+    """`GET /api/plantel/`: una fila por buzo, ya contada y paginada.
+
+    **No hay ninguna regla de aptitud acá.** Cada fila sale de
+    `plantel.fila`, que lee `fitness.diver_summary`: la misma función que lee la
+    ficha del buzo. El listado y la ficha no pueden contradecirse porque no
+    tienen dos definiciones.
+
+    **El prefetch de abajo no es un detalle.** Es el que documenta
+    `api/fitness.py`, copiado tal cual: con él, evaluar el plantel entero cuesta
+    un número fijo de consultas; sin él, cada buzo cuesta varias. No se lo
+    reemplaza por un `annotate`: eso reescribiría la regla en SQL y crearía una
+    segunda definición que se desincroniza de `fitness.py`. Lo vigila
+    `NoHayNMasUnoTests`.
+
+    Buscar, filtrar, ordenar y paginar se resuelven en Python sobre las filas ya
+    armadas, porque el estado depende de la fecha de hoy y no se guarda.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsRevisor]
+
+    def _perfiles(self):
+        # La receta de `api/fitness.py`. El plantel son los buzos: el médico, los
+        # enfermeros y el administrador no figuran en su propio listado (§5).
+        return (UserProfile.objects
+                .filter(role='USER')
+                .select_related('user', 'habilitation_window')
+                .prefetch_related(Prefetch(
+                    'user__study_blocks',
+                    queryset=StudyBlock.objects.filter(is_current=True)
+                    .prefetch_related('comments'),
+                ))
+                .order_by('pk'))
+
+    def get(self, request):
+        pedido = request.query_params
+        hoy = _serializers.hoy()
+
+        filas = [plantel.fila(perfil, hoy) for perfil in self._perfiles()]
+        filas = plantel.buscar(filas, pedido.get('buscar'))
+        filas = plantel.filtrar(filas, turno=_turno_pedido(pedido.get('turno')))
+        # Los contadores describen lo que se está mirando: se recalculan con el
+        # buscador y el turno, pero **antes** del filtro de documentación, que
+        # es el que reparte `por_filtro` en cuatro conteos y los pondría en cero.
+        contadores = plantel.contar(filas)
+        filas = plantel.filtrar(filas, filtro=_filtro_pedido(pedido.get('filtro')))
+        filas = plantel.ordenar(filas, _orden_pedido(pedido.get('orden')))
+
+        paginas = max(1, -(-len(filas) // FILAS_POR_PAGINA))
+        pagina = _pagina_pedida(pedido.get('pagina'), paginas)
+        desde = (pagina - 1) * FILAS_POR_PAGINA
+        return Response({
+            'contadores': contadores,
+            'total': len(filas),
+            'pagina': pagina,
+            'paginas': paginas,
+            'filas': filas[desde:desde + FILAS_POR_PAGINA],
+        })
