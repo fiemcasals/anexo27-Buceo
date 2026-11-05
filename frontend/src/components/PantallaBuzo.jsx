@@ -76,7 +76,7 @@ function BloqueDeFecha({ estado, onElegir }) {
           {rangoEnCastellano(elegida.start_date, elegida.end_date)}
         </div>
         <div style={{ fontSize: '12.5px', color: '#7a8499' }} className="mt-2">
-          La vigencia de cada estudio se evalúa contra esta fecha, no contra el día de hoy.
+          La vigencia de cada estudio se evalúa contra esta fecha.
         </div>
         <button type="button" className="btn btn-outline-secondary btn-sm mt-3"
                 onClick={onElegir}>
@@ -115,8 +115,7 @@ function BloqueDeFecha({ estado, onElegir }) {
         Todavía no se publicó ninguna fecha
       </div>
       <div className="mt-2" style={{ fontSize: '12.5px', color: '#6b7694', lineHeight: 1.5 }}>
-        Las fechas de habilitación se cargan a medida que se definen. Se avisará por correo
-        cuando se publique la próxima, y recién entonces se podrá elegir.
+        Las fechas de habilitación se cargan a medida que se definen.
       </div>
     </div>
   )

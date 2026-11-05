@@ -150,7 +150,7 @@ function Fechas({ ciclo, fechas, editado, onEditar, onGuardar, guardando, errore
       </h2>
       <p className="text-muted mb-4" style={{ fontSize: '13px' }}>
         Cada buzo elige una de estas fechas, y sus estudios tienen que estar
-        vigentes ese día. Un ciclo con menos de tres cargadas es normal.
+        vigentes ese día.
       </p>
 
       <div className="row g-3">
