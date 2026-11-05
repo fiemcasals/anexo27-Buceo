@@ -31,6 +31,10 @@ print(dst)
 PY
 )
 echo "    $BACKUP"
+# Sin rotacion esto crece un archivo por deploy, y con el autodeploy son
+# muchos mas que antes. Los 10 ultimos alcanzan para volver atras; el historico
+# largo lo guarda backup.sh en datos/.
+ls -t backend/db.sqlite3.bak-predeploy-* 2>/dev/null | tail -n +11 | xargs -r rm --
 
 # --- traer el codigo ------------------------------------------------------
 ANTES="$(git rev-parse HEAD)"
