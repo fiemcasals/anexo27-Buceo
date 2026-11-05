@@ -35,4 +35,9 @@ describe('filtros del plantel en la dirección', () => {
     expect(leerFiltros('?orden=inventado&turno=abc'))
       .toMatchObject({ orden: null, turno: null })
   })
+
+  it('la página cero o negativa cae en la primera', () => {
+    expect(leerFiltros('?pagina=0').pagina).toBe(1)
+    expect(leerFiltros('?pagina=-2').pagina).toBe(1)
+  })
 })
