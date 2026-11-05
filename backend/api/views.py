@@ -19,6 +19,7 @@ from .serializers import (
     HabilitationWindowSerializer, InscripcionSerializer,
 )
 from users.serializers import CorregirCorreoSerializer
+from . import correo
 from . import plantel
 from . import serializers as _serializers
 from .estado import armar_estado
@@ -228,9 +229,22 @@ class CommentViewSet(viewsets.ModelViewSet):
         # calidad de qué firma, y el §6 dice que "lo único que el médico no
         # puede delegar es decir que alguien está apto". `es_revisor` de arriba
         # ya garantizó que el perfil existe y que el rol es uno de los dos.
-        serializer.save(
+        comment = serializer.save(
             doctor=self.request.user,
             reviewer_role=self.request.user.profile.role)
+        if comment.status == 'REJECTED':
+            # El dictamen ya está guardado: el correo es un aviso, no parte de
+            # él. `avisar_rechazo` no propaga, así que un fallo acá no tumba
+            # el 201.
+            correo.avisar_rechazo(comment)
+
+    def perform_update(self, serializer):
+        # Avisa sólo si el PATCH *convierte* el dictamen en rechazo. Uno que
+        # corrige el detalle de un rechazo ya avisado no repite el correo.
+        era_rechazo = serializer.instance.status == 'REJECTED'
+        comment = serializer.save()
+        if comment.status == 'REJECTED' and not era_rechazo:
+            correo.avisar_rechazo(comment)
 
     def create(self, request, *args, **kwargs):
         try:
