@@ -5,6 +5,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      # SECRET_KEY, DJANGO_DEBUG, ALLOWED_HOSTS y la clave del SMTP
+      - ./backend/.env
     environment:
       # el default de settings.py quedo horneado con el dominio viejo
       FRONTEND_URL: https://buceo.nuestrocamino.cloud
@@ -21,6 +24,10 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - backend
+    volumes:
+      # nginx sirve /media/ directo del disco; solo lectura, el que escribe
+      # ahi es el backend.
+      - ./backend/media:/usr/share/nginx/media:ro
     restart: unless-stopped
     networks:
       - app-network

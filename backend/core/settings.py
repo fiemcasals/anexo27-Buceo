@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,13 +20,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qolcesum08%5v#mx=)v+9xd)-hrj#n%(jnr&swud3=5zd93gym'
+# Los secretos salen de backend/.env, que docker compose inyecta via env_file.
+# Sin default a proposito: una clave debil horneada en un archivo versionado fue
+# exactamente el problema que esto arregla, mejor que no arranque.
+SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Por defecto apagado: en produccion la pagina de debug de Django quedo publica
+# durante meses. Para desarrollo, DJANGO_DEBUG=1.
+DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get(
+    'DJANGO_ALLOWED_HOSTS', 'buceo.nuestrocamino.cloud').split(',')
 
 
 # Application definition
@@ -201,8 +206,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'mauriciocasals90@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'fbwlgygptwtgpxbk')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+# Sin default: la clave de app de Gmail estuvo versionada y es publica en GitHub.
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # A quienes les llega lo que se manda desde el boton Soporte
