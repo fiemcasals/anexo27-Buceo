@@ -1,10 +1,14 @@
-version: '3.8'
-
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      # SECRET_KEY, DJANGO_DEBUG, ALLOWED_HOSTS y la clave del SMTP
+      - ./backend/.env
+    environment:
+      # el default de settings.py apunta a localhost:5173
+      FRONTEND_URL: https://buceo.nuestrocamino.cloud
     volumes:
       - ./backend/db.sqlite3:/app/db.sqlite3
       - ./backend/media:/app/media
@@ -18,6 +22,10 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - backend
+    volumes:
+      # nginx sirve /media/ directo del disco; solo lectura, el que escribe
+      # ahi es el backend.
+      - ./backend/media:/usr/share/nginx/media:ro
     restart: unless-stopped
     networks:
       - app-network

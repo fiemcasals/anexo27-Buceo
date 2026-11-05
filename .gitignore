@@ -21,3 +21,11 @@ build/
 
 # Superpowers brainstorming
 .superpowers/
+
+# Respaldos locales
+datos/
+db.sqlite3.bak-*
+# Scripts de un solo uso (avisos por mail, extraccion de la base vieja)
+backend/send_*.py
+backend/extraer_usuarios.py
+backend/usuarios_semilla.json
