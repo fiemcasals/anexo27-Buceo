@@ -40,4 +40,24 @@ describe('filtros del plantel en la dirección', () => {
     expect(leerFiltros('?pagina=0').pagina).toBe(1)
     expect(leerFiltros('?pagina=-2').pagina).toBe(1)
   })
+
+  it('un número con dígitos de más no se acepta: Infinity o 1e20 romperían la ida y vuelta', () => {
+    const enorme = '9'.repeat(309)
+    expect(leerFiltros(`?pagina=${enorme}`).pagina).toBe(1)
+    expect(leerFiltros(`?turno=${enorme}`).turno).toBeNull()
+    expect(leerFiltros('?pagina=99999999999999999999').pagina).toBe(1)
+    expect(leerFiltros('?turno=99999999999999999999').turno).toBeNull()
+  })
+
+  it('una página que no es un entero escrito en decimal cae en la primera', () => {
+    for (const malo of ['1.5', '', '1abc', '-1', '0x10']) {
+      expect(leerFiltros(`?pagina=${malo}`).pagina).toBe(1)
+    }
+  })
+
+  it('un turno que no es un entero escrito en decimal cae en el arranque', () => {
+    for (const malo of ['-1', '1.5', '0x10', '1abc', '']) {
+      expect(leerFiltros(`?turno=${malo}`).turno).toBeNull()
+    }
+  })
 })

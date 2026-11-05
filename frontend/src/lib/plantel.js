@@ -15,12 +15,12 @@ const ARRANQUE = { buscar: '', filtro: 'todos', turno: null, orden: null, pagina
 function leerTurno(valor) {
   // 'sin' (buzos sin turno) no es un número: un parseInt ciego lo volvería NaN.
   if (valor === 'sin') return 'sin'
-  if (valor && /^\d+$/.test(valor)) return Number(valor)
+  if (valor && /^\d+$/.test(valor) && Number.isSafeInteger(Number(valor))) return Number(valor)
   return ARRANQUE.turno
 }
 
 function leerPagina(valor) {
-  if (valor && /^\d+$/.test(valor) && Number(valor) >= 1) return Number(valor)
+  if (valor && /^\d+$/.test(valor) && Number.isSafeInteger(Number(valor)) && Number(valor) >= 1) return Number(valor)
   return ARRANQUE.pagina
 }
 
