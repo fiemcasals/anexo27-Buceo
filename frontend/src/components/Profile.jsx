@@ -2,13 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import BarraLateral from './BarraLateral';
+import CampoFecha from './CampoFecha';
+
+// Los nombres que se leen en la pantalla, para que un error diga QUE campo falla
+// y no solo "este campo no puede estar en blanco".
+const ETIQUETAS = {
+  first_name: 'Nombre', last_name: 'Apellido', dni: 'DNI', birth_date: 'Fecha de nacimiento',
+  phone: 'Teléfono', rank: 'Grado', destination: 'Destino', weight: 'Peso', height: 'Altura',
+};
 
 const Profile = ({ onLogout, perfil }) => {
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
     dni: '',
-    age: '',
+    birth_date: '',
     phone: '',
     rank: '',
     destination: '',
@@ -17,9 +25,19 @@ const Profile = ({ onLogout, perfil }) => {
     profile_data: {}
   });
   const [loading, setLoading] = useState(true);
+const [grupos, setGrupos] = useState(null);
 
   useEffect(() => {
     fetchProfile();
+  }, []);
+
+  // La lista de grados la define el backend: no se redefine acá.
+  useEffect(() => {
+    let vigente = true;
+    api.get('grados/')
+      .then(res => { if (vigente) setGrupos(res.data); })
+      .catch(() => { if (vigente) setGrupos([]); });
+    return () => { vigente = false; };
   }, []);
 
   const fetchProfile = async () => {
@@ -31,7 +49,7 @@ const Profile = ({ onLogout, perfil }) => {
         first_name: res.data.first_name || '',
         last_name: res.data.last_name || '',
         dni: res.data.dni || '',
-        age: res.data.age || '',
+        birth_date: res.data.birth_date || '',
         phone: res.data.phone || '',
         rank: res.data.rank || '',
         destination: res.data.destination || '',
@@ -53,9 +71,9 @@ const Profile = ({ onLogout, perfil }) => {
   const handleSave = async (e) => {
     e.preventDefault();
     
-    // Clean data: convert empty strings to null for numeric fields
+    // Clean data: convert empty strings to null for numeric and date fields
     const cleanedProfile = { ...profile };
-    ['age', 'weight', 'height'].forEach(field => {
+    ['weight', 'height', 'birth_date'].forEach(field => {
       if (cleanedProfile[field] === '') {
         cleanedProfile[field] = null;
       }
@@ -67,7 +85,11 @@ const Profile = ({ onLogout, perfil }) => {
       fetchProfile(); // Refresh to get clean data back
     } catch (err) {
       console.error("Error saving profile", err.response?.data);
-      alert('Error al guardar el perfil. Revise los datos ingresados.');
+      const datos = err.response?.data;
+      const detalle = datos && typeof datos === 'object'
+        ? Object.entries(datos).map(([campo, msgs]) => `${ETIQUETAS[campo] || campo}: ${[].concat(msgs).join(' ')}`).join(' ')
+        : '';
+      alert(detalle ? `No se pudo guardar el perfil. ${detalle}` : 'Error al guardar el perfil. Revise los datos ingresados.');
     }
   };
 
@@ -82,7 +104,7 @@ const Profile = ({ onLogout, perfil }) => {
         <div className="d-flex justify-content-between align-items-center mb-5">
           <div>
             <h2 className="fw-bold mb-1">Configuración del Perfil</h2>
-            <p className="text-muted">Asegúrate de que tus datos personales estén actualizados.</p>
+            <p className="text-muted">Los datos personales tienen que estar actualizados.</p>
           </div>
         </div>
 
@@ -102,8 +124,8 @@ const Profile = ({ onLogout, perfil }) => {
                 <input type="text" name="dni" className="form-control form-control-lg border-0 bg-light" value={profile.dni} onChange={handleChange} placeholder="Ingrese su DNI" />
               </div>
               <div className="col-md-6">
-                <label className="form-label fw-medium text-muted small">Edad</label>
-                <input type="number" name="age" className="form-control form-control-lg border-0 bg-light" value={profile.age} onChange={handleChange} placeholder="25" />
+                <label className="form-label fw-medium text-muted small">Fecha de nacimiento</label>
+                <CampoFecha id="birth_date" value={profile.birth_date} onChange={(v) => setProfile({ ...profile, birth_date: v })} className="form-control form-control-lg border-0 bg-light" />
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">Teléfono</label>
@@ -111,7 +133,14 @@ const Profile = ({ onLogout, perfil }) => {
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">Grado</label>
-                <input type="text" name="rank" className="form-control form-control-lg border-0 bg-light" value={profile.rank} onChange={handleChange} placeholder="Grado militar/civil" />
+                <select name="rank" disabled={!grupos} className="form-select form-select-lg border-0 bg-light" value={profile.rank} onChange={handleChange}>
+                    <option value="">{grupos ? 'Elegir el grado' : 'Cargando…'}</option>
+                    {(grupos || []).map(g => (
+                      <optgroup key={g.grupo} label={g.grupo}>
+                        {g.grados.map(gr => <option key={gr.valor} value={gr.valor}>{gr.etiqueta}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
               </div>
               <div className="col-md-12">
                 <label className="form-label fw-medium text-muted small">Destino</label>

@@ -265,3 +265,54 @@ class LaFechaDeNacimientoNoSeVaciaTests(APITestCase):
         self.assertEqual(r.status_code, 400, r.content)
         self.assertIn("birth_date", r.json())
         self.assertEqual(self._fecha(), date(1990, 5, 1))
+
+
+class LaPantallaDePerfilGuardaLoQueMandaTests(APITestCase):
+    """El contrato que usa la pantalla de Perfil: GET, cambiar, PUT del conjunto.
+
+    La pantalla tenia una caja "Edad" que mandaba `age`, un campo que el modelo
+    no tiene (guarda `birth_date` y deriva la edad). El serializador lo ignoraba
+    en silencio, la pantalla decia "guardado" y no cambiaba nada. Este test fija
+    del lado del backend lo que la pantalla corregida manda: la fecha de
+    nacimiento en ISO y el grado como uno de la lista cerrada.
+    """
+
+    def test_corregir_la_fecha_de_nacimiento_y_el_grado_se_guarda(self):
+        diver = _user("buzo-perfil", "USER")
+        # Un usuario registrado tiene nombre y apellido: el registro los exige.
+        User.objects.filter(pk=diver.pk).update(first_name="Ana", last_name="Pérez")
+        profile = UserProfile.objects.get(user=diver)
+        profile.birth_date = date(1990, 5, 1)
+        profile.rank = "CB"
+        profile.save()
+        cliente = _client(User.objects.get(pk=diver.pk))
+
+        datos = cliente.get(f"{URL}me/").json()
+        datos.update(birth_date="1988-03-09", rank="SG",
+                     weight=None, height=None, dni="")
+        r = cliente.put(f"{URL}{datos['id']}/", datos, format="json")
+
+        self.assertEqual(r.status_code, 200, r.content)
+        profile.refresh_from_db()
+        self.assertEqual(profile.birth_date, date(1988, 3, 9))
+        self.assertEqual(profile.rank, "SG")
+
+    def test_un_grado_escrito_a_mano_se_rechaza_con_el_campo_señalado(self):
+        diver = _user("buzo-grado", "USER")
+        cliente = _client(User.objects.get(pk=diver.pk))
+        pk = UserProfile.objects.get(user=diver).pk
+        r = cliente.patch(f"{URL}{pk}/", {"rank": "Capitán"}, format="json")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn("rank", r.json())
+
+    def test_sin_nombre_ni_apellido_no_se_puede_guardar_y_el_error_senala_los_campos(self):
+        # Una cuenta anterior al registro (o creada a mano) puede no tener nombre.
+        # El backend los exige al guardar el perfil, y la pantalla tiene que poder
+        # decir cuales faltan: antes solo decia "Revise los datos ingresados".
+        diver = _user("buzo-sin-nombre", "USER")
+        cliente = _client(User.objects.get(pk=diver.pk))
+        datos = cliente.get(f"{URL}me/").json()
+        datos.update(birth_date="1988-03-09", rank="SG")
+        r = cliente.put(f"{URL}{datos['id']}/", datos, format="json")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(set(r.json()), {"first_name", "last_name"})
