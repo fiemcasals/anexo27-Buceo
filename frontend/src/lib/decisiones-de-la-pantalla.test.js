@@ -60,14 +60,12 @@ describe('estaCompleto', () => {
 describe('oracionDelContador', () => {
   it('completo: dice que no queda nada por subir', () => {
     expect(oracionDelContador({ faltan: 0, estudios: [est('APPROVED')] })).toBe(
-      'No queda ningún estudio por subir. Se notificará por correo la aptitud para '
-      + 'presentarse a la habilitación.')
+      'No queda ningún estudio por subir.')
   })
 
   it('con faltantes, habla de subir y revisar', () => {
     expect(oracionDelContador({ faltan: 1, estudios: [est('MISSING')] })).toBe(
-      'Una vez subidos y revisados, se notificará por correo la aptitud para '
-      + 'presentarse a la habilitación.')
+      'De no elevar los estudios no podrá realizar la habilitacion')
   })
 
   it('con un punto fuera de ventana, dice lo cierto y la fecha en castellano', () => {
