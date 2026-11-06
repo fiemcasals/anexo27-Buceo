@@ -28,6 +28,21 @@ jobs:
     steps:
       # Sin actions/checkout: `docker compose build` toma el arbol del clon real
       # en /root, no el del workspace del runner. deploy.sh hace el pull.
+      # Los cambios editados a mano en el servidor frenan el `git pull --ff-only`
+      # de deploy.sh, y eso es lo que queremos que haga: no pisarlos. Pero dejar
+      # el despliegue trabado hasta que alguien entre por SSH no ayuda, asi que
+      # se apartan con `stash`, que los CONSERVA (se ven con `git stash list` y
+      # se recuperan con `git stash pop`). Solo toca archivos versionados: el
+      # .env, la base y media/ estan ignorados y no se tocan.
+      - name: Apartar cambios a mano del servidor
+        run: |
+          cd /root/anexo27-Buceo/anexo27-Buceo
+          if ! git diff --quiet HEAD; then
+            echo "Hay cambios sin commitear en el servidor; se apartan con stash (no se borran):"
+            git status --short
+            git -c user.name=deploy -c user.email=deploy@localhost stash push -m "cambios a mano antes del despliegue $(date +%Y%m%d-%H%M%S)"
+          fi
+
       - name: deploy.sh
         run: |
           cd /root/anexo27-Buceo/anexo27-Buceo
