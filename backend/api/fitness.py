@@ -113,6 +113,8 @@ _STATE_BY_VERDICT = {
     "APPROVED": StudyState.APPROVED,
     "PRE_APPROVED": StudyState.PRE_REVIEWED,
     "REJECTED": StudyState.REJECTED,
+    # Una aprobación revertida vuelve el punto a la pila del médico.
+    "REVERTED": StudyState.IN_REVIEW,
 }
 
 _DOCTOR = "DOCTOR"

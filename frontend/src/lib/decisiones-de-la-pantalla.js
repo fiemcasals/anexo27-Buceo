@@ -38,13 +38,11 @@ export function cuantosFaltan(faltan) {
 // puntos fuera de ventana y nada más por subir, no dice que no queda nada.
 export function oracionDelContador(estado) {
   if (estado.faltan > 0) {
-    return 'Una vez subidos y revisados, se notificará por correo la aptitud para '
-      + 'presentarse a la habilitación.'
+    return 'De no elevar los estudios no podrá realizar la habilitacion'
   }
   const fuera = fueraDeVentana(estado)
   if (fuera.length === 0) {
-    return 'No queda ningún estudio por subir. Se notificará por correo la aptitud para '
-      + 'presentarse a la habilitación.'
+    return 'No queda ningún estudio por subir.' 
   }
   // Las fechas ISO se ordenan como texto; la más próxima es la menor.
   const fechas = fuera.map(e => e.desde_cuando).filter(Boolean).sort()

@@ -13,8 +13,22 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 
+import environ
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Los secretos salen de `backend/.env`, que `.gitignore` deja afuera.
+#
+# Este repositorio es **publico**. Una contraseña escrita en este archivo queda
+# publicada para cualquiera y queda ademas en el historial de git, donde
+# borrarla despues no la saca. Con la contraseña de aplicacion del correo se
+# puede mandar correo haciendose pasar por la division.
+#
+# `.env.example` esta versionado y lista los nombres sin los valores, para que
+# se sepa que hay que completar al levantar el sistema en otra maquina.
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -167,11 +181,21 @@ REST_AUTH = {
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://buceo.misitiowebpersonal.com.ar',
-    'https://*.misitiowebpersonal.com.ar',
-    'http://localhost:5173',
-]
+# Los dominios desde los que se acepta un formulario. El login del admin de
+# Django valida contra esta lista, asi que un dominio que falte acá da un error
+# de CSRF al entrar, aunque la API —que usa token en el encabezado— ande bien.
+#
+# Sale del entorno para que mudar de dominio no sea un cambio de codigo. En
+# `.env` se escriben separados por coma.
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=[
+        'https://buceo.nuestrocamino.cloud',
+        'https://buceo.misitiowebpersonal.com.ar',
+        'https://*.misitiowebpersonal.com.ar',
+        'http://localhost:5173',
+    ],
+)
 
 # Authentication Backends
 AUTHENTICATION_BACKENDS = [
@@ -205,18 +229,40 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_ADAPTER = 'users.adapters.CustomAccountAdapter'
 
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+# Con que direccion se arman los enlaces que van dentro de los correos, como
+# el de recuperar la contraseña. En el servidor tiene que ser la direccion
+# publica real, o el enlace apunta a la maquina de quien recibe el correo.
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
 
-# SMTP Email Configuration (Real Email)
-# Reemplaza estas credenciales con un correo real (ej. Gmail App Password)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-# Sin default: la clave de app de Gmail no va versionada.
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# Correo saliente.
+#
+# Las credenciales salen de `backend/.env`. La contraseña NO es la del correo:
+# Gmail pide una "contraseña de aplicacion", que se genera aparte y se revoca
+# sola sin tocar la cuenta.
+#
+# Mientras `EMAIL_HOST_PASSWORD` este vacio no se manda nada de verdad: se usa
+# el backend de consola, que imprime el correo en la terminal. Asi se puede
+# trabajar y probar sin credenciales, y nadie recibe un correo de prueba por
+# accidente. Con la contraseña puesta, pasa a mandar por SMTP sola.
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+# Segundos que se espera al servidor de correo. Django no define un tope: un
+# SMTP que cuelga, en vez de fallar, dejaria el POST del medico esperando para
+# siempre, y ningun `except` lo cubre porque no hay excepcion que atrapar.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
+
+EMAIL_BACKEND = (
+    'django.core.mail.backends.smtp.EmailBackend'
+    if EMAIL_HOST_PASSWORD
+    else 'django.core.mail.backends.console.EmailBackend'
+)
+
+# De quien figura que viene el correo. Si no se dice otra cosa, la misma
+# casilla que lo manda.
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 # A quienes les llega lo que se manda desde el boton Soporte.
 SUPPORT_RECIPIENTS = os.environ.get(

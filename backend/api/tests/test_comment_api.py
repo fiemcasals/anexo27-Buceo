@@ -16,8 +16,11 @@ con la fila ya modificada sería un test que pasa por la razón equivocada.
 """
 
 from datetime import date
+from smtplib import SMTPException
+from unittest import mock
 
 from django.contrib.auth.models import User
+from django.core import mail
 from rest_framework.test import APIClient, APITestCase
 
 from api.models import Comment, StudyBlock
@@ -270,3 +273,177 @@ class ElRolDelDictamenEsElRealTests(APITestCase):
             content="La foto está cortada.")
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Comment.objects.get().reviewer_role, "NURSE")
+
+
+class UnRechazoExigeMotivoYDetalleTests(APITestCase):
+    """Hoy un rechazo sin motivo pasaba el serializador y reventaba contra la
+    CheckConstraint `rejection_has_reason_and_detail` como IntegrityError, o
+    sea un 500. Es el POST exacto que manda el diálogo de rechazo."""
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.doctor = _user("medico", "DOCTOR")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+
+    def post(self, **payload):
+        payload.setdefault("block", self.block.pk)
+        return _client(self.doctor).post(URL, payload, format="json")
+
+    def test_rechazar_sin_motivo_da_400_y_no_500(self):
+        r = self.post(status="REJECTED", rejection_reason="", content="")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("rejection_reason", r.data)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_rechazar_sin_detalle_da_400(self):
+        r = self.post(
+            status="REJECTED", rejection_reason="ILLEGIBLE", content="")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("content", r.data)
+
+    def test_un_detalle_en_blanco_no_es_un_detalle(self):
+        r = self.post(
+            status="REJECTED", rejection_reason="ILLEGIBLE", content="   ")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("content", r.data)
+
+    def test_rechazar_sin_mandar_los_campos_da_400(self):
+        r = self.post(status="REJECTED")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("rejection_reason", r.data)
+
+    def test_una_aprobacion_no_lleva_motivo(self):
+        r = self.post(status="APPROVED", rejection_reason="ILLEGIBLE")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("rejection_reason", r.data)
+
+    def test_un_patch_no_puede_dejar_un_rechazo_sin_detalle(self):
+        verdict = Comment.objects.create(
+            block=self.block, doctor=self.doctor, reviewer_role="DOCTOR",
+            status="REJECTED", rejection_reason="ILLEGIBLE", content="Cortada.")
+        r = _client(self.doctor).patch(
+            f"{URL}{verdict.pk}/", {"content": ""}, format="json")
+        self.assertEqual(r.status_code, 400)
+        verdict.refresh_from_db()
+        self.assertEqual(verdict.content, "Cortada.")
+
+
+class ElCorreoDeRechazoTests(APITestCase):
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.diver.email = "buzo1@example.com"
+        self.diver.save()
+        self.doctor = _user("medico", "DOCTOR")
+        self.nurse = _user("enfermero", "NURSE")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+        self.titulo_del_estudio = self.block.title
+
+    def rechazar(self, como=None, **extra):
+        payload = {
+            "block": self.block.pk, "status": "REJECTED",
+            "rejection_reason": "ILLEGIBLE", "content": "Salió cortada.",
+        }
+        payload.update(extra)
+        return _client(como or self.doctor).post(URL, payload, format="json")
+
+    def aprobar(self):
+        return _client(self.doctor).post(
+            URL, {"block": self.block.pk, "status": "APPROVED"}, format="json")
+
+    def dictamenes_del_punto(self):
+        return Comment.objects.filter(block=self.block)
+
+    def test_un_rechazo_manda_un_correo_al_buzo(self):
+        self.rechazar()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.diver.email])
+
+    def test_dice_que_estudio_el_motivo_y_el_detalle(self):
+        self.rechazar(rejection_reason="ILLEGIBLE", content="Salió cortada.")
+        cuerpo = mail.outbox[0].body
+        self.assertIn("Documento ilegible", cuerpo)
+        self.assertIn("Salió cortada.", cuerpo)
+        self.assertIn(self.titulo_del_estudio, cuerpo)
+
+    def test_no_dice_quien_reviso(self):
+        # Ni el rol ni el usuario de quien revisó, sea médico o enfermero.
+        # "médico" en minúscula no se busca: está en el asunto, que es el
+        # nombre del estudio y no el revisor.
+        for revisor, datos in (
+            (self.doctor, ("medico", "Médico", "DOCTOR")),
+            (self.nurse, ("enfermero", "Enfermero", "NURSE")),
+        ):
+            with self.subTest(revisor=revisor.username):
+                mail.outbox.clear()
+                self.dictamenes_del_punto().delete()
+                self.rechazar(como=revisor)
+                correo = mail.outbox[0]
+                texto = correo.subject + "\n" + correo.body
+                for dato in datos + ("REJECTED", "ILLEGIBLE"):
+                    self.assertNotIn(dato, texto)
+
+    def test_el_enlace_sale_de_frontend_url(self):
+        with self.settings(FRONTEND_URL="https://ejemplo.test"):
+            self.rechazar()
+        self.assertIn("https://ejemplo.test", mail.outbox[0].body)
+
+    def test_una_aprobacion_no_manda_nada(self):
+        self.aprobar()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_una_pre_aprobacion_no_manda_nada(self):
+        r = _client(self.nurse).post(
+            URL, {"block": self.block.pk, "status": "PRE_APPROVED"},
+            format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_el_rechazo_del_enfermero_tambien_avisa(self):
+        self.rechazar(como=self.nurse)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_si_el_correo_falla_el_rechazo_se_guarda_igual(self):
+        # El dictamen es lo importante: un servidor de correo caído no puede
+        # impedir que el médico trabaje.
+        with mock.patch("api.correo.send_mail", side_effect=SMTPException):
+            r = self.rechazar()
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(self.dictamenes_del_punto().count(), 1)
+
+    def test_el_texto_va_en_impersonal(self):
+        self.rechazar()
+        correo = mail.outbox[0]
+        for palabra in (" tu ", " tus ", "podés", "tenés", "Tu ", "Tus "):
+            self.assertNotIn(palabra, correo.body)
+            self.assertNotIn(palabra, correo.subject)
+
+    def test_un_buzo_sin_correo_no_rompe_el_rechazo(self):
+        self.diver.email = ""
+        self.diver.save()
+        r = self.rechazar()
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_un_patch_que_convierte_en_rechazo_avisa(self):
+        # Un enfermero pre-aprueba y después corrige: rechaza.
+        v = Comment.objects.create(
+            block=self.block, doctor=self.nurse, reviewer_role="NURSE",
+            status="PRE_APPROVED")
+        r = _client(self.nurse).patch(
+            f"{URL}{v.pk}/",
+            {"status": "REJECTED", "rejection_reason": "OTHER",
+             "content": "Falta la firma."}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Falta la firma.", mail.outbox[0].body)
+
+    def test_un_patch_que_solo_corrige_el_detalle_no_vuelve_a_avisar(self):
+        self.rechazar()
+        v = self.dictamenes_del_punto().get()
+        r = _client(self.doctor).patch(
+            f"{URL}{v.pk}/", {"content": "Salió cortada arriba."},
+            format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(len(mail.outbox), 1)

@@ -61,6 +61,10 @@ class Comment(models.Model):
         ('PRE_APPROVED', 'Pre-revisado'),
         ('APPROVED', 'Aprobado'),
         ('REJECTED', 'Rechazado con Observación'),
+        # El médico deshace una aprobación que firmó él: el punto vuelve a
+        # revisión. Es un dictamen más, y el último manda, para que quede
+        # asentado quién la deshizo y cuándo.
+        ('REVERTED', 'Aprobación revertida'),
     ]
     REJECTION_REASONS = [
         ('OUT_OF_TERM', 'Estudio fuera del plazo de la directiva'),
@@ -107,11 +111,12 @@ class Comment(models.Model):
                     models.Q(status='REJECTED')
                     | models.Q(status='PRE_APPROVED', reviewer_role='NURSE')
                     | models.Q(status='APPROVED', reviewer_role='DOCTOR')
+                    | models.Q(status='REVERTED', reviewer_role='DOCTOR')
                 ),
                 name='verdict_matches_reviewer_role',
                 violation_error_message=(
-                    'La aprobación corresponde sólo al médico y la '
-                    'pre-aprobación sólo al enfermero auxiliar.'
+                    'La aprobación y su reversión corresponden sólo al médico y '
+                    'la pre-aprobación sólo al enfermero auxiliar.'
                 ),
             ),
             # Todo rechazo lleva motivo y detalle; nada más lleva motivo.
@@ -140,6 +145,8 @@ class Comment(models.Model):
             errors['doctor'] = 'Nadie puede dictaminar sobre sus propios estudios.'
         if self.status == 'APPROVED' and self.reviewer_role == 'NURSE':
             errors['status'] = 'La aprobación corresponde sólo al médico.'
+        elif self.status == 'REVERTED' and self.reviewer_role == 'NURSE':
+            errors['status'] = 'Revertir una aprobación corresponde sólo al médico.'
         elif self.status == 'PRE_APPROVED' and self.reviewer_role == 'DOCTOR':
             errors['status'] = 'La pre-aprobación corresponde sólo al enfermero auxiliar.'
         if self.status == 'REJECTED':

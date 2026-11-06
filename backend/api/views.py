@@ -4,11 +4,9 @@ from rest_framework import generics, viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from django.db.models import Prefetch, Q
 from django.contrib.auth.models import User
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
@@ -23,10 +21,12 @@ from .serializers import (
     HabilitationWindowSerializer, InscripcionSerializer,
 )
 from users.serializers import CorregirCorreoSerializer
+from . import correo
+from . import plantel
+from .ficha import armar_ficha
 from . import serializers as _serializers
 from .estado import armar_estado
 from .images import ArchivoRechazado, comprimir
-from .report_pdf import generate_anexo_27
 # §5, en su propio modulo porque tambien lo consultan los serializadores.
 from .roles import REVIEWER_ROLES, es_revisor  # noqa: F401  (re-export)
 
@@ -174,36 +174,6 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
             raise ValidationError({'pdf_attachment': e.mensaje})
         serializer.save(user=self.request.user, pdf_attachment=archivo)
 
-class Anexo27View(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def retrieve(self, request, pk=None):
-        # Sin la guarda, un id inexistente propaga `DoesNotExist` y sale como
-        # 500 — con DEBUG=True, un traceback.
-        user = get_object_or_404(User, pk=pk)
-        # §5 sobre el tercer endpoint que sirve el registro médico, y el que lo
-        # sirve como el documento que firma un oficial: el revisor designado ve
-        # los estudios de todos, así que puede emitir el formulario. Decidía por
-        # `is_staff`, que es la llave del admin de Django y no tiene nada que ver
-        # con el §5: el médico designado recibía 403 sobre el formulario que el
-        # sistema existe para producir.
-        #
-        # `is_staff` se conserva igual: D-1 deja el admin de Django como acceso
-        # crudo y salida de emergencia hasta que exista la pantalla propia del
-        # admin, así que ya ve los estudios y los dictámenes por ahí. Negarle
-        # este endpoint mientras el panel sirve los mismos datos no protegería
-        # nada.
-        if (request.user != user
-                and not es_revisor(request.user)
-                and not request.user.is_staff):
-            return HttpResponse("Unauthorized", status=403)
-        
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="anexo_27_{user.username}.pdf"'
-        
-        generate_anexo_27(response, user)
-        return response
-
 class SoloQuienDictamino(permissions.BasePermission):
     """Un dictamen lo edita y lo borra sólo quien lo emitió. Nadie más, nunca.
 
@@ -270,9 +240,22 @@ class CommentViewSet(viewsets.ModelViewSet):
         # calidad de qué firma, y el §6 dice que "lo único que el médico no
         # puede delegar es decir que alguien está apto". `es_revisor` de arriba
         # ya garantizó que el perfil existe y que el rol es uno de los dos.
-        serializer.save(
+        comment = serializer.save(
             doctor=self.request.user,
             reviewer_role=self.request.user.profile.role)
+        if comment.status == 'REJECTED':
+            # El dictamen ya está guardado: el correo es un aviso, no parte de
+            # él. `avisar_rechazo` no propaga, así que un fallo acá no tumba
+            # el 201.
+            correo.avisar_rechazo(comment)
+
+    def perform_update(self, serializer):
+        # Avisa sólo si el PATCH *convierte* el dictamen en rechazo. Uno que
+        # corrige el detalle de un rechazo ya avisado no repite el correo.
+        era_rechazo = serializer.instance.status == 'REJECTED'
+        comment = serializer.save()
+        if comment.status == 'REJECTED' and not era_rechazo:
+            correo.avisar_rechazo(comment)
 
     def create(self, request, *args, **kwargs):
         try:
@@ -280,6 +263,34 @@ class CommentViewSet(viewsets.ModelViewSet):
         except ValidationError as e:
             logger.debug("Dictamen: validacion rechazada: %s", e.detail)
             raise
+
+    @action(detail=True, methods=['post'])
+    def revertir(self, request, pk=None):
+        """El médico deshace una aprobación que firmó él: el punto vuelve a
+        `IN_REVIEW`, a la pila del médico, y el buzo puede volver a subir.
+
+        Sin esto una aprobación equivocada era definitiva: el buzo no puede
+        reemplazar lo aprobado (`fitness.puede_reemplazarse`). No borra ni edita
+        nada: agrega un dictamen `REVERTED` con su autor y su fecha, porque el
+        último dictamen manda y un sistema de aptitud no puede deshacer una
+        aprobación sin dejar rastro.
+
+        El permiso es el de siempre: `get_object` corre `SoloQuienDictamino`,
+        que deja pasar sólo al autor del dictamen. Es todo lo que hace falta:
+        un enfermero nunca es autor de una aprobación, y otro médico tampoco.
+        """
+        aprobacion = self.get_object()
+        if aprobacion.status != 'APPROVED':
+            raise ValidationError('Sólo se puede revertir una aprobación.')
+        ultimo = (aprobacion.block.comments.order_by('-created_at', '-pk')
+                  .first())
+        if ultimo.pk != aprobacion.pk:
+            raise ValidationError(
+                'Esa aprobación ya no es la vigente: hubo un dictamen después.')
+        reversion = Comment.objects.create(
+            block=aprobacion.block, doctor=request.user,
+            reviewer_role=request.user.profile.role, status='REVERTED')
+        return Response(self.get_serializer(reversion).data)
 
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()
@@ -654,3 +665,158 @@ class SupportViewSet(viewsets.ViewSet):
         ).send()
 
         return Response({"message": "Reporte enviado. ¡Gracias!"}, status=201)
+# ---------------------------------------------------------------------------
+# El plantel del médico
+# ---------------------------------------------------------------------------
+class EsRevisor(permissions.BasePermission):
+    """El médico y los enfermeros auxiliares del §5: los que ven los estudios
+    de todos. El buzo, y también el administrador, reciben 403.
+
+    Delega en `roles.es_revisor`, que ya resuelve el perfil inexistente (nunca
+    significa "ve todo"). Va siempre junto a `IsAuthenticated`, que responde
+    primero: sin sesión da 401 y no 403.
+    """
+
+    message = 'Sólo el médico y los enfermeros auxiliares ven el plantel.'
+
+    def has_permission(self, request, view):
+        return es_revisor(request.user)
+
+
+#: De a cuántas filas se pagina el plantel. DRF no tiene
+#: `DEFAULT_PAGINATION_CLASS` configurada, así que la paginación es de esta vista.
+FILAS_POR_PAGINA = 50
+
+#: Lo que se muestra cuando la dirección no trae un orden válido.
+ORDEN_POR_DEFECTO = 'apellido'
+
+
+def _filtro_pedido(crudo):
+    """El filtro de la dirección, o 'todos' si no es uno de los cuatro.
+
+    `plantel.filtrar` es estricta a propósito (un filtro desconocido lanza
+    `ValueError`, para que un bug no pase inadvertido); pero este valor lo
+    escribe cualquiera en la barra del navegador, así que se normaliza acá.
+    """
+    return crudo if crudo in plantel.FILTROS else 'todos'
+
+
+def _orden_pedido(crudo):
+    """El criterio de la dirección, o el de por defecto si falta o no existe.
+    `plantel.ordenar(filas, None)` lanza `ValueError`."""
+    return crudo if crudo in plantel.CRITERIOS else ORDEN_POR_DEFECTO
+
+
+def _turno_pedido(crudo):
+    """El turno de la dirección, como lo entiende `plantel.filtrar`.
+
+    - Ausente o vacío: `None`, sin filtro. `?turno=` no es "filtrar por nada".
+    - `'sin'`: el literal de los no inscriptos.
+    - Un número: el **entero**. Llega como texto (`'2'`) y el id de la fila es un
+      entero, así que sin convertirlo nunca coinciden y la lista sale vacía, sin
+      ningún error: el médico creería que nadie se anotó a ese turno.
+    - Cualquier otra cosa: `None`. Una dirección escrita a mano no deja la
+      pantalla vacía ni la rompe.
+    """
+    crudo = (crudo or '').strip()
+    if crudo == 'sin':
+        return 'sin'
+    try:
+        return int(crudo)
+    except ValueError:
+        return None
+
+
+def _pagina_pedida(crudo, paginas):
+    """La página de la dirección; la primera si no es un número o no existe."""
+    try:
+        pagina = int(crudo)
+    except (TypeError, ValueError):
+        return 1
+    return pagina if 1 <= pagina <= paginas else 1
+
+
+class PlantelView(APIView):
+    """`GET /api/plantel/`: una fila por buzo, ya contada y paginada.
+
+    **No hay ninguna regla de aptitud acá.** Cada fila sale de
+    `plantel.fila`, que lee `fitness.diver_summary`: la misma función que lee la
+    ficha del buzo. El listado y la ficha no pueden contradecirse porque no
+    tienen dos definiciones.
+
+    **El prefetch de abajo no es un detalle.** Es el que documenta
+    `api/fitness.py`, copiado tal cual: con él, evaluar el plantel entero cuesta
+    un número fijo de consultas; sin él, cada buzo cuesta varias. No se lo
+    reemplaza por un `annotate`: eso reescribiría la regla en SQL y crearía una
+    segunda definición que se desincroniza de `fitness.py`. Lo vigila
+    `NoHayNMasUnoTests`.
+
+    Buscar, filtrar, ordenar y paginar se resuelven en Python sobre las filas ya
+    armadas, porque el estado depende de la fecha de hoy y no se guarda.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsRevisor]
+
+    def _perfiles(self):
+        # La receta de `api/fitness.py`. El plantel son los buzos: el médico, los
+        # enfermeros y el administrador no figuran en su propio listado (§5).
+        return (UserProfile.objects
+                .filter(role='USER')
+                .select_related('user', 'habilitation_window')
+                .prefetch_related(Prefetch(
+                    'user__study_blocks',
+                    queryset=StudyBlock.objects.filter(is_current=True)
+                    .prefetch_related('comments'),
+                ))
+                .order_by('pk'))
+
+    def get(self, request):
+        pedido = request.query_params
+        hoy = _serializers.hoy()
+
+        filas = [plantel.fila(perfil, hoy) for perfil in self._perfiles()]
+        filas = plantel.buscar(filas, pedido.get('buscar'))
+        filas = plantel.filtrar(filas, turno=_turno_pedido(pedido.get('turno')))
+        # Los contadores describen lo que se está mirando: se recalculan con el
+        # buscador y el turno, pero **antes** del filtro de documentación, que
+        # es el que reparte `por_filtro` en cuatro conteos y los pondría en cero.
+        contadores = plantel.contar(filas)
+        filas = plantel.filtrar(filas, filtro=_filtro_pedido(pedido.get('filtro')))
+        filas = plantel.ordenar(filas, _orden_pedido(pedido.get('orden')))
+
+        paginas = max(1, -(-len(filas) // FILAS_POR_PAGINA))
+        pagina = _pagina_pedida(pedido.get('pagina'), paginas)
+        desde = (pagina - 1) * FILAS_POR_PAGINA
+        return Response({
+            'contadores': contadores,
+            'total': len(filas),
+            'pagina': pagina,
+            'paginas': paginas,
+            'filas': filas[desde:desde + FILAS_POR_PAGINA],
+        })
+
+
+class FichaView(APIView):
+    """`GET /api/plantel/<id>/`: la ficha de un buzo, por el id de su perfil.
+
+    Sólo el plantel: el id de un médico, un enfermero o el administrador da 404,
+    igual que si no existiera. Trae el perfil con la misma receta que el
+    listado, así que cuesta un número fijo de consultas.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsRevisor]
+
+    def get(self, request, pk):
+        perfil = (UserProfile.objects
+                  .filter(role='USER', pk=pk)
+                  .select_related('user', 'habilitation_window')
+                  .prefetch_related(Prefetch(
+                      'user__study_blocks',
+                      queryset=StudyBlock.objects.filter(is_current=True)
+                      .prefetch_related('comments__doctor'),
+                  ))
+                  .first())
+        if perfil is None:
+            raise NotFound('No hay ningún buzo con ese número.')
+        return Response(armar_ficha(
+            perfil, _serializers.hoy(), request.user, request=request))
