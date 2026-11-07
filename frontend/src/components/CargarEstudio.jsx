@@ -92,7 +92,10 @@ function CargarEstudio({ code, onSubido }) {
         <label htmlFor="carga-archivo" className="form-label fw-bold mb-1" style={estilo}>
           Archivo
         </label>
-        <input id="carga-archivo" type="file" accept="image/*,.pdf,.heic" capture="environment"
+        {/* Sin `capture`: ese atributo le dice al celular "abrí la cámara" y se salta su menú,
+            así que solo dejaba sacar foto. Sin él, el sistema ofrece sacar la foto, elegir de la
+            galería o elegir un archivo (el PDF de un estudio ya hecho). */}
+        <input id="carga-archivo" type="file" accept="image/*,.pdf,.heic"
                className={`form-control${errors.archivo ? ' is-invalid' : ''}`}
                aria-invalid={!!errors.archivo}
                {...register('archivo', {
