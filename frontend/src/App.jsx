@@ -127,6 +127,7 @@ function App() {
         <>
           <input type="checkbox" id="menu-toggle" className="menu-toggle" />
           <label htmlFor="menu-toggle" className="menu-btn"><i className="bi bi-list fs-2"></i></label>
+            <label htmlFor="menu-toggle" className="menu-overlay" aria-label="Cerrar el menú"></label>
         </>
       )}
       <div className="container-fluid p-0 d-flex-wrapper">

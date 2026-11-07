@@ -111,6 +111,11 @@ const [grupos, setGrupos] = useState(null);
         <div className="card shadow-sm border-0 p-4 profile-bg animate-hover">
           <form onSubmit={handleSave}>
             <div className="row g-4">
+                <div className="col-md-12">
+                  <label htmlFor="profile-email" className="form-label fw-medium text-muted small">Correo electrónico</label>
+                  <input id="profile-email" type="email" className="form-control form-control-lg border-0 bg-light" value={profile.user?.email || ''} readOnly disabled />
+                  <div className="form-text">El correo con el que se registró. No se puede cambiar.</div>
+                </div>
               <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">Nombre</label>
                 <input type="text" name="first_name" className="form-control form-control-lg border-0 bg-light" value={profile.first_name} onChange={handleChange} placeholder="Ingrese su nombre" />

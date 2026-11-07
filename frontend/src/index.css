@@ -206,3 +206,29 @@ body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Los botones de ancho completo sirven en una tarjeta angosta y en el celular, pero
+   en escritorio se estiraban por toda la pantalla. Se acotan: dentro de un contenedor
+   mas chico que esto no cambian nada. */
+@media (min-width: 769px) {
+  .btn.w-100 { max-width: 420px; }
+}
+
+/* Menu movil: la capa que cierra el menu al tocar fuera. Va entre la capa oscura
+   (1040) y el cajon (1050), asi que tocar el cajon no la activa. */
+.menu-overlay { display: none; }
+
+@media (max-width: 768px) {
+  /* El cajon con los espaciados de escritorio dejaba los enlaces muy hundidos. */
+  .sidebar { padding: 1.25rem 1rem !important; }
+  .sidebar > div:first-child { margin-bottom: 1.5rem !important; }
+  .sidebar .nav-link { margin: 0 !important; padding: 0.85rem 1rem; }
+  .sidebar .nav.flex-grow-1 { gap: 0.25rem !important; }
+  /* Cerrar sesion queda abajo del cajon, no a 3rem del ultimo enlace. */
+  .sidebar .mt-auto { margin-top: auto !important; padding-top: 1.5rem; }
+
+  /* Abierto, el boton sale del cajon (que ocupa los primeros 280px): antes quedaba
+     encima del logo. */
+  #menu-toggle:checked ~ .menu-btn { left: 292px; }
+  #menu-toggle:checked ~ .menu-overlay { display: block; position: fixed; inset: 0; z-index: 1045; }
+}

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { aTexto, aIso, enmascarar } from '../lib/fecha-dd-mm-yyyy';
 
 // Un campo de fecha que se escribe y se lee en dd/mm/yyyy.
@@ -17,13 +17,6 @@ import { aTexto, aIso, enmascarar } from '../lib/fecha-dd-mm-yyyy';
 // Mientras la fecha está incompleta, `onChange` recibe '' y no una fecha a
 // medias, así que nunca se manda algo como '2026-11-' al servidor.
 
-// Si el navegador puede abrir el calendario del sistema a pedido. Es una
-// propiedad del entorno y no un estado, así que se resuelve una sola vez al
-// cargar el módulo: ponerlo en `useState` dentro de un efecto provoca un
-// segundo render por cada campo y React lo marca como error.
-const HAY_CALENDARIO = typeof HTMLInputElement !== 'undefined'
-  && typeof HTMLInputElement.prototype.showPicker === 'function';
-
 const CampoFecha = ({
   id,
   value,
@@ -36,7 +29,6 @@ const CampoFecha = ({
   ...resto
 }) => {
   const [tocado, setTocado] = useState(false);
-  const nativo = useRef(null);
 
   // El texto es estado local porque lo que se tipea pasa por formas que no son
   // una fecha todavía ('18/1'), y eso no se puede guardar en `value`, que habla
@@ -66,16 +58,6 @@ const CampoFecha = ({
   const alTipear = (e) => {
     const visible = enmascarar(e.target.value);
     emitir(aIso(visible) || '', visible);
-  };
-
-  const abrirCalendario = () => {
-    if (!nativo.current) return;
-    try {
-      nativo.current.showPicker();
-    } catch {
-      // Algunos navegadores lo rechazan si no viene de un gesto directo. No
-      // se avisa nada: el campo de texto sigue andando, que es lo principal.
-    }
   };
 
   const desdeCalendario = (e) => {
@@ -112,36 +94,30 @@ const CampoFecha = ({
           aria-describedby={aMostrar ? `${id}-error` : undefined}
           {...resto}
         />
-        {HAY_CALENDARIO && (
-          <button
-            type="button"
-            className="btn btn-outline-secondary"
-            onClick={abrirCalendario}
-            aria-label="Abrir el calendario"
-            title="Abrir el calendario"
-          >
+        {/* El calendario nativo va ENCIMA del botón, transparente: quien toca el botón
+              toca el campo de fecha del sistema, y el celular abre su propio selector
+              sin depender de `showPicker()`, que muchos navegadores móviles rechazan
+              sobre un campo escondido o sin tamaño. En escritorio un clic suelto sólo
+              enfoca un segmento del campo, así que ahí `showPicker()` abre el calendario. */}
+          <span className="btn btn-outline-secondary position-relative" title="Abrir el calendario">
             <i className="bi bi-calendar3"></i>
-          </button>
-        )}
+            <input
+              type="date"
+              aria-label="Abrir el calendario"
+              value={aIso(texto) || ''}
+              onChange={desdeCalendario}
+              onClick={(ev) => {
+                try { ev.currentTarget.showPicker?.(); } catch { /* el campo de texto sigue andando */ }
+              }}
+              min={min}
+              max={max}
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                opacity: 0, cursor: 'pointer', border: 0, padding: 0,
+              }}
+            />
+          </span>
       </div>
-
-      {/* El selector nativo, sin ocupar lugar: sólo se usa para abrir el
-          calendario del sistema. `tabIndex={-1}` lo saca del recorrido con
-          Tab, así que no hay dos paradas para el mismo dato. */}
-      <input
-        ref={nativo}
-        type="date"
-        tabIndex={-1}
-        aria-hidden="true"
-        value={aIso(texto) || ''}
-        onChange={desdeCalendario}
-        min={min}
-        max={max}
-        style={{
-          position: 'absolute', width: 1, height: 1,
-          opacity: 0, pointerEvents: 'none', border: 0, padding: 0,
-        }}
-      />
 
       {aMostrar && (
         <div id={`${id}-error`} className="invalid-feedback d-block">

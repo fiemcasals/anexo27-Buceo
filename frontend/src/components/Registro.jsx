@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api'
+import CampoFecha from './CampoFecha'
 
 // Los campos del POST /api/auth/registration/. `username` no se pide: el
 // backend lo deriva. El nombre de cada campo del formulario es el mismo que usa
@@ -35,7 +36,7 @@ function Campo({ id, etiqueta, ayuda, error, children }) {
 
 function Registro({ onLogin }) {
   const navigate = useNavigate()
-  const { register, handleSubmit, setError, clearErrors, getValues, formState: { errors } } = useForm()
+  const { register, handleSubmit, setError, clearErrors, getValues, control, formState: { errors } } = useForm()
   const [grupos, setGrupos] = useState(null)
   const [errorGrados, setErrorGrados] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -143,8 +144,17 @@ function Registro({ onLogin }) {
           <Campo id="destination" etiqueta="Unidad" error={errors.destination}>
             {entrada('destination', { validate: noVacio('Falta la unidad.') })}
           </Campo>
-          <Campo id="birth_date" etiqueta="Fecha de nacimiento" error={errors.birth_date}>
-            {entrada('birth_date', { required: 'Falta la fecha de nacimiento.' }, 'date')}
+          <Campo id="birth_date" etiqueta="Fecha de nacimiento">
+            {/* `type="date"` lo dibuja el navegador con SU idioma (mm/dd/yyyy en inglés) y no se
+                 puede cambiar; CampoFecha fija dd/mm/aaaa y devuelve ISO, como espera la API. */}
+            <Controller
+              name="birth_date" control={control} defaultValue=""
+              rules={{ required: 'Falta la fecha de nacimiento.' }}
+              render={({ field }) => (
+                <CampoFecha id="reg-birth_date" value={field.value}
+                            error={errors.birth_date?.message}
+                            onChange={(v) => { field.onChange(v); clearErrors('birth_date') }} />
+              )} />
           </Campo>
           <Campo id="email" etiqueta="Correo electrónico" error={errors.email}
                  ayuda="No se envía ninguna verificación: el correo debe escribirse sin errores.">
