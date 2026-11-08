@@ -10,6 +10,12 @@ const ROL = {
   USER: 'Buzo', NURSE: 'Enfermero auxiliar', DOCTOR: 'Médico', ADMIN: 'Administrador',
 };
 
+// El tipo de usuario se lee de un vistazo: un color por rol.
+const COLOR = {
+  USER: 'text-bg-secondary', NURSE: 'text-bg-info', DOCTOR: 'text-bg-success',
+  ADMIN: 'text-bg-dark',
+};
+
 function mensajeDe(err, porDefecto) {
   const d = err.response?.data;
   if (!d) return porDefecto;
@@ -89,8 +95,14 @@ const Usuarios = ({ onLogout, perfil }) => {
                       <div className="flex-grow-1">
                         <div className="fw-semibold">{u.nombre}</div>
                         <div className="text-muted" style={{ fontSize: '13px' }}>
-                          {u.email}{u.dni ? ` · DNI ${u.dni}` : ''} · {ROL[u.role] || 'Sin perfil'}
+                          {u.email}{u.dni ? ` · DNI ${u.dni}` : ''}
                         </div>
+                      </div>
+                      <div style={{ minWidth: '150px' }}>
+                        <span className={`badge ${COLOR[u.role] || 'text-bg-light border'}`}
+                              aria-label={`Tipo de usuario: ${ROL[u.role] || 'Sin perfil'}`}>
+                          {ROL[u.role] || 'Sin perfil'}
+                        </span>
                       </div>
                       {u.protegido ? (
                         <span className="text-muted" style={{ fontSize: '12px' }}>
