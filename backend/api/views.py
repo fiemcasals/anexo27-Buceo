@@ -7,6 +7,10 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from django.db.models import Prefetch, Q
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.shortcuts import get_object_or_404
+from rest_framework.authtoken.models import Token
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
@@ -820,3 +824,78 @@ class FichaView(APIView):
             raise NotFound('No hay ningún buzo con ese número.')
         return Response(armar_ficha(
             perfil, _serializers.hoy(), request.user, request=request))
+
+
+# ---------------------------------------------------------------------------
+# La lista de usuarios del administrador
+# ---------------------------------------------------------------------------
+def _es_cuenta_de_administracion(user):
+    """Un administrador (rol o superusuario) no se toca desde la webapp.
+
+    Borrarlo o cambiarle la clave es la forma mas corta de quedarse con su
+    cuenta, asi que eso sigue siendo del admin de Django. Es la misma linea que
+    ya traza `ROLES_QUE_EL_ADMIN_ASIGNA`: aca se gestionan buzos y revisores.
+    """
+    perfil = getattr(user, 'profile', None)
+    return user.is_superuser or (perfil is not None and perfil.role == 'ADMIN')
+
+
+class UsuariosAdminView(APIView):
+    """Quienes estan registrados: nombre, correo, rol."""
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def get(self, request):
+        usuarios = (User.objects.select_related('profile')
+                    .order_by('last_name', 'first_name', 'username'))
+        return Response([
+            {
+                'id': u.pk,
+                'email': u.email,
+                'nombre': _serializers.nombre_para_mostrar(u),
+                'dni': getattr(getattr(u, 'profile', None), 'dni', None) or '',
+                'role': getattr(getattr(u, 'profile', None), 'role', None),
+                'protegido': _es_cuenta_de_administracion(u),
+            }
+            for u in usuarios
+        ])
+
+
+class UsuarioAdminView(APIView):
+    """Borrar a un usuario. Borra tambien sus estudios y su historial."""
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def delete(self, request, pk):
+        objetivo = get_object_or_404(User, pk=pk)
+        if objetivo.pk == request.user.pk:
+            raise ValidationError({'detail': 'No podés borrar tu propia cuenta.'})
+        if _es_cuenta_de_administracion(objetivo):
+            raise PermissionDenied(
+                'Una cuenta de administración se borra desde el admin de Django.')
+        objetivo.delete()
+        return Response(status=204)
+
+
+class ClaveUsuarioAdminView(APIView):
+    """Le pone una contrasena nueva a un usuario que la olvido."""
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def post(self, request, pk):
+        objetivo = get_object_or_404(User, pk=pk)
+        if _es_cuenta_de_administracion(objetivo):
+            raise PermissionDenied(
+                'La clave de una cuenta de administración se cambia desde el '
+                'admin de Django.')
+        clave = request.data.get('password') or ''
+        try:
+            validate_password(clave, user=objetivo)
+        except DjangoValidationError as e:
+            raise ValidationError({'password': list(e.messages)})
+        objetivo.set_password(clave)
+        objetivo.save(update_fields=['password'])
+        # Se cierran las sesiones abiertas: si alguien mas tenia la cuenta,
+        # cambiar la clave tiene que sacarlo, no solo cambiarle el login.
+        Token.objects.filter(user=objetivo).delete()
+        return Response({'detail': 'Contraseña cambiada.'})

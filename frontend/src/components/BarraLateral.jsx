@@ -60,6 +60,12 @@ const BarraLateral = ({ role, onLogout }) => {
           <i className={`bi ${principal.icono} me-3`}></i>
           <span>{principal.texto}</span>
         </Link>
+        {role === 'ADMIN' && (
+          <Link to="/usuarios" className={clase('/usuarios')} onClick={cerrarElMenu}>
+            <i className="bi bi-people me-3"></i>
+            <span>Usuarios</span>
+          </Link>
+        )}
         <Link to="/profile" className={clase('/profile')} onClick={cerrarElMenu}>
           <i className="bi bi-person-circle me-3"></i>
           <span>Mi Perfil</span>

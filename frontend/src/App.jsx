@@ -6,6 +6,7 @@ import ListadoPlantel from './components/ListadoPlantel';
 import FichaBuzo from './components/FichaBuzo';
 import PantallaBuzo from './components/PantallaBuzo';
 import Permisos from './components/Permisos';
+import Usuarios from './components/Usuarios';
 import Profile from './components/Profile';
 import Login from './components/Login';
 import Registro from './components/Registro';
@@ -154,6 +155,12 @@ function App() {
               element={protegida(<SoloRevisores perfil={perfil} onLogout={logout} onReintentar={reintentarElPerfil}>
                     <FichaBuzo onLogout={logout} perfil={perfil} />
                   </SoloRevisores>)}
+            />
+            <Route
+              path="/usuarios"
+              element={protegida(perfil && perfil.role === 'ADMIN'
+                ? <Usuarios onLogout={logout} perfil={perfil} />
+                : <Navigate to="/dashboard" replace />)}
             />
             <Route
               path="/profile"

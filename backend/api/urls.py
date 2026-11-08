@@ -6,6 +6,7 @@ from .views import (
     DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
     FechasView, MiFechaView, MiEstadoView, GradosView, MiCorreoView,
     RolesAdminView, FechasAdminView, SupportViewSet, PlantelView, FichaView,
+    UsuariosAdminView, UsuarioAdminView, ClaveUsuarioAdminView,
 )
 
 router = DefaultRouter()
@@ -29,6 +30,10 @@ urlpatterns = [
     # router para que `admin/` no la agarre ninguna ruta generada.
     path('admin/roles/', RolesAdminView.as_view(), name='admin-roles'),
     path('admin/fechas/', FechasAdminView.as_view(), name='admin-fechas'),
+    path('admin/usuarios/', UsuariosAdminView.as_view(), name='admin-usuarios'),
+    path('admin/usuarios/<int:pk>/', UsuarioAdminView.as_view(), name='admin-usuario'),
+    path('admin/usuarios/<int:pk>/clave/', ClaveUsuarioAdminView.as_view(),
+         name='admin-usuario-clave'),
     # El plantel del médico. Antes del router por la misma razón que arriba.
     path('plantel/', PlantelView.as_view(), name='plantel'),
     path('plantel/<int:pk>/', FichaView.as_view(), name='ficha'),
