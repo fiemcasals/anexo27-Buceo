@@ -54,8 +54,9 @@ function Titulo({ children }) {
 
 function BotonDeSubir({ onClick, children }) {
   return (
-    <button type="button" className="btn btn-primary w-100 fw-bold mt-3 py-3"
-            style={{ borderRadius: '11px' }} onClick={onClick}>
+    <button type="button" className="btn w-100 fw-bold mt-3 py-3"
+            style={{ borderRadius: '11px', background: '#E5AA19', borderColor: '#E5AA19', color: '#1B2024' }}
+            onClick={onClick}>
       {children}
     </button>
   )
@@ -70,7 +71,7 @@ function BloqueDeFecha({ estado, onElegir }) {
     return (
       <div className="bg-white rounded-4 p-3 mb-3" style={{ border: `1.5px solid ${BORDE_NEUTRO}` }}>
         <Titulo>Fecha de habilitación</Titulo>
-        <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F' }}>
+        <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)' }}>
           {elegida.slot_display}
         </div>
         <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
@@ -95,7 +96,7 @@ function BloqueDeFecha({ estado, onElegir }) {
       <div className="rounded-4 p-3 mb-3"
            style={{ background: 'var(--info-fondo)', border: '1.5px solid var(--info-borde)' }}>
         <Titulo>Fecha de habilitación</Titulo>
-        <div className="fw-bold" style={{ fontSize: '17px', color: '#252B2F' }}>
+        <div className="fw-bold" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
           Falta elegir la fecha de habilitación
         </div>
         <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--info)', lineHeight: 1.5 }}>
@@ -112,7 +113,7 @@ function BloqueDeFecha({ estado, onElegir }) {
     <div className="rounded-4 p-3 mb-3"
          style={{ background: 'var(--borde)', border: `1.5px solid ${BORDE_NEUTRO}` }}>
       <Titulo>Fecha de habilitación</Titulo>
-      <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F' }}>
+      <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)' }}>
         Todavía no se publicó ninguna fecha
       </div>
       <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
@@ -185,7 +186,7 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
                  value={fecha.id} checked={String(fecha.id) === seleccionada}
                  onChange={e => setSeleccionada(e.target.value)} />
           <span>
-            <span className="fw-bold d-block" style={{ fontSize: '14px', color: '#252B2F' }}>
+            <span className="fw-bold d-block" style={{ fontSize: '14px', color: 'var(--texto-fuerte)' }}>
               {fecha.slot_display}
             </span>
             <span style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>
@@ -219,7 +220,7 @@ function EfectoDelCambio({ efecto, onCerrar }) {
   return (
     <div className="bg-white rounded-4 p-3 mb-3" style={{ border: '1.5px solid var(--info-borde)' }}>
       <Titulo>Efecto del cambio de fecha</Titulo>
-      <div style={{ fontSize: '13px', color: '#252B2F' }}>
+      <div style={{ fontSize: '13px', color: 'var(--texto-fuerte)' }}>
         {cuantosFaltan(efecto.faltanAntes)} antes del cambio; {cuantosFaltan(efecto.faltanDespues)} ahora.
       </div>
       {efecto.cambios.length === 0 ? (
@@ -302,10 +303,10 @@ function TarjetaPorSubir({ estudio, onSubir }) {
   return (
     <div className="rounded-4 p-3 mb-2"
          style={{
-           background: fueraDeVentana ? 'var(--borde)' : '#fff',
+           background: fueraDeVentana ? 'var(--borde)' : 'var(--superficie)',
            border: `1.5px solid ${conProblema ? BORDE_PROBLEMA : BORDE_NEUTRO}`,
          }}>
-      <div className="fw-semibold" style={{ fontSize: '14px', color: '#252B2F', lineHeight: 1.35 }}>
+      <div className="fw-semibold" style={{ fontSize: '14px', color: 'var(--texto-fuerte)', lineHeight: 1.35 }}>
         {estudio.texto}
       </div>
 
@@ -358,7 +359,7 @@ function TarjetaPorSubir({ estudio, onSubir }) {
 function TarjetaEnRevision({ estudio, onSubir }) {
   return (
     <div className="bg-white rounded-4 p-3 mb-2" style={{ border: `1.5px solid ${BORDE_NEUTRO}` }}>
-      <div className="fw-semibold" style={{ fontSize: '13.5px', color: '#252B2F', lineHeight: 1.35 }}>
+      <div className="fw-semibold" style={{ fontSize: '13.5px', color: 'var(--texto-fuerte)', lineHeight: 1.35 }}>
         {estudio.texto}
       </div>
       {/* Mismo texto para IN_REVIEW y PRE_REVIEWED: el buzo no tiene que ver la
@@ -384,7 +385,7 @@ function TarjetaRevisada({ estudio }) {
          style={{ border: `1.5px solid ${BORDE_REVISADO}` }}>
       <span className="fw-bold" style={{ color: VERDE, fontSize: '19px' }}>&#10003;</span>
       <div>
-        <div className="fw-semibold" style={{ fontSize: '13.5px', color: '#252B2F' }}>
+        <div className="fw-semibold" style={{ fontSize: '13.5px', color: 'var(--texto-fuerte)' }}>
           {estudio.texto}
         </div>
         {estudio.vence_el && (
@@ -491,7 +492,7 @@ function BloqueDeCorreo({ correo, onGuardado }) {
         </form>
       ) : (
         <>
-          <div style={{ fontSize: '13px', color: '#252B2F', wordBreak: 'break-all' }}>{correo}</div>
+          <div style={{ fontSize: '13px', color: 'var(--texto-fuerte)', wordBreak: 'break-all' }}>{correo}</div>
           <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
             Los avisos de esta aplicación se envían a esa dirección. Si está mal escrita,
             puede corregirse acá.
@@ -521,7 +522,7 @@ function HojaDeCarga({ estudio, onCerrar, onSubido }) {
         <div className="rounded-pill mx-auto mb-3"
              style={{ width: '40px', height: '4px', background: 'var(--borde)' }} />
         <Titulo>Estudio</Titulo>
-        <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F', lineHeight: 1.35 }}>
+        <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)', lineHeight: 1.35 }}>
           {estudio.texto}
         </div>
         {estudio.upload_hint && (
@@ -605,7 +606,7 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
 
       <div className="flex-grow-1 bg-light">
         <div className="mx-auto px-3 py-4" style={{ maxWidth: '560px' }}>
-          <h1 className="fw-bold mb-0" style={{ fontSize: '20px', color: '#252B2F' }}>
+          <h1 className="fw-bold mb-0" style={{ fontSize: '20px', color: 'var(--texto-fuerte)' }}>
             Estudios médicos
           </h1>
           {nombre && (

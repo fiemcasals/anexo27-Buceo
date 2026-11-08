@@ -61,7 +61,7 @@ export default function Soporte() {
   return (
     <div className="bg-white rounded-4 p-3 mb-3 mt-4" style={{ border: BORDE }}>
       <div className="d-flex justify-content-between align-items-start">
-        <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F' }}>
+        <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)' }}>
           Avisar un problema
         </div>
         <button type="button" className="btn-close btn-sm"

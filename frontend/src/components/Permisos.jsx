@@ -52,7 +52,7 @@ function Revisores({ designados, onDesignar, guardando, errores }) {
 
   return (
     <section className="bg-white rounded-4 shadow-sm p-4 mb-4">
-      <h2 className="fw-bold mb-1" style={{ fontSize: '17px', color: '#252B2F' }}>
+      <h2 className="fw-bold mb-1" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
         Quién revisa los estudios
       </h2>
       <p className="text-muted mb-4" style={{ fontSize: '13px' }}>
@@ -146,7 +146,7 @@ function Fechas({ ciclo, fechas, editado, onEditar, onGuardar, guardando, errore
 
   return (
     <section className="bg-white rounded-4 shadow-sm p-4">
-      <h2 className="fw-bold mb-1" style={{ fontSize: '17px', color: '#252B2F' }}>
+      <h2 className="fw-bold mb-1" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
         Fechas de habilitación {ciclo}
       </h2>
       <p className="text-muted mb-4" style={{ fontSize: '13px' }}>
@@ -281,7 +281,7 @@ const Permisos = ({ onLogout, perfil }) => {
 
       <div className="flex-grow-1 bg-light">
         <div className="mx-auto px-3 py-4" style={{ maxWidth: '720px' }}>
-          <h1 className="fw-bold mb-0" style={{ fontSize: '20px', color: '#252B2F' }}>
+          <h1 className="fw-bold mb-0" style={{ fontSize: '20px', color: 'var(--texto-fuerte)' }}>
             Permisos
           </h1>
           {nombre && (

@@ -94,7 +94,7 @@ function Fila({ fila, desde, onAbrir }) {
       <td style={{ padding: '13px 26px' }}>
         <Link to={`/plantel/${fila.id}`} state={{ desde }}
               onClick={(e) => e.stopPropagation()}
-              className="fw-bold text-decoration-none" style={{ color: '#252B2F' }}>
+              className="fw-bold text-decoration-none" style={{ color: 'var(--texto-fuerte)' }}>
           {nombre}
         </Link>
         {subtitulo && (
@@ -248,7 +248,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
         <div style={{ padding: '22px 26px 0' }}>
           <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div>
-              <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#252B2F' }}>
+              <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: 'var(--texto-fuerte)' }}>
                 Personal a controlar
               </h1>
               <div style={{ fontSize: '13px', color: 'var(--texto-suave)', marginTop: '3px' }}>
@@ -323,7 +323,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
                   onClick={() => ir({ filtro: f.clave })}
                   className="border-0"
                   style={{
-                    background: activo ? '#252B2F' : 'var(--superficie-2)',
+                    background: activo ? 'var(--borde)' : 'var(--superficie-2)',
                     color: activo ? '#fff' : 'var(--texto-fuerte)',
                     borderRadius: '999px', padding: '7px 15px', fontSize: '12.5px',
                     fontWeight: activo ? 600 : 400,
