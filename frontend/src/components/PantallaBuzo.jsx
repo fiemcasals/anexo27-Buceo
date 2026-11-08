@@ -96,17 +96,20 @@ function BloqueDeFecha({ estado, onElegir }) {
   // calcular nada.
   if (estado.hay_fechas_para_elegir) {
     return (
-      <div className="rounded-3 px-3 py-2 mb-2"
+      <div className="rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2 flex-wrap"
            style={{ background: 'var(--info-fondo)', border: '1px solid var(--info-borde)' }}>
-        <Titulo>Fecha de habilitación</Titulo>
-        <div className="fw-bold" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
-          Falta elegir la fecha de habilitación
+        <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+          <div className="fw-bold" style={{ fontSize: '14px', color: 'var(--texto-fuerte)' }}>
+            Falta elegir la fecha de habilitación
+          </div>
+          <div style={{ fontSize: '12px', lineHeight: 1.4, color: 'var(--info)' }}>
+            Sin ella no se pueden calcular los estudios exigidos ni sus vencimientos.
+          </div>
         </div>
-        <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--info)', lineHeight: 1.5 }}>
-          Los estudios exigidos y sus vencimientos se determinan contra la fecha a la que
-          se presenta el buzo. Hasta que se elija una, no hay con qué calcularlos.
-        </div>
-        <BotonDeSubir onClick={onElegir}>Elegir la fecha</BotonDeSubir>
+        <button type="button" className="btn btn-sm fw-bold" onClick={onElegir}
+                style={{ background: '#E5AA19', borderColor: '#E5AA19', color: '#1B2024' }}>
+          Elegir la fecha
+        </button>
       </div>
     )
   }
@@ -115,11 +118,10 @@ function BloqueDeFecha({ estado, onElegir }) {
   return (
     <div className="rounded-3 px-3 py-2 mb-2"
          style={{ background: 'var(--borde)', border: `1px solid ${BORDE_NEUTRO}` }}>
-      <Titulo>Fecha de habilitación</Titulo>
-      <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)' }}>
+      <div className="fw-bold" style={{ fontSize: '14px', color: 'var(--texto-fuerte)' }}>
         Todavía no se publicó ninguna fecha
       </div>
-      <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
+      <div style={{ fontSize: '12px', lineHeight: 1.4, color: 'var(--texto-suave)' }}>
         Las fechas de habilitación se cargan a medida que se definen.
       </div>
     </div>
@@ -419,8 +421,14 @@ function TarjetaNoCorresponde({ estudio }) {
 
 function Grupo({ grupo, onSubir }) {
   if (grupo.estudios.length === 0) return null
+  const destacado = grupo.clave === 'falta-subir'
   return (
-    <div className="mb-3">
+    <div className={destacado ? 'mb-4 mt-4 px-3 pt-3 pb-1 rounded-3' : 'mb-3'}
+         style={destacado ? {
+           background: 'var(--barra)',
+           borderTop: '3px solid var(--oro-suave)',
+           borderBottom: '3px solid var(--oro-suave)',
+         } : undefined}>
       <Titulo>{grupo.titulo}</Titulo>
       {grupo.estudios.map(estudio => {
         if (grupo.clave === 'falta-subir') {
