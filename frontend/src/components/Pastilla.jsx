@@ -3,9 +3,9 @@
 // `neutro`, `apagado`); los colores son los de los bocetos aprobados.
 
 const TONOS = {
-  ok: { background: '#eaf7ee', color: '#1d7a3d' },
-  aviso: { background: '#fff6e5', color: '#9a6508' },
-  peligro: { background: '#fdecec', color: '#a52a2a' },
+  ok: { background: '#E8F3EE', color: '#24745B' },
+  aviso: { background: '#FFF4DF', color: '#8A5A12' },
+  peligro: { background: '#FFF0ED', color: '#9F3D3D' },
   neutro: { background: '#f2f4f8', color: '#5b6684' },
   apagado: { background: '#f2f4f8', color: '#9aa3b8' },
 };

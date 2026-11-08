@@ -35,9 +35,9 @@ const ENCABEZADO = {
 };
 
 const CONTADORES = [
-  { clave: 'aptos', rotulo: 'Aptos', color: '#1d7a3d', fondo: '#eaf7ee', borde: '#bfe5cb' },
-  { clave: 'a_revisar', rotulo: 'A revisar', color: '#9a6508', fondo: '#fff6e5', borde: '#f0d9a8' },
-  { clave: 'vencidos', rotulo: 'Vencidos', color: '#a52a2a', fondo: '#fdecec', borde: '#f3c3c3' },
+  { clave: 'aptos', rotulo: 'Aptos', color: '#24745B', fondo: '#E8F3EE', borde: '#C6DFD4' },
+  { clave: 'a_revisar', rotulo: 'A revisar', color: '#8A5A12', fondo: '#FFF4DF', borde: '#f0d9a8' },
+  { clave: 'vencidos', rotulo: 'Vencidos', color: '#9F3D3D', fondo: '#FFF0ED', borde: '#F0CFC8' },
 ];
 
 function Contadores({ contadores }) {
@@ -94,7 +94,7 @@ function Fila({ fila, desde, onAbrir }) {
       <td style={{ padding: '13px 26px' }}>
         <Link to={`/plantel/${fila.id}`} state={{ desde }}
               onClick={(e) => e.stopPropagation()}
-              className="fw-bold text-decoration-none" style={{ color: '#15213b' }}>
+              className="fw-bold text-decoration-none" style={{ color: '#252B2F' }}>
           {nombre}
         </Link>
         {subtitulo && (
@@ -112,7 +112,7 @@ function Fila({ fila, desde, onAbrir }) {
       </td>
       <td style={{ padding: '13px 10px', textAlign: 'center' }}>
         <strong style={{
-          color: presentados.sinDeterminar || presentados.completo ? undefined : '#a52a2a',
+          color: presentados.sinDeterminar || presentados.completo ? undefined : '#9F3D3D',
           fontSize: presentados.sinDeterminar ? '12.5px' : undefined,
           whiteSpace: presentados.sinDeterminar ? 'normal' : 'nowrap',
         }}>
@@ -248,7 +248,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
         <div style={{ padding: '22px 26px 0' }}>
           <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div>
-              <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#15213b' }}>
+              <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#252B2F' }}>
                 Personal a controlar
               </h1>
               <div style={{ fontSize: '13px', color: '#6b7694', marginTop: '3px' }}>
@@ -323,7 +323,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
                   onClick={() => ir({ filtro: f.clave })}
                   className="border-0"
                   style={{
-                    background: activo ? '#15213b' : '#f2f4f8',
+                    background: activo ? '#252B2F' : '#f2f4f8',
                     color: activo ? '#fff' : '#4c5872',
                     borderRadius: '999px', padding: '7px 15px', fontSize: '12.5px',
                     fontWeight: activo ? 600 : 400,
@@ -365,7 +365,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
             <div className="table-responsive" style={{ marginTop: '18px' }}>
               <table className="table align-middle mb-0" style={{ fontSize: '13.5px' }}>
                 <thead>
-                  <tr style={{ background: '#f7f8fb' }}>
+                  <tr style={{ background: '#F4F5F3' }}>
                     <th style={{ ...ENCABEZADO, padding: '11px 26px' }}>Grado y nombre</th>
                     <th style={{ ...ENCABEZADO, padding: '11px 10px' }}>DNI</th>
                     <th style={{ ...ENCABEZADO, padding: '11px 10px', textAlign: 'center' }}>Edad</th>

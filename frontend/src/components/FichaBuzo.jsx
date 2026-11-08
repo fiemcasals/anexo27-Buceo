@@ -23,11 +23,11 @@ const TONO_DE_LA_FILA = {
   peligro: { background: '#fff', borderLeft: '4px solid #e8a5a5' },
   ok: { background: '#fff', borderLeft: '4px solid #9ad3ae' },
   neutro: { background: '#fff', borderLeft: '4px solid #dde2ec' },
-  apagado: { background: '#f7f8fb', borderLeft: '4px solid #eceff5' },
+  apagado: { background: '#F4F5F3', borderLeft: '4px solid #eceff5' },
 };
 
 const COLOR_DEL_TEXTO = {
-  ok: '#1d7a3d', aviso: '#9a6508', peligro: '#a52a2a', neutro: '#5b6684',
+  ok: '#24745B', aviso: '#8A5A12', peligro: '#9F3D3D', neutro: '#5b6684',
 };
 
 function Contadores({ ficha }) {
@@ -36,10 +36,10 @@ function Contadores({ ficha }) {
       {contadoresDeLaFicha(ficha).map((c) => (
         <div key={c.clave}
              style={{
-               background: '#f7f8fb', border: '1px solid #eceff5', borderRadius: '10px',
+               background: '#F4F5F3', border: '1px solid #eceff5', borderRadius: '10px',
                padding: '9px 15px', textAlign: 'center', minWidth: '92px',
              }}>
-          <div style={{ fontSize: '21px', fontWeight: 700, color: '#15213b', lineHeight: 1 }}>
+          <div style={{ fontSize: '21px', fontWeight: 700, color: '#252B2F', lineHeight: 1 }}>
             {c.valor}
             {c.de !== null && <span style={{ fontSize: '13px', color: '#8590a8' }}>/{c.de}</span>}
           </div>
@@ -63,7 +63,7 @@ function Dictamen({ dictamen }) {
   return (
     <li style={{ color: COLOR_DEL_TEXTO[d.tono] || COLOR_DEL_TEXTO.neutro }}>
       <span className="fw-semibold">{d.titulo}</span>
-      {d.motivo && <div style={{ color: '#15213b' }}><strong>{d.motivo}.</strong> {d.cuerpo}</div>}
+      {d.motivo && <div style={{ color: '#252B2F' }}><strong>{d.motivo}.</strong> {d.cuerpo}</div>}
     </li>
   );
 }
@@ -82,7 +82,7 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
 
       <div style={{ flex: 1, minWidth: '240px' }}>
         <div style={{
-          fontWeight: 600, color: noCorresponde ? '#9aa3b8' : '#15213b',
+          fontWeight: 600, color: noCorresponde ? '#9aa3b8' : '#252B2F',
           textDecoration: noCorresponde ? 'line-through' : 'none',
         }}>
           {estudio.texto}
@@ -390,14 +390,14 @@ const FichaBuzo = ({ onLogout, perfil }) => {
               <div className="bg-white" style={{ borderRadius: '12px', padding: '18px 20px', marginBottom: '16px' }}>
                 <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
                   <div>
-                    <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#15213b' }}>
+                    <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#252B2F' }}>
                       {[ficha.grado, nombre].filter(Boolean).join(' ')}
                     </h1>
                     <div style={{ fontSize: '13px', color: '#6b7694', marginTop: '4px' }}>
                       {renglonDelEncabezado(ficha)}
                     </div>
                     <div style={{ fontSize: '13px', color: '#6b7694', marginTop: '2px' }}>
-                      Turno: <strong style={{ color: '#15213b' }}>{turno.principal}</strong>
+                      Turno: <strong style={{ color: '#252B2F' }}>{turno.principal}</strong>
                       {turno.fechas && <> · {turno.fechas}</>}
                     </div>
                   </div>

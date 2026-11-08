@@ -14,7 +14,7 @@ const PASOS = [
   'Otro / no está en la lista',
 ]
 
-const BORDE = '1.5px solid #bcd6f5'
+const BORDE = '1.5px solid #C3D8E6'
 
 /**
  * Boton Soporte: manda por correo lo que no funciono.
@@ -61,7 +61,7 @@ export default function Soporte() {
   return (
     <div className="bg-white rounded-4 p-3 mb-3 mt-4" style={{ border: BORDE }}>
       <div className="d-flex justify-content-between align-items-start">
-        <div className="fw-bold" style={{ fontSize: '15px', color: '#15213b' }}>
+        <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F' }}>
           Avisar un problema
         </div>
         <button type="button" className="btn-close btn-sm"
@@ -69,7 +69,7 @@ export default function Soporte() {
       </div>
 
       {enviado ? (
-        <div className="mt-2" style={{ fontSize: '12.5px', color: '#2f5fa8', lineHeight: 1.5 }}>
+        <div className="mt-2" style={{ fontSize: '12.5px', color: '#356B8C', lineHeight: 1.5 }}>
           Listo, el reporte salió. Gracias por avisar.
           <div>
             <button type="button" className="btn btn-outline-secondary btn-sm mt-3"

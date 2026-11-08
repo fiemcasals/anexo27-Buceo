@@ -71,7 +71,7 @@ const Usuarios = ({ onLogout, perfil }) => {
       <BarraLateral role={perfil?.role} onLogout={onLogout} />
       <div className="flex-grow-1 bg-light">
         <div className="mx-auto px-3 py-4" style={{ maxWidth: '900px' }}>
-          <h1 className="fw-bold mb-3" style={{ fontSize: '20px', color: '#15213b' }}>
+          <h1 className="fw-bold mb-3" style={{ fontSize: '20px', color: '#252B2F' }}>
             Usuarios
           </h1>
 
