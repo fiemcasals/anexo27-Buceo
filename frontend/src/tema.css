@@ -174,3 +174,19 @@ body {
 }
 .bg-light { background-color: transparent !important; }
 .login-container { background: transparent; }
+
+/* Marca de agua del logo de los buzos, solo en el login (no hay nada que leer
+   encima). Grande, abajo a la derecha y casi transparente. */
+.login-container { position: relative; overflow: hidden; }
+.login-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/logo-buzos.png') no-repeat right -4vh bottom -6vh / auto 85vh;
+  opacity: 0.05;
+  pointer-events: none;
+}
+.login-container > * { position: relative; z-index: 1; }
+@media (max-width: 768px) {
+  .login-container::before { background-position: center bottom -4vh; background-size: auto 70vh; }
+}
