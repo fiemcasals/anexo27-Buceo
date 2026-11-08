@@ -57,14 +57,10 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="login-container d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-      <div className="card shadow-lg p-5 glass" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', backgroundColor: '#fff' }}>
+    <div className="login-container d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: 'var(--fondo)' }}>
+      <div className="card shadow-lg p-5 glass" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', backgroundColor: 'var(--superficie)' }}>
         <div className="mb-4">
-          <div className="bg-primary d-inline-block p-3 rounded-circle mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" viewBox="0 0 16 16">
-              <path d="M8 1a2 2 0 0 0-2 2v2H5V3a3 3 0 1 1 6 0v2h-1V3a2 2 0 0 0-2-2zM5 5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5z" />
-            </svg>
-          </div>
+          <img src="/logo-buzos.png" alt="Buzos del Ejército" width="72" height="88" className="mb-3" style={{ objectFit: 'contain' }} />
           <h2 className="fw-bold mb-1">Anexo Buceo</h2>
           <p className="text-secondary small">Seguimiento de los estudios médicos exigidos para la habilitación</p>
         </div>

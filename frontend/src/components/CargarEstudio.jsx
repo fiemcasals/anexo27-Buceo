@@ -69,7 +69,7 @@ function CargarEstudio({ code, onSubido }) {
         <label htmlFor="carga-fecha" className="form-label fw-bold mb-1" style={estilo}>
           Fecha que figura en el documento
         </label>
-        <div className="mb-2" style={{ fontSize: '12px', color: '#7a8499', lineHeight: 1.5 }}>
+        <div className="mb-2" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
           Es la fecha impresa en el estudio, no la de hoy.
         </div>
         <Controller

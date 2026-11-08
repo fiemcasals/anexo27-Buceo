@@ -33,11 +33,11 @@ const ESTADO_EN_PALABRAS = {
 
 const ERROR_AL_TRAER = 'No se pudo traer el estado de los estudios.'
 
-const ROJO = '#9F3D3D'
-const BORDE_PROBLEMA = '#F0CFC8'
-const BORDE_NEUTRO = '#e6eaf2'
-const BORDE_REVISADO = '#cfe8d8'
-const VERDE = '#24745B'
+const ROJO = 'var(--peligro-texto)'
+const BORDE_PROBLEMA = 'var(--peligro-borde)'
+const BORDE_NEUTRO = 'var(--borde)'
+const BORDE_REVISADO = 'var(--ok-borde)'
+const VERDE = 'var(--ok)'
 
 function enPalabras(estado) {
   return ESTADO_EN_PALABRAS[estado] || estado
@@ -46,7 +46,7 @@ function enPalabras(estado) {
 function Titulo({ children }) {
   return (
     <div className="text-uppercase fw-bold ps-1 mb-2"
-         style={{ fontSize: '11px', color: '#7a8499', letterSpacing: '.7px' }}>
+         style={{ fontSize: '11px', color: 'var(--texto-suave)', letterSpacing: '.7px' }}>
       {children}
     </div>
   )
@@ -73,10 +73,10 @@ function BloqueDeFecha({ estado, onElegir }) {
         <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F' }}>
           {elegida.slot_display}
         </div>
-        <div style={{ fontSize: '13px', color: '#7a8499' }}>
+        <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
           {rangoEnCastellano(elegida.start_date, elegida.end_date)}
         </div>
-        <div style={{ fontSize: '12.5px', color: '#7a8499' }} className="mt-2">
+        <div style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }} className="mt-2">
           La vigencia de cada estudio se evalúa contra esta fecha.
         </div>
         <button type="button" className="btn btn-outline-secondary btn-sm mt-3"
@@ -93,12 +93,12 @@ function BloqueDeFecha({ estado, onElegir }) {
   if (estado.hay_fechas_para_elegir) {
     return (
       <div className="rounded-4 p-3 mb-3"
-           style={{ background: '#EAF2F7', border: '1.5px solid #C3D8E6' }}>
+           style={{ background: 'var(--info-fondo)', border: '1.5px solid var(--info-borde)' }}>
         <Titulo>Fecha de habilitación</Titulo>
         <div className="fw-bold" style={{ fontSize: '17px', color: '#252B2F' }}>
           Falta elegir la fecha de habilitación
         </div>
-        <div className="mt-2" style={{ fontSize: '12.5px', color: '#356B8C', lineHeight: 1.5 }}>
+        <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--info)', lineHeight: 1.5 }}>
           Los estudios exigidos y sus vencimientos se determinan contra la fecha a la que
           se presenta el buzo. Hasta que se elija una, no hay con qué calcularlos.
         </div>
@@ -110,12 +110,12 @@ function BloqueDeFecha({ estado, onElegir }) {
   // §15.21: no eligió porque no hay nada que elegir. No se le reprocha.
   return (
     <div className="rounded-4 p-3 mb-3"
-         style={{ background: '#eef0f5', border: `1.5px solid ${BORDE_NEUTRO}` }}>
+         style={{ background: 'var(--borde)', border: `1.5px solid ${BORDE_NEUTRO}` }}>
       <Titulo>Fecha de habilitación</Titulo>
       <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F' }}>
         Todavía no se publicó ninguna fecha
       </div>
-      <div className="mt-2" style={{ fontSize: '12.5px', color: '#6b7694', lineHeight: 1.5 }}>
+      <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
         Las fechas de habilitación se cargan a medida que se definen.
       </div>
     </div>
@@ -152,11 +152,11 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
   const elegibles = (fechas || []).filter(f => !f.ya_paso)
 
   return (
-    <div className="bg-white rounded-4 p-3 mb-3" style={{ border: '1.5px solid #C3D8E6' }}>
+    <div className="bg-white rounded-4 p-3 mb-3" style={{ border: '1.5px solid var(--info-borde)' }}>
       <Titulo>{elegida ? 'Cambiar la fecha de habilitación' : 'Elegir la fecha de habilitación'}</Titulo>
 
       <div className="rounded-3 p-3 mb-3"
-           style={{ background: '#FFF4DF', fontSize: '12.5px', color: '#8A5A12', lineHeight: 1.5 }}>
+           style={{ background: 'var(--aviso-fondo)', fontSize: '12.5px', color: 'var(--aviso-texto)', lineHeight: 1.5 }}>
         {elegida
           ? 'Al cambiar la fecha se recalculan todos los vencimientos. Un estudio que sirve '
             + 'para una fecha puede no servir para otra. El detalle de lo que cambie se '
@@ -166,11 +166,11 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
       </div>
 
       {fechas === null && !error && (
-        <div style={{ fontSize: '13px', color: '#7a8499' }}>Trayendo las fechas…</div>
+        <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>Trayendo las fechas…</div>
       )}
 
       {fechas !== null && elegibles.length === 0 && (
-        <div style={{ fontSize: '13px', color: '#7a8499' }}>
+        <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
           No hay ninguna fecha publicada para elegir.
         </div>
       )}
@@ -178,7 +178,7 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
       {elegibles.map(fecha => (
         <label key={fecha.id} className="d-flex align-items-start gap-2 p-3 mb-2 rounded-3"
                style={{
-                 border: `1.5px solid ${String(fecha.id) === seleccionada ? '#1a6fd4' : BORDE_NEUTRO}`,
+                 border: `1.5px solid ${String(fecha.id) === seleccionada ? 'var(--info)' : BORDE_NEUTRO}`,
                  cursor: 'pointer',
                }}>
           <input type="radio" name="fecha-de-habilitacion" className="form-check-input mt-1"
@@ -188,7 +188,7 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
             <span className="fw-bold d-block" style={{ fontSize: '14px', color: '#252B2F' }}>
               {fecha.slot_display}
             </span>
-            <span style={{ fontSize: '12.5px', color: '#7a8499' }}>
+            <span style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>
               {rangoEnCastellano(fecha.start_date, fecha.end_date)}
             </span>
           </span>
@@ -217,17 +217,17 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
 // §15.18: el cambio de fecha no se hace en silencio. Esto es lo que cambió.
 function EfectoDelCambio({ efecto, onCerrar }) {
   return (
-    <div className="bg-white rounded-4 p-3 mb-3" style={{ border: '1.5px solid #C3D8E6' }}>
+    <div className="bg-white rounded-4 p-3 mb-3" style={{ border: '1.5px solid var(--info-borde)' }}>
       <Titulo>Efecto del cambio de fecha</Titulo>
       <div style={{ fontSize: '13px', color: '#252B2F' }}>
         {cuantosFaltan(efecto.faltanAntes)} antes del cambio; {cuantosFaltan(efecto.faltanDespues)} ahora.
       </div>
       {efecto.cambios.length === 0 ? (
-        <div className="mt-2" style={{ fontSize: '12.5px', color: '#7a8499' }}>
+        <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>
           Ningún estudio cambió de estado.
         </div>
       ) : (
-        <ul className="mt-2 mb-0 ps-3" style={{ fontSize: '12.5px', color: '#2f3b55', lineHeight: 1.6 }}>
+        <ul className="mt-2 mb-0 ps-3" style={{ fontSize: '12.5px', color: 'var(--texto-fuerte)', lineHeight: 1.6 }}>
           {efecto.cambios.map(cambio => (
             <li key={cambio.code}>
               {cambio.texto}: {enPalabras(cambio.estadoAntes)} → <strong>{enPalabras(cambio.estadoDespues)}</strong>
@@ -252,15 +252,15 @@ function Contador({ estado }) {
   return (
     <div className="text-center px-3 py-4 mb-3 rounded-4"
          style={completo
-           ? { background: '#e9f7ee', border: '1px solid #cfe8d8' }
-           : { background: '#FFF4DF', border: '1px solid #f0d9a8' }}>
+           ? { background: 'var(--ok-fondo)', border: '1px solid var(--ok-borde)' }
+           : { background: 'var(--aviso-fondo)', border: '1px solid var(--aviso-borde)' }}>
       <div className="fw-bold" style={{
-        fontSize: '19px', lineHeight: 1.3, color: completo ? '#15603a' : '#8A5A12',
+        fontSize: '19px', lineHeight: 1.3, color: completo ? 'var(--ok)' : 'var(--aviso-texto)',
       }}>
         {cuantosFaltan(faltan)}
       </div>
       <div className="mt-2" style={{
-        fontSize: '12.5px', lineHeight: 1.5, color: completo ? '#24745B' : '#8A5A12',
+        fontSize: '12.5px', lineHeight: 1.5, color: completo ? 'var(--ok)' : 'var(--aviso-texto)',
       }}>
         {oracionDelContador(estado)}
       </div>
@@ -268,7 +268,7 @@ function Contador({ estado }) {
         <div style={{ background: VERDE, height: '100%', width: `${porcentaje}%` }} />
       </div>
       <div className="fw-semibold mt-2" style={{
-        fontSize: '11.5px', color: completo ? '#24745B' : '#8A5A12',
+        fontSize: '11.5px', color: completo ? 'var(--ok)' : 'var(--aviso-texto)',
       }}>
         {revisados} de {total} revisados
       </div>
@@ -283,7 +283,7 @@ function Rechazo({ rechazo }) {
   // respuesta y no se muestra.
   return (
     <div className="rounded-3 mt-2 px-3 py-2"
-         style={{ background: '#fdf1f1', fontSize: '12.5px', color: '#8c2222', lineHeight: 1.5 }}>
+         style={{ background: 'var(--peligro-fondo)', fontSize: '12.5px', color: 'var(--peligro-texto)', lineHeight: 1.5 }}>
       <strong>No aprobado — {rechazo.motivo}.</strong>
       {rechazo.detalle && <><br />{rechazo.detalle}</>}
     </div>
@@ -302,7 +302,7 @@ function TarjetaPorSubir({ estudio, onSubir }) {
   return (
     <div className="rounded-4 p-3 mb-2"
          style={{
-           background: fueraDeVentana ? '#eef0f5' : '#fff',
+           background: fueraDeVentana ? 'var(--borde)' : '#fff',
            border: `1.5px solid ${conProblema ? BORDE_PROBLEMA : BORDE_NEUTRO}`,
          }}>
       <div className="fw-semibold" style={{ fontSize: '14px', color: '#252B2F', lineHeight: 1.35 }}>
@@ -310,12 +310,12 @@ function TarjetaPorSubir({ estudio, onSubir }) {
       </div>
 
       {estudio.estado === 'MISSING' && (
-        <div className="mt-1" style={{ fontSize: '12.5px', color: '#7a8499' }}>Sin presentar</div>
+        <div className="mt-1" style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>Sin presentar</div>
       )}
 
       {/* §15.19: sin rojo y sin botón. Dice desde cuándo se puede presentar. */}
       {fueraDeVentana && (
-        <div className="mt-1" style={{ fontSize: '12.5px', color: '#6b7694', lineHeight: 1.5 }}>
+        <div className="mt-1" style={{ fontSize: '12.5px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
           Se puede presentar a partir del {enCastellano(estudio.desde_cuando)}.
           Antes de esa fecha, el documento no cubriría todo el período de la habilitación.
         </div>
@@ -345,7 +345,7 @@ function TarjetaPorSubir({ estudio, onSubir }) {
       {estudio.estado === 'REJECTED' && estudio.rechazo && <Rechazo rechazo={estudio.rechazo} />}
 
       {estudio.upload_hint && conBoton && (
-        <div className="mt-2" style={{ fontSize: '12px', color: '#7a8499', lineHeight: 1.5 }}>
+        <div className="mt-2" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
           {estudio.upload_hint}
         </div>
       )}
@@ -363,7 +363,7 @@ function TarjetaEnRevision({ estudio, onSubir }) {
       </div>
       {/* Mismo texto para IN_REVIEW y PRE_REVIEWED: el buzo no tiene que ver la
           diferencia entre el enfermero y el médico (§2, §15.12). */}
-      <div className="mt-1" style={{ fontSize: '12px', color: '#7a8499' }}>
+      <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)' }}>
         Presentado. Pendiente de revisión.
       </div>
       {/* Acá sí manda `puede_reemplazarse`, que es la pregunta que ese campo
@@ -388,7 +388,7 @@ function TarjetaRevisada({ estudio }) {
           {estudio.texto}
         </div>
         {estudio.vence_el && (
-          <div style={{ fontSize: '12px', color: '#7a8499' }}>
+          <div style={{ fontSize: '12px', color: 'var(--texto-suave)' }}>
             Vence el {enCastellano(estudio.vence_el)}
           </div>
         )}
@@ -401,12 +401,12 @@ function TarjetaNoCorresponde({ estudio }) {
   // Se muestra igual, apagado y explicado: si se escondiera, el que cumple 40
   // se encontraría de golpe con un estudio nuevo sin entender de dónde salió.
   return (
-    <div className="rounded-4 p-3 mb-2" style={{ background: '#eef0f5', opacity: 0.8 }}>
-      <div className="fw-semibold" style={{ fontSize: '13.5px', color: '#6b7694' }}>
+    <div className="rounded-4 p-3 mb-2" style={{ background: 'var(--borde)', opacity: 0.8 }}>
+      <div className="fw-semibold" style={{ fontSize: '13.5px', color: 'var(--texto-suave)' }}>
         {estudio.texto}
       </div>
       {estudio.motivo_no_corresponde && (
-        <div className="mt-1" style={{ fontSize: '12px', color: '#8590a8', lineHeight: 1.5 }}>
+        <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
           {estudio.motivo_no_corresponde}.
         </div>
       )}
@@ -473,7 +473,7 @@ function BloqueDeCorreo({ correo, onGuardado }) {
       <Titulo>Avisos por correo</Titulo>
       {editando ? (
         <form onSubmit={guardar}>
-          <label className="form-label" style={{ fontSize: '12.5px', color: '#7a8499' }}>
+          <label className="form-label" style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>
             Dirección a la que se envían los avisos
           </label>
           <input type="email" required className="form-control" value={valor}
@@ -492,7 +492,7 @@ function BloqueDeCorreo({ correo, onGuardado }) {
       ) : (
         <>
           <div style={{ fontSize: '13px', color: '#252B2F', wordBreak: 'break-all' }}>{correo}</div>
-          <div className="mt-1" style={{ fontSize: '12px', color: '#7a8499', lineHeight: 1.5 }}>
+          <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
             Los avisos de esta aplicación se envían a esa dirección. Si está mal escrita,
             puede corregirse acá.
           </div>
@@ -519,18 +519,18 @@ function HojaDeCarga({ estudio, onCerrar, onSubido }) {
       <div className="position-fixed bottom-0 start-0 w-100 bg-white px-3 pt-3 pb-4"
            style={{ borderRadius: '20px 20px 0 0', zIndex: 1071, maxHeight: '85vh', overflowY: 'auto' }}>
         <div className="rounded-pill mx-auto mb-3"
-             style={{ width: '40px', height: '4px', background: '#dde2ec' }} />
+             style={{ width: '40px', height: '4px', background: 'var(--borde)' }} />
         <Titulo>Estudio</Titulo>
         <div className="fw-bold" style={{ fontSize: '15px', color: '#252B2F', lineHeight: 1.35 }}>
           {estudio.texto}
         </div>
         {estudio.upload_hint && (
-          <div className="mt-2" style={{ fontSize: '12.5px', color: '#7a8499', lineHeight: 1.5 }}>
+          <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
             {estudio.upload_hint}
           </div>
         )}
         <div className="rounded-3 px-3 py-2 mt-3"
-             style={{ background: '#EAF2F7', fontSize: '12px', color: '#356B8C', lineHeight: 1.5 }}>
+             style={{ background: 'var(--info-fondo)', fontSize: '12px', color: 'var(--info)', lineHeight: 1.5 }}>
           La imagen se reduce automáticamente antes de enviarse. No se requiere ninguna acción.
         </div>
         <CargarEstudio code={estudio.code} onSubido={onSubido} />
@@ -609,7 +609,7 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
             Estudios médicos
           </h1>
           {nombre && (
-            <div style={{ fontSize: '13px', color: '#7a8499' }}>
+            <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
               {nombre}{perfil?.destination ? ` — ${perfil.destination}` : ''}
             </div>
           )}
@@ -626,7 +626,7 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
             )}
 
             {!estado && !error && (
-              <div style={{ fontSize: '13px', color: '#7a8499' }}>Trayendo los estudios…</div>
+              <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>Trayendo los estudios…</div>
             )}
 
             {estado && (
@@ -646,11 +646,11 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
 
                 {faltaElNacimiento && (
                   <div className="rounded-4 p-3 mb-3"
-                       style={{ background: '#FFF4DF', border: '1px solid #f0d9a8' }}>
-                    <div className="fw-bold" style={{ fontSize: '15px', color: '#8A5A12' }}>
+                       style={{ background: 'var(--aviso-fondo)', border: '1px solid var(--aviso-borde)' }}>
+                    <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--aviso-texto)' }}>
                       Falta la fecha de nacimiento
                     </div>
-                    <div className="mt-2" style={{ fontSize: '12.5px', color: '#8A5A12', lineHeight: 1.5 }}>
+                    <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--aviso-texto)', lineHeight: 1.5 }}>
                       Sin la fecha de nacimiento no se puede determinar qué estudios
                       corresponden, porque uno de ellos se exige a partir de los 40 años.
                       Se completa en el perfil.

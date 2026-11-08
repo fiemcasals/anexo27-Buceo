@@ -54,7 +54,7 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="login-container d-flex justify-content-center align-items-center" style={{minHeight: '100vh', backgroundColor: '#f8f9fa'}}>
+    <div className="login-container d-flex justify-content-center align-items-center" style={{minHeight: '100vh', backgroundColor: 'var(--superficie-2)'}}>
       <div className="card shadow-lg p-5 glass" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', backgroundColor: '#fff' }}>
         <h3 className="fw-bold mb-4">Nueva Contraseña</h3>
         

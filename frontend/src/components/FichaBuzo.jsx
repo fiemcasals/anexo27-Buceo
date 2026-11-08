@@ -19,15 +19,15 @@ import {
 // contadores cambian juntos y la única fuente es el servidor.
 
 const TONO_DE_LA_FILA = {
-  aviso: { background: '#fffaf0', borderLeft: '4px solid #f0c36d' },
-  peligro: { background: '#fff', borderLeft: '4px solid #e8a5a5' },
-  ok: { background: '#fff', borderLeft: '4px solid #9ad3ae' },
-  neutro: { background: '#fff', borderLeft: '4px solid #dde2ec' },
-  apagado: { background: '#F4F5F3', borderLeft: '4px solid #eceff5' },
+  aviso: { background: 'var(--aviso-fondo)', borderLeft: '4px solid var(--aviso-borde)' },
+  peligro: { background: '#fff', borderLeft: '4px solid var(--peligro-borde)' },
+  ok: { background: '#fff', borderLeft: '4px solid var(--ok-borde)' },
+  neutro: { background: '#fff', borderLeft: '4px solid var(--borde)' },
+  apagado: { background: 'var(--superficie-2)', borderLeft: '4px solid var(--borde)' },
 };
 
 const COLOR_DEL_TEXTO = {
-  ok: '#24745B', aviso: '#8A5A12', peligro: '#9F3D3D', neutro: '#5b6684',
+  ok: 'var(--ok)', aviso: 'var(--aviso-texto)', peligro: 'var(--peligro-texto)', neutro: 'var(--texto-suave)',
 };
 
 function Contadores({ ficha }) {
@@ -36,15 +36,15 @@ function Contadores({ ficha }) {
       {contadoresDeLaFicha(ficha).map((c) => (
         <div key={c.clave}
              style={{
-               background: '#F4F5F3', border: '1px solid #eceff5', borderRadius: '10px',
+               background: 'var(--superficie-2)', border: '1px solid var(--borde)', borderRadius: '10px',
                padding: '9px 15px', textAlign: 'center', minWidth: '92px',
              }}>
           <div style={{ fontSize: '21px', fontWeight: 700, color: '#252B2F', lineHeight: 1 }}>
             {c.valor}
-            {c.de !== null && <span style={{ fontSize: '13px', color: '#8590a8' }}>/{c.de}</span>}
+            {c.de !== null && <span style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>/{c.de}</span>}
           </div>
           <div style={{
-            fontSize: '10px', color: '#6b7694', textTransform: 'uppercase',
+            fontSize: '10px', color: 'var(--texto-suave)', textTransform: 'uppercase',
             letterSpacing: '.5px', marginTop: '3px',
           }}>
             {c.rotulo}
@@ -77,17 +77,17 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
 
   return (
     <div className="d-flex gap-3 align-items-start flex-wrap"
-         style={{ padding: '14px 18px', borderBottom: '1px solid #eceff5', ...TONO_DE_LA_FILA[estado.tono] }}>
-      <div style={{ width: '22px', fontWeight: 700, color: '#8590a8' }}>{estudio.code}.</div>
+         style={{ padding: '14px 18px', borderBottom: '1px solid var(--borde)', ...TONO_DE_LA_FILA[estado.tono] }}>
+      <div style={{ width: '22px', fontWeight: 700, color: 'var(--texto-suave)' }}>{estudio.code}.</div>
 
       <div style={{ flex: 1, minWidth: '240px' }}>
         <div style={{
-          fontWeight: 600, color: noCorresponde ? '#9aa3b8' : '#252B2F',
+          fontWeight: 600, color: noCorresponde ? 'var(--texto-suave)' : '#252B2F',
           textDecoration: noCorresponde ? 'line-through' : 'none',
         }}>
           {estudio.texto}
         </div>
-        <div style={{ fontSize: '12.5px', color: '#6b7694', marginTop: '2px' }}>
+        <div style={{ fontSize: '12.5px', color: 'var(--texto-suave)', marginTop: '2px' }}>
           {lineaDelPunto(estudio)}
         </div>
         {estudio.dictamenes.length > 0 && (
@@ -96,7 +96,7 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
           </ul>
         )}
         {estudio.estado === 'REJECTED' && (
-          <div style={{ fontSize: '12.5px', color: '#6b7694', marginTop: '4px' }}>
+          <div style={{ fontSize: '12.5px', color: 'var(--texto-suave)', marginTop: '4px' }}>
             A la espera de que el buzo suba el reemplazo.
           </div>
         )}
@@ -153,7 +153,7 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
       </div>
 
       {espera && rol === 'NURSE' && (
-        <div style={{ flexBasis: '100%', fontSize: '12px', color: '#8590a8', paddingLeft: '34px' }}>
+        <div style={{ flexBasis: '100%', fontSize: '12px', color: 'var(--texto-suave)', paddingLeft: '34px' }}>
           La aprobación del enfermero auxiliar deja el estudio como pre-revisado:
           la firma final es del médico.
         </div>
@@ -206,7 +206,7 @@ function DialogoDeRechazo({ estudio, correo, onCancelar, onConfirmar }) {
               <h2 className="modal-title fs-5" id="titulo-rechazo">Rechazar estudio</h2>
             </div>
             <div className="modal-body">
-              <div className="text-uppercase" style={{ fontSize: '11px', color: '#8590a8', letterSpacing: '.5px' }}>
+              <div className="text-uppercase" style={{ fontSize: '11px', color: 'var(--texto-suave)', letterSpacing: '.5px' }}>
                 Estudio
               </div>
               <div className="fw-semibold mb-3">{estudio.code}. {estudio.texto}</div>
@@ -245,8 +245,8 @@ function DialogoDeRechazo({ estudio, correo, onCancelar, onConfirmar }) {
               </div>
 
               <div style={{
-                background: '#f1f6ff', border: '1px solid #cfe0fb', borderRadius: '10px',
-                padding: '10px 12px', fontSize: '13px', color: '#25406f',
+                background: 'var(--info-fondo)', border: '1px solid var(--info-borde)', borderRadius: '10px',
+                padding: '10px 12px', fontSize: '13px', color: 'var(--texto-fuerte)',
               }}>
                 <i className="bi bi-envelope me-2"></i>
                 {correo
@@ -393,10 +393,10 @@ const FichaBuzo = ({ onLogout, perfil }) => {
                     <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#252B2F' }}>
                       {[ficha.grado, nombre].filter(Boolean).join(' ')}
                     </h1>
-                    <div style={{ fontSize: '13px', color: '#6b7694', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--texto-suave)', marginTop: '4px' }}>
                       {renglonDelEncabezado(ficha)}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#6b7694', marginTop: '2px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--texto-suave)', marginTop: '2px' }}>
                       Turno: <strong style={{ color: '#252B2F' }}>{turno.principal}</strong>
                       {turno.fechas && <> · {turno.fechas}</>}
                     </div>

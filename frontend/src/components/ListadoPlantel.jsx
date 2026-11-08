@@ -29,15 +29,15 @@ const ENCABEZADO = {
   fontSize: '10.5px',
   textTransform: 'uppercase',
   letterSpacing: '.6px',
-  color: '#8590a8',
+  color: 'var(--texto-suave)',
   fontWeight: 600,
   whiteSpace: 'nowrap',
 };
 
 const CONTADORES = [
-  { clave: 'aptos', rotulo: 'Aptos', color: '#24745B', fondo: '#E8F3EE', borde: '#C6DFD4' },
-  { clave: 'a_revisar', rotulo: 'A revisar', color: '#8A5A12', fondo: '#FFF4DF', borde: '#f0d9a8' },
-  { clave: 'vencidos', rotulo: 'Vencidos', color: '#9F3D3D', fondo: '#FFF0ED', borde: '#F0CFC8' },
+  { clave: 'aptos', rotulo: 'Aptos', color: 'var(--ok)', fondo: 'var(--ok-fondo)', borde: 'var(--ok-borde)' },
+  { clave: 'a_revisar', rotulo: 'A revisar', color: 'var(--aviso-texto)', fondo: 'var(--aviso-fondo)', borde: 'var(--aviso-borde)' },
+  { clave: 'vencidos', rotulo: 'Vencidos', color: 'var(--peligro-texto)', fondo: 'var(--peligro-fondo)', borde: 'var(--peligro-borde)' },
 ];
 
 function Contadores({ contadores }) {
@@ -65,7 +65,7 @@ function Contadores({ contadores }) {
 }
 
 function ARevisar({ fila }) {
-  if (fila.a_revisar === 0) return <span style={{ color: '#c3cada' }}>—</span>;
+  if (fila.a_revisar === 0) return <span style={{ color: 'var(--borde)' }}>—</span>;
   return (
     <div className="d-flex flex-column align-items-center gap-1">
       {fila.sin_tocar > 0 && (
@@ -89,7 +89,7 @@ function Fila({ fila, desde, onAbrir }) {
   const nombre = [fila.apellido, fila.nombre].filter(Boolean).join(', ') || 'Sin nombre';
   const subtitulo = [fila.grado, fila.unidad].filter(Boolean).join(' · ');
   return (
-    <tr style={{ cursor: 'pointer', borderBottom: '1px solid #f1f3f8' }}
+    <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--superficie-2)' }}
         onClick={() => onAbrir(fila.id)}>
       <td style={{ padding: '13px 26px' }}>
         <Link to={`/plantel/${fila.id}`} state={{ desde }}
@@ -98,21 +98,21 @@ function Fila({ fila, desde, onAbrir }) {
           {nombre}
         </Link>
         {subtitulo && (
-          <div style={{ color: '#8590a8', fontSize: '12px', marginTop: '2px' }}>{subtitulo}</div>
+          <div style={{ color: 'var(--texto-suave)', fontSize: '12px', marginTop: '2px' }}>{subtitulo}</div>
         )}
       </td>
-      <td style={{ padding: '13px 10px', color: '#5b6684', whiteSpace: 'nowrap' }}>{fila.dni || '—'}</td>
-      <td style={{ padding: '13px 10px', textAlign: 'center', color: '#5b6684' }}
+      <td style={{ padding: '13px 10px', color: 'var(--texto-suave)', whiteSpace: 'nowrap' }}>{fila.dni || '—'}</td>
+      <td style={{ padding: '13px 10px', textAlign: 'center', color: 'var(--texto-suave)' }}
           title="La edad que usó la regla: el año del turno menos el año de nacimiento">
         {fila.edad ?? '—'}
       </td>
-      <td style={{ padding: '13px 10px', color: '#5b6684' }}>
+      <td style={{ padding: '13px 10px', color: 'var(--texto-suave)' }}>
         <div className={fila.turno ? '' : 'fst-italic'} style={{ whiteSpace: 'nowrap' }}>{turno.principal}</div>
-        {turno.fechas && <div style={{ fontSize: '12px', color: '#8590a8' }}>{turno.fechas}</div>}
+        {turno.fechas && <div style={{ fontSize: '12px', color: 'var(--texto-suave)' }}>{turno.fechas}</div>}
       </td>
       <td style={{ padding: '13px 10px', textAlign: 'center' }}>
         <strong style={{
-          color: presentados.sinDeterminar || presentados.completo ? undefined : '#9F3D3D',
+          color: presentados.sinDeterminar || presentados.completo ? undefined : 'var(--peligro-texto)',
           fontSize: presentados.sinDeterminar ? '12.5px' : undefined,
           whiteSpace: presentados.sinDeterminar ? 'normal' : 'nowrap',
         }}>
@@ -120,7 +120,7 @@ function Fila({ fila, desde, onAbrir }) {
         </strong>
       </td>
       <td style={{ padding: '13px 10px', textAlign: 'center' }}><ARevisar fila={fila} /></td>
-      <td style={{ padding: '13px 10px', color: '#5b6684', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '13px 10px', color: 'var(--texto-suave)', whiteSpace: 'nowrap' }}>
         {celdaUltimaRevision(fila.ultima_revision)}
       </td>
       <td style={{ padding: '13px 26px 13px 10px' }}>
@@ -139,7 +139,7 @@ function Paginador({ pagina, paginas, onIr }) {
               disabled={pagina <= 1} onClick={() => onIr(pagina - 1)}>
         Anterior
       </button>
-      <span style={{ fontSize: '13px', color: '#5b6684' }}>
+      <span style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
         Página {pagina} de {paginas}
       </span>
       <button type="button" className="btn btn-outline-secondary btn-sm"
@@ -251,7 +251,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
               <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: '#252B2F' }}>
                 Personal a controlar
               </h1>
-              <div style={{ fontSize: '13px', color: '#6b7694', marginTop: '3px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--texto-suave)', marginTop: '3px' }}>
                 {datos ? subtituloDelListado(datos.total) : 'Cargando…'}
                 {nombre && <> · {nombre}</>}
               </div>
@@ -259,7 +259,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
             <Contadores contadores={datos?.contadores} />
           </div>
           {ajustaLosNumeros && (
-            <div style={{ fontSize: '12px', color: '#8590a8', marginTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--texto-suave)', marginTop: '8px' }}>
               Los números de arriba y de las solapas cuentan sólo lo que se busca
               y el turno elegido.
             </div>
@@ -269,7 +269,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
             <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
               <i className="bi bi-search"
                  style={{ position: 'absolute', left: '13px', top: '50%',
-                          transform: 'translateY(-50%)', color: '#9aa3b8' }}></i>
+                          transform: 'translateY(-50%)', color: 'var(--texto-suave)' }}></i>
               <input
                 type="search"
                 className="form-control"
@@ -323,8 +323,8 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
                   onClick={() => ir({ filtro: f.clave })}
                   className="border-0"
                   style={{
-                    background: activo ? '#252B2F' : '#f2f4f8',
-                    color: activo ? '#fff' : '#4c5872',
+                    background: activo ? '#252B2F' : 'var(--superficie-2)',
+                    color: activo ? '#fff' : 'var(--texto-fuerte)',
                     borderRadius: '999px', padding: '7px 15px', fontSize: '12.5px',
                     fontWeight: activo ? 600 : 400,
                   }}
@@ -365,7 +365,7 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
             <div className="table-responsive" style={{ marginTop: '18px' }}>
               <table className="table align-middle mb-0" style={{ fontSize: '13.5px' }}>
                 <thead>
-                  <tr style={{ background: '#F4F5F3' }}>
+                  <tr style={{ background: 'var(--superficie-2)' }}>
                     <th style={{ ...ENCABEZADO, padding: '11px 26px' }}>Grado y nombre</th>
                     <th style={{ ...ENCABEZADO, padding: '11px 10px' }}>DNI</th>
                     <th style={{ ...ENCABEZADO, padding: '11px 10px', textAlign: 'center' }}>Edad</th>

@@ -3,11 +3,11 @@
 // `neutro`, `apagado`); los colores son los de los bocetos aprobados.
 
 const TONOS = {
-  ok: { background: '#E8F3EE', color: '#24745B' },
-  aviso: { background: '#FFF4DF', color: '#8A5A12' },
-  peligro: { background: '#FFF0ED', color: '#9F3D3D' },
-  neutro: { background: '#f2f4f8', color: '#5b6684' },
-  apagado: { background: '#f2f4f8', color: '#9aa3b8' },
+  ok: { background: 'var(--ok-fondo)', color: 'var(--ok)' },
+  aviso: { background: 'var(--aviso-fondo)', color: 'var(--aviso-texto)' },
+  peligro: { background: 'var(--peligro-fondo)', color: 'var(--peligro-texto)' },
+  neutro: { background: 'var(--superficie-2)', color: 'var(--texto-suave)' },
+  apagado: { background: 'var(--superficie-2)', color: 'var(--texto-suave)' },
 };
 
 const Pastilla = ({ tono = 'neutro', children, titulo }) => (

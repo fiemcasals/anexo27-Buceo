@@ -65,7 +65,7 @@ function Revisores({ designados, onDesignar, guardando, errores }) {
         return (
           <div key={valor} className="mb-4">
             <div className="text-uppercase fw-semibold mb-2"
-                 style={{ fontSize: '11px', letterSpacing: '.08em', color: '#7a8499' }}>
+                 style={{ fontSize: '11px', letterSpacing: '.08em', color: 'var(--texto-suave)' }}>
               {etiqueta}
             </div>
             {fila.vacia ? (
@@ -285,7 +285,7 @@ const Permisos = ({ onLogout, perfil }) => {
             Permisos
           </h1>
           {nombre && (
-            <div className="mb-4" style={{ fontSize: '13px', color: '#7a8499' }}>
+            <div className="mb-4" style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
               {nombre}{perfil?.destination ? ` — ${perfil.destination}` : ''}
             </div>
           )}

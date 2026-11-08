@@ -14,7 +14,7 @@ const PASOS = [
   'Otro / no está en la lista',
 ]
 
-const BORDE = '1.5px solid #C3D8E6'
+const BORDE = '1.5px solid var(--info-borde)'
 
 /**
  * Boton Soporte: manda por correo lo que no funciono.
@@ -50,7 +50,7 @@ export default function Soporte() {
     return (
       <div className="text-center mt-4 mb-2">
         <button type="button" className="btn btn-link btn-sm text-decoration-none"
-                style={{ fontSize: '12.5px', color: '#7a8499' }}
+                style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}
                 onClick={() => setAbierto(true)}>
           ¿Algo no funciona? Avisanos
         </button>
@@ -69,7 +69,7 @@ export default function Soporte() {
       </div>
 
       {enviado ? (
-        <div className="mt-2" style={{ fontSize: '12.5px', color: '#356B8C', lineHeight: 1.5 }}>
+        <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--info)', lineHeight: 1.5 }}>
           Listo, el reporte salió. Gracias por avisar.
           <div>
             <button type="button" className="btn btn-outline-secondary btn-sm mt-3"
@@ -80,13 +80,13 @@ export default function Soporte() {
         </div>
       ) : (
         <form onSubmit={enviar}>
-          <div className="mt-2" style={{ fontSize: '12.5px', color: '#6b7694', lineHeight: 1.5 }}>
+          <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
             Contanos qué pasó. Llega directo a quienes mantienen el sistema, con tu
             correo para poder contestarte.
           </div>
 
           <label className="form-label mt-3 mb-1"
-                 style={{ fontSize: '12.5px', color: '#7a8499' }} htmlFor="soporte-paso">
+                 style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }} htmlFor="soporte-paso">
             ¿En qué paso te trabaste?
           </label>
           <select id="soporte-paso" className="form-select form-select-sm"
@@ -95,7 +95,7 @@ export default function Soporte() {
           </select>
 
           <label className="form-label mt-3 mb-1"
-                 style={{ fontSize: '12.5px', color: '#7a8499' }} htmlFor="soporte-mensaje">
+                 style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }} htmlFor="soporte-mensaje">
             ¿Qué pasó?
           </label>
           <textarea id="soporte-mensaje" className="form-control form-control-sm"

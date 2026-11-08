@@ -27,7 +27,7 @@ function Campo({ id, etiqueta, ayuda, error, children }) {
   return (
     <div className="mb-3">
       <label htmlFor={`reg-${id}`} className="form-label fw-bold mb-1" style={ESTILO}>{etiqueta}</label>
-      {ayuda && <div className="mb-2" style={{ fontSize: '12px', color: '#7a8499', lineHeight: 1.5 }}>{ayuda}</div>}
+      {ayuda && <div className="mb-2" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>{ayuda}</div>}
       {children}
       {error && <div className="invalid-feedback d-block">{error.message}</div>}
     </div>
@@ -108,7 +108,7 @@ function Registro({ onLogin }) {
   const tipoClave = verClave ? 'text' : 'password'
 
   return (
-    <div className="d-flex justify-content-center" style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+    <div className="d-flex justify-content-center" style={{ minHeight: '100vh', backgroundColor: 'var(--superficie-2)' }}>
       <div className="w-100 p-3 py-4" style={{ maxWidth: '460px' }}>
         <h1 className="fw-bold h3 mb-1">Registro</h1>
         <p className="text-secondary mb-3" style={ESTILO}>
