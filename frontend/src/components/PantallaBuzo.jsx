@@ -69,10 +69,10 @@ function BloqueDeFecha({ estado, onElegir }) {
 
   if (elegida) {
     return (
-      <div className="bg-white rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2 flex-wrap"
+      <div className="bg-white rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
            style={{ border: `1px solid ${BORDE_NEUTRO}` }}
            title="La vigencia de cada estudio se evalúa contra esta fecha.">
-        <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+        <div className="flex-grow-1" style={{ minWidth: 0 }}>
           <div className="text-uppercase fw-bold"
                style={{ fontSize: '10.5px', color: 'var(--texto-suave)', letterSpacing: '.7px' }}>
             Fecha de habilitación
@@ -84,7 +84,7 @@ function BloqueDeFecha({ estado, onElegir }) {
             </span>
           </div>
         </div>
-        <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onElegir}>
+        <button type="button" className="btn btn-outline-secondary btn-sm text-nowrap" onClick={onElegir}>
           Cambiar
         </button>
       </div>
@@ -96,17 +96,17 @@ function BloqueDeFecha({ estado, onElegir }) {
   // calcular nada.
   if (estado.hay_fechas_para_elegir) {
     return (
-      <div className="rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2 flex-wrap"
+      <div className="rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
            style={{ background: 'var(--info-fondo)', border: '1px solid var(--info-borde)' }}>
-        <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+        <div className="flex-grow-1" style={{ minWidth: 0 }}>
           <div className="fw-bold" style={{ fontSize: '14px', color: 'var(--texto-fuerte)' }}>
             Falta elegir la fecha de habilitación
           </div>
-          <div style={{ fontSize: '12px', lineHeight: 1.4, color: 'var(--info)' }}>
+          <div className="d-none d-sm-block" style={{ fontSize: '12px', lineHeight: 1.4, color: 'var(--info)' }}>
             Sin ella no se pueden calcular los estudios exigidos ni sus vencimientos.
           </div>
         </div>
-        <button type="button" className="btn btn-sm fw-bold" onClick={onElegir}
+        <button type="button" className="btn btn-sm fw-bold text-nowrap" onClick={onElegir}
                 style={{ background: '#E5AA19', borderColor: '#E5AA19', color: '#1B2024' }}>
           Elegir la fecha
         </button>
