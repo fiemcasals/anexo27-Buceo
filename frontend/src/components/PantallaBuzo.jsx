@@ -72,7 +72,7 @@ function BloqueDeFecha({ estado, onElegir }) {
       <div className="bg-white rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
            style={{ border: `1px solid ${BORDE_NEUTRO}` }}
            title="La vigencia de cada estudio se evalúa contra esta fecha.">
-        <div className="flex-grow-1" style={{ minWidth: 0 }}>
+        <div style={{ flex: '1 1 0', minWidth: 0 }}>
           <div className="text-uppercase fw-bold"
                style={{ fontSize: '10.5px', color: 'var(--texto-suave)', letterSpacing: '.7px' }}>
             Fecha de habilitación
@@ -98,7 +98,7 @@ function BloqueDeFecha({ estado, onElegir }) {
     return (
       <div className="rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
            style={{ background: 'var(--info-fondo)', border: '1px solid var(--info-borde)' }}>
-        <div className="flex-grow-1" style={{ minWidth: 0 }}>
+        <div style={{ flex: '1 1 0', minWidth: 0 }}>
           <div className="fw-bold" style={{ fontSize: '14px', color: 'var(--texto-fuerte)' }}>
             Falta elegir la fecha de habilitación
           </div>
@@ -204,8 +204,8 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
       {error && <div className="text-danger mt-2" style={{ fontSize: '12.5px' }}>{error}</div>}
 
       <div className="d-flex gap-2 mt-3">
-        <button type="button" className="btn btn-primary flex-grow-1 fw-bold py-2"
-                style={{ borderRadius: '11px' }}
+        <button type="button" className="btn btn-primary fw-bold py-2"
+                style={{ flex: '1 1 0', borderRadius: '11px' }}
                 disabled={!seleccionada || guardando
                   || (elegida && String(elegida.id) === seleccionada)}
                 onClick={confirmar}>
@@ -421,7 +421,7 @@ function TarjetaNoCorresponde({ estudio }) {
 
 function Grupo({ grupo, onSubir }) {
   if (grupo.estudios.length === 0) return null
-  const destacado = grupo.clave === 'falta-subir'
+  const destacado = grupo.clave === 'falta-subir' || grupo.clave === 'en-revision'
   return (
     <div className={destacado ? 'mb-4 mt-4 px-3 pt-3 pb-1 rounded-3' : 'mb-3'}
          style={destacado ? {

@@ -92,7 +92,7 @@ const Usuarios = ({ onLogout, perfil }) => {
                 {visibles.map((u) => (
                   <div key={u.id} className="list-group-item">
                     <div className="d-flex flex-wrap align-items-center gap-2">
-                      <div className="flex-grow-1">
+                      <div style={{ flex: '1 1 0', minWidth: 0 }}>
                         <div className="fw-semibold">{u.nombre}</div>
                         <div className="text-muted" style={{ fontSize: '13px' }}>
                           {u.email}{u.dni ? ` · DNI ${u.dni}` : ''}
