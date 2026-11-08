@@ -127,6 +127,15 @@ class FichaTests(APITestCase):
         esperan = {e['code'] for e in cuerpo['estudios'] if e['espera_dictamen']}
         self.assertEqual(esperan, {'b', 'c'})
 
+    def test_para_el_enfermero_lo_pre_revisado_ya_no_espera_nada_de_el(self):
+        _upload(self.buzo, 'b', VALID_FOR_EVERY_POINT)
+        _upload(self.buzo, 'c', VALID_FOR_EVERY_POINT,
+                dictamenes=[('PRE_APPROVED', 'NURSE')])
+        self.client.force_authenticate(self.enfermero)
+        cuerpo = self.pedir()
+        esperan = {e['code'] for e in cuerpo['estudios'] if e['espera_dictamen']}
+        self.assertEqual(esperan, {'b'})
+
     # --- el historial -----------------------------------------------------
     def test_el_historial_dice_quien_y_en_calidad_de_que(self):
         _upload(self.buzo, 'b', VALID_FOR_EVERY_POINT,

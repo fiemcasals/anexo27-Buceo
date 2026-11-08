@@ -178,6 +178,15 @@ class CommentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'status': 'La pre-aprobación corresponde sólo al '
                                'enfermero auxiliar.'})
+        # Un estudio ya pre-aprobado (o aprobado) no se vuelve a pre-aprobar:
+        # la historia no se llena de dictámenes repetidos. Si el médico lo
+        # revierte, el último dictamen pasa a ser el REVERTED y se puede de nuevo.
+        if (self.instance is None and status == 'PRE_APPROVED'
+                and block is not None):
+            ultimo = block.comments.order_by('-created_at', '-pk').first()
+            if ultimo is not None and ultimo.status in ('PRE_APPROVED', 'APPROVED'):
+                raise serializers.ValidationError(
+                    {'status': 'Este estudio ya fue aprobado.'})
         # Todo rechazo lleva motivo y detalle, y nada más lleva motivo. La
         # CheckConstraint `rejection_has_reason_and_detail` lo atrapa igual,
         # pero como IntegrityError, o sea un 500, y es el POST exacto que manda

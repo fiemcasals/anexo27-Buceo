@@ -8,28 +8,12 @@ import {
 } from '../lib/decisiones-de-la-pantalla'
 import { enCastellano } from '../lib/fecha-castellano'
 import { rangoEnCastellano } from '../lib/rango-de-fechas'
-import { efectoDelCambioDeFecha } from '../lib/efecto-del-cambio-de-fecha'
 import CargarEstudio from './CargarEstudio'
 import BarraLateral from './BarraLateral'
 
 // Los que piden una corrección se enmarcan en rojo. "Sin presentar" no: es una
 // tarea pendiente, no un problema, y pintar todo de rojo entrena a ignorarlo.
 const ESTADOS_CON_PROBLEMA = ['REJECTED', 'EXPIRED', 'DATE_INVALID']
-
-// Cómo se lee cada estado en una línea, para el panel del efecto del cambio de
-// fecha. IN_REVIEW y PRE_REVIEWED dicen lo mismo a propósito (§15.12): el buzo
-// no tiene que ver la diferencia entre el enfermero y el médico.
-const ESTADO_EN_PALABRAS = {
-  MISSING: 'Sin presentar',
-  BEFORE_WINDOW: 'Todavía no se puede presentar',
-  IN_REVIEW: 'En revisión',
-  PRE_REVIEWED: 'En revisión',
-  APPROVED: 'Revisado',
-  REJECTED: 'No aprobado',
-  EXPIRED: 'Vencido',
-  DATE_INVALID: 'Con la fecha fuera del período',
-  NOT_REQUIRED: 'No corresponde',
-}
 
 const ERROR_AL_TRAER = 'No se pudo traer el estado de los estudios.'
 
@@ -38,10 +22,6 @@ const BORDE_PROBLEMA = 'var(--peligro-borde)'
 const BORDE_NEUTRO = 'var(--borde)'
 const BORDE_REVISADO = 'var(--ok-borde)'
 const VERDE = 'var(--ok)'
-
-function enPalabras(estado) {
-  return ESTADO_EN_PALABRAS[estado] || estado
-}
 
 function Titulo({ children }) {
   return (
@@ -233,34 +213,6 @@ function SelectorDeFecha({ elegida, onConfirmar, onCancelar }) {
           Cancelar
         </button>
       </div>
-    </div>
-  )
-}
-
-// §15.18: el cambio de fecha no se hace en silencio. Esto es lo que cambió.
-function EfectoDelCambio({ efecto, onCerrar }) {
-  return (
-    <div className="bg-white rounded-4 p-3 mb-3" style={{ border: '1.5px solid var(--info-borde)' }}>
-      <Titulo>Efecto del cambio de fecha</Titulo>
-      <div style={{ fontSize: '13px', color: 'var(--texto-fuerte)' }}>
-        {cuantosFaltan(efecto.faltanAntes)} antes del cambio; {cuantosFaltan(efecto.faltanDespues)} ahora.
-      </div>
-      {efecto.cambios.length === 0 ? (
-        <div className="mt-2" style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>
-          Ningún estudio cambió de estado.
-        </div>
-      ) : (
-        <ul className="mt-2 mb-0 ps-3" style={{ fontSize: '12.5px', color: 'var(--texto-fuerte)', lineHeight: 1.6 }}>
-          {efecto.cambios.map(cambio => (
-            <li key={cambio.code}>
-              {cambio.texto}: {enPalabras(cambio.estadoAntes)} → <strong>{enPalabras(cambio.estadoDespues)}</strong>
-            </li>
-          ))}
-        </ul>
-      )}
-      <button type="button" className="btn btn-outline-secondary btn-sm mt-3" onClick={onCerrar}>
-        Entendido
-      </button>
     </div>
   )
 }
@@ -584,7 +536,6 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
   const [estado, setEstado] = useState(null)
   const [error, setError] = useState('')
   const [eligiendoFecha, setEligiendoFecha] = useState(false)
-  const [efecto, setEfecto] = useState(null)
   const [estudioACargar, setEstudioACargar] = useState(null)
 
   const traer = useCallback(async () => {
@@ -606,21 +557,17 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
   }, [])
 
   const confirmarFecha = async idDeLaFecha => {
-    const antes = estado
     // Dos pasos, dos errores: si el PUT sale bien y falla el GET, la fecha SÍ se
     // guardó, y el selector no debe decir lo contrario.
     await api.put('mi-fecha/', { window: idDeLaFecha })
-    let despues
     try {
-      despues = await traer()
+      await traer()
     } catch {
       setEligiendoFecha(false)
-      setEfecto(null)
       setError('La fecha se guardó, pero no se pudo traer el estado actualizado de los estudios.')
       return
     }
     setEligiendoFecha(false)
-    setEfecto(efectoDelCambioDeFecha(antes, despues))
   }
 
   const abrirCarga = estudio => {
@@ -672,12 +619,10 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
                                    onCancelar={() => setEligiendoFecha(false)} />
                 ) : (
                   <BloqueDeFecha estado={estado} onElegir={() => {
-                    setEfecto(null)
                     setEligiendoFecha(true)
                   }} />
                 )}
 
-                {efecto && <EfectoDelCambio efecto={efecto} onCerrar={() => setEfecto(null)} />}
 
                 {faltaElNacimiento && (
                   <div className="rounded-4 p-3 mb-3"

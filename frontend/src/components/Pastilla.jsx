@@ -5,6 +5,7 @@
 const TONOS = {
   ok: { background: 'var(--ok-fondo)', color: 'var(--ok)' },
   aviso: { background: 'var(--aviso-fondo)', color: 'var(--aviso-texto)' },
+  info: { background: 'var(--info-fondo)', color: 'var(--info)' },
   peligro: { background: 'var(--peligro-fondo)', color: 'var(--peligro-texto)' },
   neutro: { background: 'var(--superficie-2)', color: 'var(--texto-suave)' },
   apagado: { background: 'var(--superficie-2)', color: 'var(--texto-suave)' },

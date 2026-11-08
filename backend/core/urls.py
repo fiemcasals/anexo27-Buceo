@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
+from django.views.generic import TemplateView
 from django.conf.urls.static import static
 
 urlpatterns = [
@@ -25,6 +26,11 @@ urlpatterns = [
     path('api/auth/', include('dj_rest_auth.urls')),
     path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
     path('accounts/', include('allauth.urls')),
+    # dj-rest-auth arma el enlace del correo con reverse('password_reset_confirm'); el
+    # adaptador (users/adapters.py) lo reemplaza por el del frontend, pero el nombre
+    # tiene que existir o recuperar la clave da error 500.
+    path('password-reset/<uidb64>/<token>/', TemplateView.as_view(template_name='404.html'),
+         name='password_reset_confirm'),
 ]
 
 if settings.DEBUG:

@@ -206,7 +206,7 @@ const NOMBRE_DE_ESTADO = {
   MISSING: { rotulo: 'Falta', tono: 'neutro' },
   BEFORE_WINDOW: { rotulo: 'Todavía no se puede presentar', tono: 'neutro' },
   IN_REVIEW: { rotulo: 'En revisión', tono: 'aviso' },
-  PRE_REVIEWED: { rotulo: 'Pre-revisado', tono: 'aviso' },
+  PRE_REVIEWED: { rotulo: 'Pre-revisado', tono: 'info' },
   APPROVED: { rotulo: 'Aprobado', tono: 'ok' },
   REJECTED: { rotulo: 'Rechazado', tono: 'peligro' },
   EXPIRED: { rotulo: 'Vencido', tono: 'peligro' },

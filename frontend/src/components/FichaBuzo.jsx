@@ -20,6 +20,7 @@ import {
 
 const TONO_DE_LA_FILA = {
   aviso: { background: 'var(--aviso-fondo)', borderLeft: '4px solid var(--aviso-borde)' },
+  info: { background: 'var(--info-fondo)', borderLeft: '4px solid var(--info)' },
   peligro: { background: 'var(--superficie)', borderLeft: '4px solid var(--peligro-borde)' },
   ok: { background: 'var(--superficie)', borderLeft: '4px solid var(--ok-borde)' },
   neutro: { background: 'var(--superficie)', borderLeft: '4px solid var(--borde)' },

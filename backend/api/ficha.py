@@ -51,6 +51,18 @@ def _puede_revertir(slot, revisor) -> bool:
             and ultimo.status == 'APPROVED' and ultimo.doctor_id == revisor.pk)
 
 
+def _espera(slot, revisor) -> bool:
+    """Si el punto espera el dictamen de quien mira. Para el enfermero auxiliar,
+    lo que ya pre-aprobó no espera nada más de él: sólo falta el médico."""
+    if slot.state not in REVIEW_STATES:
+        return False
+    perfil = getattr(revisor, 'profile', None)
+    if (slot.state is StudyState.PRE_REVIEWED and perfil is not None
+            and perfil.role == 'NURSE'):
+        return False
+    return True
+
+
 def armar_ficha(profile, today: date, revisor, request=None) -> dict:
     """La ficha de `profile`, vista por `revisor` (un `User`)."""
     resumen = fitness.diver_summary(profile, today)
@@ -66,7 +78,7 @@ def armar_ficha(profile, today: date, revisor, request=None) -> dict:
             'subido_el': None if slot.block is None else slot.block.created_at,
             'fecha_del_estudio': (None if slot.block is None
                                   else slot.block.study_date),
-            'espera_dictamen': slot.state in REVIEW_STATES,
+            'espera_dictamen': _espera(slot, revisor),
             'revertible_id': (slot.last_dictamen.pk
                               if _puede_revertir(slot, revisor) else None),
             'dictamenes': _historial(slot),

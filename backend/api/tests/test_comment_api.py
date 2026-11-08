@@ -250,6 +250,23 @@ class ElRolDelDictamenEsElRealTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Comment.objects.get().reviewer_role, "NURSE")
 
+    def test_a_nurse_cannot_pre_approve_the_same_study_twice(self):
+        primera = self._post(self.nurse, status="PRE_APPROVED")
+        self.assertEqual(primera.status_code, 201, primera.content)
+        segunda = self._post(self.nurse, status="PRE_APPROVED")
+        self.assertEqual(segunda.status_code, 400, segunda.content)
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_after_a_reversion_the_study_can_be_pre_approved_again(self):
+        Comment.objects.create(
+            block=self.block, doctor=self.nurse, reviewer_role="NURSE",
+            status="PRE_APPROVED")
+        Comment.objects.create(
+            block=self.block, doctor=self.doctor, reviewer_role="DOCTOR",
+            status="REVERTED")
+        respuesta = self._post(self.nurse, status="PRE_APPROVED")
+        self.assertEqual(respuesta.status_code, 201, respuesta.content)
+
     def test_the_doctor_cannot_pre_approve(self):
         # La pre-aprobación es el acto del enfermero (§6). Con el rol derivado
         # del perfil, el pareo lo tiene que rechazar la API con 400, no la
