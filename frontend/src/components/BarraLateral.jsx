@@ -15,7 +15,7 @@ import { Link, useLocation } from 'react-router-dom';
 // médico y el enfermero revisan.
 const PANTALLA_PRINCIPAL = {
   USER: { texto: 'Estudios médicos', icono: 'bi-clipboard2-pulse' },
-  ADMIN: { texto: 'Permisos', icono: 'bi-shield-lock' },
+  ADMIN: { texto: 'Permisos', imagen: '/logo-buzos.png' },
   // El médico y el enfermero trabajan en el listado del plantel, que tiene su
   // propia ruta: ahí es donde el enlace tiene que quedar marcado, también al
   // abrir la ficha de un buzo (`/plantel/:id`).
@@ -57,7 +57,9 @@ const BarraLateral = ({ role, onLogout }) => {
         <Link to={rutaPrincipal}
               className={`nav-link d-flex align-items-center${enLaPrincipal ? ' active' : ''}`}
               onClick={cerrarElMenu}>
-          <i className={`bi ${principal.icono} me-3`}></i>
+          {principal.imagen
+            ? <img src={principal.imagen} alt="" width="20" height="20" className="me-3" style={{ objectFit: "contain" }} />
+            : <i className={`bi ${principal.icono} me-3`}></i>}
           <span>{principal.texto}</span>
         </Link>
         {role === 'ADMIN' && (
