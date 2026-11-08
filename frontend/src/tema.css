@@ -162,3 +162,6 @@ a { text-decoration-color: var(--texto-suave); }
 .google-btn { background: var(--superficie-2); border-color: var(--borde); color: var(--texto-fuerte); }
 .google-btn:hover { background: var(--borde); }
 .animate-hover:hover { box-shadow: 0 6px 14px rgba(0,0,0,0.35) !important; }
+
+/* Bloque que en el celular funciona como boton. */
+@media (max-width: 768px) { .bloque-tocable { cursor: pointer; } }

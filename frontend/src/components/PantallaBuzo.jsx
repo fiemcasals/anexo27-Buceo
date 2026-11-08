@@ -64,12 +64,24 @@ function BotonDeSubir({ onClick, children }) {
 
 // --- La fecha de habilitación, primero (§8.3, §4.1) -------------------------
 
+// En el celular el bloque entero es el boton: se saca el boton chico y se toca
+// cualquier parte. En escritorio sigue el boton de siempre.
+const ES_CELULAR = '(max-width: 768px)'
+
 function BloqueDeFecha({ estado, onElegir }) {
   const elegida = estado.fecha_elegida
+  const alTocar = () => {
+    if (window.matchMedia && window.matchMedia(ES_CELULAR).matches) onElegir()
+  }
+  const comoBoton = {
+    role: 'button', tabIndex: 0, onClick: alTocar,
+    onKeyDown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') alTocar() },
+  }
 
   if (elegida) {
     return (
-      <div className="bg-white rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
+      <div className="bloque-tocable bg-white rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
+           {...comoBoton}
            style={{ border: `1px solid ${BORDE_NEUTRO}` }}
            title="La vigencia de cada estudio se evalúa contra esta fecha.">
         <div style={{ flex: '1 1 0', minWidth: 0 }}>
@@ -84,9 +96,11 @@ function BloqueDeFecha({ estado, onElegir }) {
             </span>
           </div>
         </div>
-        <button type="button" className="btn btn-outline-secondary btn-sm text-nowrap" onClick={onElegir}>
+        <button type="button" className="btn btn-outline-secondary btn-sm text-nowrap d-none d-md-inline-block"
+                onClick={onElegir}>
           Cambiar
         </button>
+        <i className="bi bi-chevron-right d-md-none" style={{ color: 'var(--texto-suave)' }}></i>
       </div>
     )
   }
@@ -96,7 +110,8 @@ function BloqueDeFecha({ estado, onElegir }) {
   // calcular nada.
   if (estado.hay_fechas_para_elegir) {
     return (
-      <div className="rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
+      <div className="bloque-tocable rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2"
+           {...comoBoton}
            style={{ background: 'var(--info-fondo)', border: '1px solid var(--info-borde)' }}>
         <div style={{ flex: '1 1 0', minWidth: 0 }}>
           <div className="fw-bold" style={{ fontSize: '14px', color: 'var(--texto-fuerte)' }}>
@@ -106,10 +121,12 @@ function BloqueDeFecha({ estado, onElegir }) {
             Sin ella no se pueden calcular los estudios exigidos ni sus vencimientos.
           </div>
         </div>
-        <button type="button" className="btn btn-sm fw-bold text-nowrap" onClick={onElegir}
+        <button type="button" className="btn btn-sm fw-bold text-nowrap d-none d-md-inline-block"
+                onClick={onElegir}
                 style={{ background: '#E5AA19', borderColor: '#E5AA19', color: '#1B2024' }}>
           Elegir la fecha
         </button>
+        <i className="bi bi-chevron-right d-md-none" style={{ color: 'var(--info)' }}></i>
       </div>
     )
   }
@@ -421,13 +438,20 @@ function TarjetaNoCorresponde({ estudio }) {
 
 function Grupo({ grupo, onSubir }) {
   if (grupo.estudios.length === 0) return null
-  const destacado = grupo.clave === 'falta-subir' || grupo.clave === 'en-revision'
+  // Cada seccion con su color de estado: rojo lo que falta subir, ambar lo que
+  // esta en revision, verde lo aprobado.
+  const MARCO = {
+    'falta-subir': 'var(--peligro)',
+    'en-revision': 'var(--aviso)',
+    'revisados': 'var(--ok)',
+  }[grupo.clave]
+  const destacado = Boolean(MARCO)
   return (
     <div className={destacado ? 'mb-4 mt-4 px-3 pt-3 pb-1 rounded-3' : 'mb-3'}
          style={destacado ? {
            background: 'var(--barra)',
-           borderTop: '3px solid var(--oro-suave)',
-           borderBottom: '3px solid var(--oro-suave)',
+           borderTop: `3px solid ${MARCO}`,
+           borderBottom: `3px solid ${MARCO}`,
          } : undefined}>
       <Titulo>{grupo.titulo}</Titulo>
       {grupo.estudios.map(estudio => {
