@@ -69,20 +69,23 @@ function BloqueDeFecha({ estado, onElegir }) {
 
   if (elegida) {
     return (
-      <div className="bg-white rounded-4 p-3 mb-3" style={{ border: `1.5px solid ${BORDE_NEUTRO}` }}>
-        <Titulo>Fecha de habilitación</Titulo>
-        <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)' }}>
-          {elegida.slot_display}
+      <div className="bg-white rounded-3 px-3 py-2 mb-2 d-flex align-items-center gap-2 flex-wrap"
+           style={{ border: `1px solid ${BORDE_NEUTRO}` }}
+           title="La vigencia de cada estudio se evalúa contra esta fecha.">
+        <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+          <div className="text-uppercase fw-bold"
+               style={{ fontSize: '10.5px', color: 'var(--texto-suave)', letterSpacing: '.7px' }}>
+            Fecha de habilitación
+          </div>
+          <div style={{ fontSize: '13.5px', color: 'var(--texto-fuerte)' }}>
+            <strong>{elegida.slot_display}</strong>
+            <span style={{ color: 'var(--texto-suave)' }}>
+              {' · '}{rangoEnCastellano(elegida.start_date, elegida.end_date)}
+            </span>
+          </div>
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
-          {rangoEnCastellano(elegida.start_date, elegida.end_date)}
-        </div>
-        <div style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }} className="mt-2">
-          La vigencia de cada estudio se evalúa contra esta fecha.
-        </div>
-        <button type="button" className="btn btn-outline-secondary btn-sm mt-3"
-                onClick={onElegir}>
-          Cambiar la fecha
+        <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onElegir}>
+          Cambiar
         </button>
       </div>
     )
@@ -93,8 +96,8 @@ function BloqueDeFecha({ estado, onElegir }) {
   // calcular nada.
   if (estado.hay_fechas_para_elegir) {
     return (
-      <div className="rounded-4 p-3 mb-3"
-           style={{ background: 'var(--info-fondo)', border: '1.5px solid var(--info-borde)' }}>
+      <div className="rounded-3 px-3 py-2 mb-2"
+           style={{ background: 'var(--info-fondo)', border: '1px solid var(--info-borde)' }}>
         <Titulo>Fecha de habilitación</Titulo>
         <div className="fw-bold" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
           Falta elegir la fecha de habilitación
@@ -110,8 +113,8 @@ function BloqueDeFecha({ estado, onElegir }) {
 
   // §15.21: no eligió porque no hay nada que elegir. No se le reprocha.
   return (
-    <div className="rounded-4 p-3 mb-3"
-         style={{ background: 'var(--borde)', border: `1.5px solid ${BORDE_NEUTRO}` }}>
+    <div className="rounded-3 px-3 py-2 mb-2"
+         style={{ background: 'var(--borde)', border: `1px solid ${BORDE_NEUTRO}` }}>
       <Titulo>Fecha de habilitación</Titulo>
       <div className="fw-bold" style={{ fontSize: '15px', color: 'var(--texto-fuerte)' }}>
         Todavía no se publicó ninguna fecha
@@ -249,29 +252,27 @@ function Contador({ estado }) {
   const { faltan, revisados, total_exigidos: total } = estado
   const completo = estaCompleto(estado)
   const porcentaje = total > 0 ? Math.round((revisados / total) * 100) : 0
+  const color = completo ? 'var(--ok)' : 'var(--aviso-texto)'
 
   return (
-    <div className="text-center px-3 py-4 mb-3 rounded-4"
+    <div className="px-3 py-2 mb-3 rounded-3"
          style={completo
            ? { background: 'var(--ok-fondo)', border: '1px solid var(--ok-borde)' }
            : { background: 'var(--aviso-fondo)', border: '1px solid var(--aviso-borde)' }}>
-      <div className="fw-bold" style={{
-        fontSize: '19px', lineHeight: 1.3, color: completo ? 'var(--ok)' : 'var(--aviso-texto)',
-      }}>
-        {cuantosFaltan(faltan)}
+      <div className="d-flex justify-content-between align-items-baseline gap-2">
+        <div className="fw-bold" style={{ fontSize: '15px', lineHeight: 1.3, color }}>
+          {cuantosFaltan(faltan)}
+        </div>
+        <div className="fw-semibold text-nowrap" style={{ fontSize: '11.5px', color }}>
+          {revisados} de {total} revisados
+        </div>
       </div>
-      <div className="mt-2" style={{
-        fontSize: '12.5px', lineHeight: 1.5, color: completo ? 'var(--ok)' : 'var(--aviso-texto)',
-      }}>
+      <div style={{ fontSize: '12px', lineHeight: 1.4, color }}>
         {oracionDelContador(estado)}
       </div>
-      <div className="bg-white rounded-pill mt-3 overflow-hidden" style={{ height: '9px' }}>
+      <div className="rounded-pill mt-2 overflow-hidden"
+           style={{ height: '5px', background: 'var(--borde)' }}>
         <div style={{ background: VERDE, height: '100%', width: `${porcentaje}%` }} />
-      </div>
-      <div className="fw-semibold mt-2" style={{
-        fontSize: '11.5px', color: completo ? 'var(--ok)' : 'var(--aviso-texto)',
-      }}>
-        {revisados} de {total} revisados
       </div>
     </div>
   )
