@@ -46,11 +46,9 @@ const BarraLateral = ({ role, onLogout }) => {
   return (
     <div className="sidebar p-4 d-flex flex-column">
       <div className="d-flex align-items-center mb-5 ps-2">
-        <div className="bg-white rounded-circle d-flex align-items-center justify-content-center me-2"
-             style={{ width: '35px', height: '35px' }}>
-          <i className="bi bi-water text-primary fs-5"></i>
-        </div>
-        <h4 className="m-0 fw-bold">Anexo Buceo</h4>
+        <img src="/logo-buzos.png" alt="" width="34" height="42" className="me-2"
+             style={{ objectFit: 'contain' }} />
+        <h4 className="m-0 fw-bold" style={{ fontSize: '1.05rem', lineHeight: 1.25 }}>Div Ec Capac Anf</h4>
       </div>
 
       <nav className="nav flex-column gap-2 flex-grow-1">

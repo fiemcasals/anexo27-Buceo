@@ -61,7 +61,7 @@ const Login = ({ onLogin }) => {
       <div className="card shadow-lg p-5 glass" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', backgroundColor: 'var(--superficie)' }}>
         <div className="mb-4">
           <img src="/logo-buzos.png" alt="Buzos del Ejército" width="72" height="88" className="mb-3" style={{ objectFit: 'contain' }} />
-          <h2 className="fw-bold mb-1">Anexo Buceo</h2>
+          <h2 className="fw-bold mb-1">Div Ec Capac Anf</h2>
           <p className="text-secondary small">Seguimiento de los estudios médicos exigidos para la habilitación</p>
         </div>
 
