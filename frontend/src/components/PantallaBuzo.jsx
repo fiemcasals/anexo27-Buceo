@@ -371,6 +371,7 @@ function TarjetaEnRevision({ estudio, onSubir }) {
           responde: si el servidor dejaría pisar la carga que ya existe (§15.10). */}
       {estudio.puede_reemplazarse && (
         <button type="button" className="btn btn-outline-primary btn-sm mt-2"
+                style={{ "--bs-btn-border-color": "#356B8C", "--bs-btn-hover-border-color": "#356B8C", "--bs-btn-active-border-color": "#356B8C", borderColor: "#356B8C" }}
                 onClick={() => onSubir(estudio)}>
           Reemplazar el estudio
         </button>
