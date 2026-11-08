@@ -165,3 +165,12 @@ a { text-decoration-color: var(--texto-suave); }
 
 /* Bloque que en el celular funciona como boton. */
 @media (max-width: 768px) { .bloque-tocable { cursor: pointer; } }
+
+/* Fondo con degradado muy suave: un poco mas claro arriba, grafito abajo. Los
+   contenedores `bg-light` quedan transparentes para que se vea. */
+body {
+  background: linear-gradient(180deg, #2A3238 0%, #1B2024 420px) fixed;
+  background-color: var(--fondo);
+}
+.bg-light { background-color: transparent !important; }
+.login-container { background: transparent; }
