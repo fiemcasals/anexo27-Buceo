@@ -579,7 +579,12 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
   }
 
 
-  const nombre = [perfil?.last_name, perfil?.first_name].filter(Boolean).join(', ')
+  // "grado Nombre APELLIDO": el grado primero, y el apellido en mayúsculas.
+  const nombre = [
+    perfil?.rank,
+    perfil?.first_name,
+    perfil?.last_name?.toLocaleUpperCase('es-AR'),
+  ].filter(Boolean).join(' ')
   // Con fecha elegida y sin estudios exigidos, lo que falta es la fecha de
   // nacimiento: el motor no puede saber qué puntos corresponden sin la edad.
   const faltaElNacimiento = !!estado?.fecha_elegida && estado.total_exigidos === 0
