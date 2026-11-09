@@ -406,6 +406,8 @@ function Grupo({ grupo, onSubir }) {
            borderBottom: `3px solid ${MARCO}`,
          } : undefined}>
       <Titulo>{grupo.titulo}</Titulo>
+      {/* Una columna en el celular; dos en escritorio (ver tema.css). */}
+      <div className="cuadricula-estudios">
       {grupo.estudios.map(estudio => {
         if (grupo.clave === 'falta-subir') {
           return <TarjetaPorSubir key={estudio.code} estudio={estudio} onSubir={onSubir} />
@@ -421,6 +423,7 @@ function Grupo({ grupo, onSubir }) {
         // tarjeta más tranquilizadora de la pantalla.
         return <TarjetaNoCorresponde key={estudio.code} estudio={estudio} />
       })}
+      </div>
     </div>
   )
 }
@@ -586,7 +589,7 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
       <BarraLateral role={perfil?.role} onLogout={onLogout} />
 
       <div className="flex-grow-1 bg-light">
-        <div className="mx-auto px-3 py-4" style={{ maxWidth: '560px' }}>
+        <div className="mx-auto px-3 py-4" style={{ maxWidth: '1040px' }}>
           <h1 className="fw-bold mb-0" style={{ fontSize: '20px', color: 'var(--texto-fuerte)' }}>
             Estudios médicos
           </h1>
