@@ -208,7 +208,12 @@ const [grupos, setGrupos] = useState(null);
                                }}>
                           <input id={`curso-${curso.valor}`} type="checkbox" className="form-check-input mt-0"
                                  checked={hecho} onChange={() => alternarCurso(curso.valor)} />
-                          <span style={{ flex: '1 1 0', minWidth: 0 }}>{curso.etiqueta}</span>
+                          <span style={{ flex: '1 1 0', minWidth: 0, overflowWrap: 'anywhere' }}>
+                            {curso.etiqueta}
+                            {curso.valor === 'OTROS' && hecho && profile.other_course.trim() && (
+                              <>: <span style={{ color: 'var(--texto-fuerte)' }}>{profile.other_course.trim()}</span></>
+                            )}
+                          </span>
                           {hecho && <span style={{ color: 'var(--ok)', fontSize: '12px', whiteSpace: 'nowrap' }}>✓ Realizado</span>}
                         </label>
                       );
