@@ -878,9 +878,34 @@ class UsuariosAdminView(APIView):
 
     permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
 
+    ORDENES = ('tipo', 'creacion', 'grado_antiguo', 'grado_moderno')
+    ORDEN_DE_ROLES = ('ADMIN', 'DOCTOR', 'NURSE', 'USER')
+
     def get(self, request):
-        usuarios = (User.objects.select_related('profile')
-                    .order_by('last_name', 'first_name', 'username'))
+        from .plantel import _posicion_del_grado
+        orden = request.query_params.get('orden', 'tipo')
+        if orden not in self.ORDENES:
+            return Response({'orden': 'Orden desconocido.'}, status=400)
+        usuarios = list(User.objects.select_related('profile')
+                        .order_by('last_name', 'first_name', 'username'))
+
+        def rol(u):
+            r = getattr(getattr(u, 'profile', None), 'role', None)
+            return (self.ORDEN_DE_ROLES.index(r)
+                    if r in self.ORDEN_DE_ROLES else len(self.ORDEN_DE_ROLES))
+
+        def grado(u):
+            return getattr(getattr(u, 'profile', None), 'rank', '') or ''
+
+        # sorted es estable: dentro de cada criterio queda el orden por apellido.
+        if orden == 'tipo':
+            usuarios.sort(key=rol)
+        elif orden == 'creacion':
+            usuarios.sort(key=lambda u: u.date_joined, reverse=True)
+        else:
+            invertido = orden == 'grado_moderno'
+            usuarios.sort(key=lambda u: _posicion_del_grado(
+                {'grado': grado(u)}, invertido))
         return Response([
             {
                 'id': u.pk,
@@ -888,6 +913,8 @@ class UsuariosAdminView(APIView):
                 'nombre': _serializers.nombre_para_mostrar(u, getattr(u, 'profile', None)),
                 'dni': getattr(getattr(u, 'profile', None), 'dni', None) or '',
                 'role': getattr(getattr(u, 'profile', None), 'role', None),
+                'grado': grado(u),
+                'creado': u.date_joined.date().isoformat(),
                 'protegido': _es_cuenta_de_administracion(u),
             }
             for u in usuarios

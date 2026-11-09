@@ -28,6 +28,7 @@ const Usuarios = ({ onLogout, perfil }) => {
   const [usuarios, setUsuarios] = useState(null);
   const [fallo, setFallo] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+  const [orden, setOrden] = useState('tipo');
   // Qué fila está en medio de una acción: { id, tipo: 'borrar' | 'clave' }.
   const [accion, setAccion] = useState(null);
   const [clave, setClave] = useState('');
@@ -35,9 +36,9 @@ const Usuarios = ({ onLogout, perfil }) => {
   const [error, setError] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
 
-  const traer = useCallback(() => api.get('admin/usuarios/')
+  const traer = useCallback(() => api.get('admin/usuarios/', { params: { orden } })
     .then((res) => { setUsuarios(res.data); setFallo(null); })
-    .catch(() => setFallo('No se pudo cargar la lista de usuarios.')), []);
+    .catch(() => setFallo('No se pudo cargar la lista de usuarios.')), [orden]);
 
   useEffect(() => { traer(); }, [traer]);
 
@@ -81,10 +82,21 @@ const Usuarios = ({ onLogout, perfil }) => {
 
           {usuarios && (
             <>
-              <input type="search" className="form-control mb-3"
-                     placeholder="Buscar por nombre, correo o DNI"
-                     aria-label="Buscar usuario" value={busqueda}
-                     onChange={(e) => setBusqueda(e.target.value)} />
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <input type="search" className="form-control"
+                       style={{ flex: '1 1 240px', width: 'auto' }}
+                       placeholder="Buscar por nombre, correo o DNI"
+                       aria-label="Buscar usuario" value={busqueda}
+                       onChange={(e) => setBusqueda(e.target.value)} />
+                <select className="form-select" style={{ flex: '0 1 240px', width: 'auto' }}
+                        aria-label="Ordenar por" value={orden}
+                        onChange={(e) => setOrden(e.target.value)}>
+                  <option value="tipo">Tipo de usuario</option>
+                  <option value="creacion">Fecha de creación</option>
+                  <option value="grado_antiguo">Grado (más antiguo)</option>
+                  <option value="grado_moderno">Grado (más moderno)</option>
+                </select>
+              </div>
               <div className="text-muted mb-2" style={{ fontSize: '13px' }}>
                 {visibles.length} de {usuarios.length} usuarios
               </div>

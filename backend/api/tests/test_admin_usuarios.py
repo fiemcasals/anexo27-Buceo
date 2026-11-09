@@ -66,6 +66,43 @@ class ListaTests(_Base):
         self.assertEqual(len(res.data), 4)
 
 
+class OrdenTests(_Base):
+    def _emails(self, orden=None):
+        url = '/api/admin/usuarios/' + (f'?orden={orden}' if orden else '')
+        res = _client(self.admin).get(url)
+        self.assertEqual(res.status_code, 200)
+        return [u['email'].split('@')[0] for u in res.data]
+
+    def test_por_defecto_ordena_por_tipo(self):
+        _user('enf', 'NURSE')
+        self.assertEqual(self._emails(), ['jefe', 'doc', 'enf', 'buzo1'])
+
+    def test_por_creacion_primero_el_mas_reciente(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        ahora = timezone.now()
+        for nombre, dias in (('jefe', 3), ('buzo1', 1), ('doc', 2)):
+            User.objects.filter(username=nombre).update(
+                date_joined=ahora - timedelta(days=dias))
+        self.assertEqual(self._emails('creacion'), ['buzo1', 'doc', 'jefe'])
+
+    def test_por_grado_antiguo_y_moderno_con_los_sin_grado_al_final(self):
+        antiguo, moderno = UserProfile.RANK_VALUES[0], UserProfile.RANK_VALUES[-1]
+        UserProfile.objects.filter(user=self.buzo).update(rank=moderno)
+        UserProfile.objects.filter(user=self.medico).update(rank=antiguo)
+        self.assertEqual(self._emails('grado_antiguo'), ['doc', 'buzo1', 'jefe'])
+        self.assertEqual(self._emails('grado_moderno'), ['buzo1', 'doc', 'jefe'])
+
+    def test_orden_desconocido_es_400(self):
+        res = _client(self.admin).get('/api/admin/usuarios/?orden=raro')
+        self.assertEqual(res.status_code, 400)
+
+    def test_la_lista_trae_grado_y_fecha_de_creacion(self):
+        res = _client(self.admin).get('/api/admin/usuarios/')
+        self.assertIn('grado', res.data[0])
+        self.assertRegex(res.data[0]['creado'], r'^\d{4}-\d{2}-\d{2}$')
+
+
 class BorrarTests(_Base):
     def test_borra_a_un_buzo(self):
         res = _client(self.admin).delete(f'/api/admin/usuarios/{self.buzo.pk}/')
