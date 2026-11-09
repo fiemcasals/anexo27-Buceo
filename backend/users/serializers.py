@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
 from api.serializers import validar_fecha_de_nacimiento
+from users.dni import CampoDni, DNI_REPETIDO
 from users.models import UserProfile
 
 FALTA = 'Falta completar este dato.'
@@ -18,7 +19,6 @@ OBLIGATORIO = {'required': FALTA, 'blank': FALTA, 'null': FALTA}
 CORREO_INVALIDO = 'Debe indicarse una dirección de correo válida.'
 CORREO_EN_USO = 'Ese correo ya está en uso.'
 FECHA_INVALIDA = 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.'
-DNI_REPETIDO = 'Ya existe un registro con ese DNI.'
 # 254 es el largo de `User.email`: sin tope, SQLite guarda un correo que el
 # modelo declara imposible y otro motor devolvería un 500 en lugar de un 400.
 LARGO_DE_CORREO = 254
@@ -63,7 +63,7 @@ class RegistroSerializer(RegisterSerializer):
     password2 = serializers.CharField(write_only=True, error_messages=OBLIGATORIO)
     first_name = serializers.CharField(max_length=150, error_messages=ERRORES_DE_TEXTO)
     last_name = serializers.CharField(max_length=150, error_messages=ERRORES_DE_TEXTO)
-    dni = serializers.CharField(max_length=20, error_messages=ERRORES_DE_TEXTO)
+    dni = CampoDni(max_length=20, error_messages=ERRORES_DE_TEXTO)
     # La lista sale del modelo (§5): no se redefine acá ni en el frontend.
     rank = serializers.ChoiceField(
         choices=UserProfile.RANK_VALUES,

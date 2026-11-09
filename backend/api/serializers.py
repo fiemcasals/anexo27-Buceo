@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from django.contrib.auth.models import User
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
@@ -6,6 +7,7 @@ from .models import (
 from django.utils import timezone
 from .fitness import puede_reemplazarse
 from .roles import es_revisor
+from users.dni import CampoDni, DNI_REPETIDO
 from users.models import UserProfile, ProfileFieldTemplate
 
 
@@ -64,6 +66,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
     courses = serializers.ListField(
         child=serializers.ChoiceField(choices=UserProfile.COURSE_CHOICES),
         required=False)
+    # Sin puntos ni comas: se limpia antes de validar el largo y la unicidad.
+    dni = CampoDni(
+        max_length=20, required=False, allow_blank=True, allow_null=True,
+        validators=[UniqueValidator(
+            queryset=UserProfile.objects.all(), message=DNI_REPETIDO)])
 
     class Meta:
         model = UserProfile

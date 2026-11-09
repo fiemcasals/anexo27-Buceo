@@ -13,6 +13,9 @@ const CAMPOS = [
   'first_name', 'last_name', 'dni', 'rank', 'destination', 'birth_date',
 ]
 const ERROR_GENERICO = 'No se pudo completar el registro. Intentar nuevamente.'
+// El DNI va sin puntos, comas ni espacios.
+const sinSeparadores = v => (v || '').replace(/[.,\s]/g, '')
+
 const ESTILO = { fontSize: '13px' }
 
 function mensajeDe(valor) {
@@ -36,7 +39,7 @@ function Campo({ id, etiqueta, ayuda, error, children }) {
 
 function Registro({ onLogin }) {
   const navigate = useNavigate()
-  const { register, handleSubmit, setError, clearErrors, getValues, control, formState: { errors } } = useForm()
+  const { register, handleSubmit, setError, clearErrors, getValues, setValue, control, formState: { errors } } = useForm()
   const [grupos, setGrupos] = useState(null)
   const [errorGrados, setErrorGrados] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -63,7 +66,7 @@ function Registro({ onLogin }) {
         password2: valores.password2,
         first_name: valores.first_name.trim(),
         last_name: valores.last_name.trim(),
-        dni: valores.dni.trim(),
+        dni: sinSeparadores(valores.dni),
         rank: valores.rank,
         destination: valores.destination.trim(),
         birth_date: valores.birth_date,
@@ -139,7 +142,18 @@ function Registro({ onLogin }) {
             {entrada('last_name', { validate: noVacio('Falta el apellido.') }, 'text', 'family-name')}
           </Campo>
           <Campo id="dni" etiqueta="DNI" error={errors.dni}>
-            {entrada('dni', { validate: noVacio('Falta el DNI.') })}
+            <input id="reg-dni" type="text" inputMode="numeric" autoComplete="off"
+                   className={`form-control${errors.dni ? ' is-invalid' : ''}`}
+                   aria-invalid={!!errors.dni}
+                   {...register('dni', {
+                     validate: v => sinSeparadores(v) !== '' || 'Falta el DNI.',
+                     onChange: e => {
+                       // Ni puntos, ni comas, ni espacios: se sacan al escribir o pegar.
+                       const limpio = sinSeparadores(e.target.value)
+                       if (limpio !== e.target.value) setValue('dni', limpio)
+                       clearErrors('dni')
+                     },
+                   })} />
           </Campo>
           <Campo id="destination" etiqueta="Unidad" error={errors.destination}>
             {entrada('destination', { validate: noVacio('Falta la unidad.') })}

@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from users.dni import normalizar_dni
+
 class UserProfile(models.Model):
     # Etiquetas en castellano: el admin de Django es donde el oficial de la
     # unidad designa los roles, y son los nombres del §5. Los valores quedan en
@@ -115,6 +117,7 @@ class UserProfile(models.Model):
     def save(self, *args, **kwargs):
         # Un DNI en blanco se guarda como NULL: el indice unico ignora NULL,
         # pero dos '' chocarian. Vale para cualquier via de escritura.
+        self.dni = normalizar_dni(self.dni)
         if not self.dni:
             self.dni = None
         super().save(*args, **kwargs)

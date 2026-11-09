@@ -161,7 +161,7 @@ const [grupos, setGrupos] = useState(null);
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">DNI</label>
-                <input type="text" name="dni" className="form-control form-control-lg border-0 bg-light" value={profile.dni} onChange={handleChange} placeholder="Ingrese su DNI" />
+                <input type="text" name="dni" inputMode="numeric" className="form-control form-control-lg border-0 bg-light" value={profile.dni} onChange={(e) => setProfile({ ...profile, dni: e.target.value.replace(/[.,\s]/g, '') })} placeholder="Ingrese su DNI" />
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">Fecha de nacimiento</label>
