@@ -33,6 +33,9 @@ const Profile = ({ onLogout, perfil }) => {
   const [loading, setLoading] = useState(true);
 const [grupos, setGrupos] = useState(null);
   const [cursos, setCursos] = useState(null);
+  // Los cursos como están guardados: los agrupa la lista. Tildar o destildar no
+  // los mueve de lugar hasta que se guarda.
+  const [guardados, setGuardados] = useState([]);
 
   useEffect(() => {
     fetchProfile();
@@ -74,6 +77,7 @@ const [grupos, setGrupos] = useState(null);
         courses: res.data.courses || [],
         other_course: res.data.other_course || '',
       });
+      setGuardados(res.data.courses || []);
     } catch (err) {
       console.error("Error fetching profile", err);
     } finally {
@@ -189,8 +193,8 @@ const [grupos, setGrupos] = useState(null);
                 <div className="col-md-12">
                   <label className="form-label fw-medium text-muted small">Cursos de buceo realizados</label>
                   {cursos === null && <div className="text-muted small">Cargando…</div>}
-                  <div className="d-flex flex-column gap-2">
-                    {(cursos || []).map(curso => {
+                  {(() => {
+                    const fila = (curso) => {
                       const hecho = profile.courses.includes(curso.valor);
                       return (
                         <label key={curso.valor} htmlFor={`curso-${curso.valor}`}
@@ -208,8 +212,31 @@ const [grupos, setGrupos] = useState(null);
                           {hecho && <span style={{ color: 'var(--ok)', fontSize: '12px', whiteSpace: 'nowrap' }}>✓ Realizado</span>}
                         </label>
                       );
-                    })}
-                  </div>
+                    };
+                    const todos = cursos || [];
+                    const realizados = todos.filter(c => guardados.includes(c.valor));
+                    const resto = todos.filter(c => !guardados.includes(c.valor));
+                    return (
+                      <>
+                        {realizados.length > 0 && (
+                          <>
+                            <div className="small fw-semibold mb-2" style={{ color: 'var(--ok)' }}>
+                              Cursos realizados ({realizados.length})
+                            </div>
+                            <div className="d-flex flex-column gap-2 mb-4">{realizados.map(fila)}</div>
+                          </>
+                        )}
+                        {resto.length > 0 && (
+                          <>
+                            {realizados.length > 0 && (
+                              <div className="small fw-semibold mb-2 text-muted">Otros cursos disponibles</div>
+                            )}
+                            <div className="d-flex flex-column gap-2">{resto.map(fila)}</div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                   {profile.courses.includes('OTROS') && (
                     <div className="mt-3">
                       <label htmlFor="other_course" className="form-label fw-medium text-muted small">¿Cuál?</label>
