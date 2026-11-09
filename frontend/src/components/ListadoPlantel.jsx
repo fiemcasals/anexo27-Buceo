@@ -86,8 +86,10 @@ function Fila({ fila, desde, onAbrir }) {
   const presentados = celdaPresentados(fila);
   const turno = celdaTurno(fila.turno);
   const estado = estadoDeLaFila(fila);
-  const nombre = [fila.apellido, fila.nombre].filter(Boolean).join(', ') || 'Sin nombre';
-  const subtitulo = [fila.grado, fila.unidad].filter(Boolean).join(' · ');
+  // "grado Nombre APELLIDO", igual que en la pantalla del buzo.
+  const nombre = [fila.grado, fila.nombre, fila.apellido?.toLocaleUpperCase('es-AR')]
+    .filter(Boolean).join(' ') || 'Sin nombre';
+  const subtitulo = fila.unidad || '';
   return (
     <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--superficie-2)' }}
         onClick={() => onAbrir(fila.id)}>
