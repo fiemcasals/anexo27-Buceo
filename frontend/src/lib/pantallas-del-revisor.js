@@ -37,8 +37,10 @@ export const ORDENES = [
   { clave: 'apellido', rotulo: 'Apellido' },
   { clave: 'ultima_revision', rotulo: 'Última vez revisado' },
   { clave: 'pendientes', rotulo: 'Más pendientes' },
-  { clave: 'pila_rapida', rotulo: 'Pila rápida (pre-revisados)' },
-  { clave: 'pila_cruda', rotulo: 'Pila cruda (lo más viejo sin tocar)' },
+  { clave: 'pila_rapida', rotulo: 'Pre-revisado por enfermero' },
+  { clave: 'pila_cruda', rotulo: 'Sin revisar por nadie' },
+  { clave: 'grado_antiguo', rotulo: 'Grado (más antiguo)' },
+  { clave: 'grado_moderno', rotulo: 'Grado (más moderno)' },
 ]
 
 /** El orden con el que se entra: el médico a la pila rápida, lo pre-revisado

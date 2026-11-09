@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { escribirFiltros, leerFiltros } from './plantel'
+import { ORDENES } from './pantallas-del-revisor'
 
 describe('filtros del plantel en la dirección', () => {
   it('una dirección vacía da los valores de arranque', () => {
@@ -59,5 +60,22 @@ describe('filtros del plantel en la dirección', () => {
     for (const malo of ['-1', '1.5', '0x10', '1abc', '']) {
       expect(leerFiltros(`?turno=${malo}`).turno).toBeNull()
     }
+  })
+})
+
+describe('los órdenes por grado y las pilas', () => {
+  it('los dos órdenes por grado viajan en la dirección y vuelven iguales', () => {
+    for (const orden of ['grado_antiguo', 'grado_moderno']) {
+      const f = { buscar: '', filtro: 'todos', turno: null, orden, pagina: 1 }
+      expect(leerFiltros(escribirFiltros(f))).toEqual(f)
+    }
+  })
+
+  it('el desplegable ofrece los dos grados y las pilas con su nombre nuevo', () => {
+    const rotulos = Object.fromEntries(ORDENES.map(o => [o.clave, o.rotulo]))
+    expect(rotulos.grado_antiguo).toBe('Grado (más antiguo)')
+    expect(rotulos.grado_moderno).toBe('Grado (más moderno)')
+    expect(rotulos.pila_rapida).toBe('Pre-revisado por enfermero')
+    expect(rotulos.pila_cruda).toBe('Sin revisar por nadie')
   })
 })

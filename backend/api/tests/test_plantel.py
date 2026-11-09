@@ -398,3 +398,36 @@ class OrdenarTests(_Plantel, TestCase):
         copia = list(self.filas)
         plantel.ordenar(self.filas, 'pila_cruda')
         self.assertEqual(self.filas, copia)
+
+
+class OrdenarPorGradoTests(TestCase):
+    """El orden de la jerarquía es el de `UserProfile.RANK_VALUES`: oficiales de
+    GD a ST y después suboficiales de SM a CB. Sin grado, siempre al final."""
+
+    def setUp(self):
+        self.filas = [
+            _f(id=1, grado='CB', apellido='Ruiz'),
+            _f(id=2, grado='', apellido='Alonso'),
+            _f(id=3, grado='GD', apellido='Pérez'),
+            _f(id=4, grado='ST', apellido='Gómez'),
+            _f(id=5, grado='SM', apellido='Díaz'),
+            _f(id=6, grado='CB', apellido='Acosta'),
+            _f(id=7, grado='Marinero', apellido='Zeta'),  # no está en la lista
+        ]
+
+    def test_el_mas_antiguo_va_primero_y_sin_grado_al_final(self):
+        orden = plantel.ordenar(self.filas, 'grado_antiguo')
+        self.assertEqual(_ids(orden), [3, 4, 5, 6, 1, 2, 7])
+
+    def test_el_mas_moderno_va_primero_y_sin_grado_sigue_al_final(self):
+        orden = plantel.ordenar(self.filas, 'grado_moderno')
+        self.assertEqual(_ids(orden), [6, 1, 5, 4, 3, 2, 7])
+
+    def test_el_mismo_grado_se_desempata_por_apellido(self):
+        orden = plantel.ordenar(self.filas, 'grado_antiguo')
+        self.assertEqual([f['apellido'] for f in orden if f['grado'] == 'CB'],
+                         ['Acosta', 'Ruiz'])
+
+    def test_los_dos_criterios_son_validos_para_la_api(self):
+        self.assertIn('grado_antiguo', plantel.CRITERIOS)
+        self.assertIn('grado_moderno', plantel.CRITERIOS)

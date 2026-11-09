@@ -95,7 +95,7 @@ def _subida_mas_vieja(resumen: fitness.DiverSummary):
 
 FILTROS = ('todos', 'completa', 'incompleta', 'pendientes')
 CRITERIOS = ('apellido', 'ultima_revision', 'pendientes', 'pila_rapida',
-             'pila_cruda')
+             'pila_cruda', 'grado_antiguo', 'grado_moderno')
 
 
 def _plano(texto) -> str:
@@ -189,6 +189,19 @@ def _al_fondo_los_none(valor) -> tuple:
     return (valor is None, valor if valor is not None else 0)
 
 
+def _posicion_del_grado(fila_: dict, invertido: bool) -> tuple:
+    """Lugar del grado en la jerarquía (`UserProfile.RANK_VALUES`, del más
+    antiguo al más moderno). Sin grado, o con uno que no está en la lista, va al
+    final en los dos sentidos."""
+    from users.models import UserProfile
+    valores = UserProfile.RANK_VALUES
+    grado = fila_.get('grado')
+    if grado not in valores:
+        return (1, 0)
+    lugar = valores.index(grado)
+    return (0, -lugar if invertido else lugar)
+
+
 def ordenar(filas: list[dict], criterio: str) -> list[dict]:
     """Una lista nueva ordenada según ``CRITERIOS``; desempata por apellido.
 
@@ -197,6 +210,8 @@ def ordenar(filas: list[dict], criterio: str) -> list[dict]:
     - ``pila_rapida``: más pre-revisados primero (lo que se aprueba de un vistazo).
     - ``pila_cruda``: la subida más vieja sin dictamen primero; sin nada
       esperando, al fondo.
+    - ``grado_antiguo`` / ``grado_moderno``: por jerarquía, del grado más antiguo
+      (GD) al más moderno (CB) o al revés; sin grado, al final.
     """
     claves = {
         'apellido': _por_apellido,
@@ -208,6 +223,10 @@ def ordenar(filas: list[dict], criterio: str) -> list[dict]:
         'pila_cruda': lambda f: (
             *_al_fondo_los_none(f['subida_mas_vieja_sin_dictamen']),
             *_por_apellido(f)),
+        'grado_antiguo': lambda f: (
+            *_posicion_del_grado(f, False), *_por_apellido(f)),
+        'grado_moderno': lambda f: (
+            *_posicion_del_grado(f, True), *_por_apellido(f)),
     }
     if criterio not in claves:
         raise ValueError(f'Criterio desconocido: {criterio!r}')

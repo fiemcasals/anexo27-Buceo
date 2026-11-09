@@ -8,7 +8,8 @@
 // y hace que los controles de la pantalla muestren el estado correcto.
 
 const FILTROS = ['todos', 'completa', 'incompleta', 'pendientes']
-const ORDENES = ['apellido', 'ultima_revision', 'pendientes', 'pila_rapida', 'pila_cruda']
+const ORDENES = ['apellido', 'ultima_revision', 'pendientes', 'pila_rapida', 'pila_cruda',
+  'grado_antiguo', 'grado_moderno']
 
 const ARRANQUE = { buscar: '', filtro: 'todos', turno: null, orden: null, pagina: 1 }
 
