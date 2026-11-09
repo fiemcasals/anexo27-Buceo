@@ -85,10 +85,9 @@ class FilaDeUnBuzoTests(TestCase):
                 dictamenes=[('PRE_APPROVED', 'NURSE')])
         self.assertIsNone(self._fila(perfil)['ultima_revision'])
 
-    def test_la_subida_mas_vieja_mira_solo_lo_que_no_tiene_dictamen(self):
-        # Hay un aprobado viejísimo (no cuenta), un pre-revisado y uno sin tocar.
-        # El pre-revisado es el más viejo de los dos candidatos: una cuenta que
-        # mirara sólo lo sin tocar, o que tomara el máximo, falla.
+    def test_la_subida_mas_vieja_mira_solo_lo_que_nadie_toco(self):
+        # Hay un aprobado viejísimo (no cuenta), un pre-revisado más viejo que
+        # el sin tocar (tampoco cuenta: ya lo miró el enfermero) y uno sin tocar.
         perfil = _diver(birth_year=1988, window=_november_2026())
         aprobado = _upload(perfil, 'b', VALID_FOR_EVERY_POINT,
                            dictamenes=[('APPROVED', 'DOCTOR')])
@@ -101,7 +100,8 @@ class FilaDeUnBuzoTests(TestCase):
                 created_at=timezone.make_aware(datetime.combine(dia, time(9, 0))))
         pre.refresh_from_db()
         fila = self._fila(perfil)
-        self.assertEqual(fila['subida_mas_vieja_sin_dictamen'], pre.created_at)
+        sin_tocar.refresh_from_db()
+        self.assertEqual(fila['subida_mas_vieja_sin_dictamen'], sin_tocar.created_at)
 
     def test_sin_nada_sin_dictamen_la_subida_mas_vieja_es_none(self):
         perfil = _diver(birth_year=1988, window=_november_2026())

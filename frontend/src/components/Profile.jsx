@@ -9,7 +9,11 @@ import CampoFecha from './CampoFecha';
 const ETIQUETAS = {
   first_name: 'Nombre', last_name: 'Apellido', dni: 'DNI', birth_date: 'Fecha de nacimiento',
   phone: 'Teléfono', rank: 'Grado', destination: 'Destino', weight: 'Peso', height: 'Altura',
+  courses: 'Cursos', other_course: 'Otro curso',
 };
+
+// Lo que escribe en "Otros" no pasa de esto (el backend lo exige igual).
+const MAX_OTRO_CURSO = 50;
 
 const Profile = ({ onLogout, perfil }) => {
   const [profile, setProfile] = useState({
@@ -22,10 +26,13 @@ const Profile = ({ onLogout, perfil }) => {
     destination: '',
     weight: '',
     height: '',
+    courses: [],
+    other_course: '',
     profile_data: {}
   });
   const [loading, setLoading] = useState(true);
 const [grupos, setGrupos] = useState(null);
+  const [cursos, setCursos] = useState(null);
 
   useEffect(() => {
     fetchProfile();
@@ -37,6 +44,15 @@ const [grupos, setGrupos] = useState(null);
     api.get('grados/')
       .then(res => { if (vigente) setGrupos(res.data); })
       .catch(() => { if (vigente) setGrupos([]); });
+    return () => { vigente = false; };
+  }, []);
+
+  // La lista de cursos también la define el backend.
+  useEffect(() => {
+    let vigente = true;
+    api.get('cursos/')
+      .then(res => { if (vigente) setCursos(res.data); })
+      .catch(() => { if (vigente) setCursos([]); });
     return () => { vigente = false; };
   }, []);
 
@@ -55,6 +71,8 @@ const [grupos, setGrupos] = useState(null);
         destination: res.data.destination || '',
         weight: res.data.weight || '',
         height: res.data.height || '',
+        courses: res.data.courses || [],
+        other_course: res.data.other_course || '',
       });
     } catch (err) {
       console.error("Error fetching profile", err);
@@ -66,6 +84,13 @@ const [grupos, setGrupos] = useState(null);
 
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
+  };
+
+  const alternarCurso = (valor) => {
+    const hechos = profile.courses.includes(valor)
+      ? profile.courses.filter(c => c !== valor)
+      : [...profile.courses, valor];
+    setProfile({ ...profile, courses: hechos });
   };
 
   const handleSave = async (e) => {
@@ -159,6 +184,33 @@ const [grupos, setGrupos] = useState(null);
                 <label className="form-label fw-medium text-muted small">Altura (cm)</label>
                 <input type="number" name="height" className="form-control form-control-lg border-0 bg-light" value={profile.height} onChange={handleChange} placeholder="175" />
               </div>
+
+              {perfil?.role === 'USER' && (
+                <div className="col-md-12">
+                  <label className="form-label fw-medium text-muted small">Cursos de buceo realizados</label>
+                  {cursos === null && <div className="text-muted small">Cargando…</div>}
+                  <div className="d-flex flex-column gap-2">
+                    {(cursos || []).map(curso => (
+                      <div key={curso.valor} className="form-check">
+                        <input id={`curso-${curso.valor}`} type="checkbox" className="form-check-input"
+                               checked={profile.courses.includes(curso.valor)}
+                               onChange={() => alternarCurso(curso.valor)} />
+                        <label htmlFor={`curso-${curso.valor}`} className="form-check-label">{curso.etiqueta}</label>
+                      </div>
+                    ))}
+                  </div>
+                  {profile.courses.includes('OTROS') && (
+                    <div className="mt-3">
+                      <label htmlFor="other_course" className="form-label fw-medium text-muted small">¿Cuál?</label>
+                      <input id="other_course" type="text" name="other_course" maxLength={MAX_OTRO_CURSO}
+                             className="form-control form-control-lg border-0 bg-light"
+                             value={profile.other_course} onChange={handleChange}
+                             placeholder="Nombre del curso" />
+                      <div className="form-text">{profile.other_course.length} de {MAX_OTRO_CURSO} caracteres</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="mt-5 d-grid gap-2 d-md-flex justify-content-md-start">

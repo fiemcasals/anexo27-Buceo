@@ -61,10 +61,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
+    courses = serializers.ListField(
+        child=serializers.ChoiceField(choices=UserProfile.COURSE_CHOICES),
+        required=False)
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'first_name', 'last_name', 'terms_accepted_at']
+        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'courses', 'other_course', 'first_name', 'last_name', 'terms_accepted_at']
         # §5: "Cuatro roles. El admin los designa." El rol no es un dato que el
         # usuario edite de su propio perfil, y desde que el acceso sale del rol
         # (D-5) es la única credencial de autorización del sistema: escribible
@@ -83,6 +86,26 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'invalid': 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.',
             }},
         }
+
+    def validate_courses(self, valor):
+        # Sin repetidos y en el orden en que se eligieron.
+        return list(dict.fromkeys(valor))
+
+    def validate(self, attrs):
+        # `OTROS` pide escribir cuál; sin `OTROS` no se guarda ningún texto.
+        cursos = attrs.get('courses')
+        if cursos is None and self.instance is not None:
+            cursos = self.instance.courses
+        cursos = cursos or []
+        otro = attrs.get('other_course')
+        if otro is None and self.instance is not None:
+            otro = self.instance.other_course
+        otro = (otro or '').strip()
+        if 'OTROS' in cursos and not otro:
+            raise serializers.ValidationError(
+                {'other_course': 'Escribí cuál fue el otro curso.'})
+        attrs['other_course'] = otro if 'OTROS' in cursos else ''
+        return attrs
 
     def validate_birth_date(self, valor):
         # El registro la exige y de ella depende qué estudios corresponden: un
@@ -129,6 +152,23 @@ class CommentSerializer(serializers.ModelSerializer):
         # único que el médico no puede delegar. La CheckConstraint no lo
         # atrapaba: acopla el estado con el rol declarado, no con el real.
         read_only_fields = ['doctor', 'reviewer_role']
+
+    # Lo que el buzo no ve de un dictamen (§15.12): quién lo firmó y en calidad
+    # de qué. Necesita el motivo y el detalle para poder corregir, no el nombre
+    # del revisor. Los revisores y el propio autor lo ven todo.
+    _DE_QUIEN_FIRMO = ('doctor', 'doctor_name', 'reviewer_role', 'verified_signature')
+
+    def to_representation(self, instance):
+        datos = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is None or not getattr(user, 'is_authenticated', False):
+            return datos
+        from .roles import es_revisor
+        if not es_revisor(user) and instance.doctor_id != user.pk:
+            for campo in self._DE_QUIEN_FIRMO:
+                datos.pop(campo, None)
+        return datos
 
     def validate_status(self, value):
         # `REVERTED` sólo sale de `CommentViewSet.revertir`, que verifica que

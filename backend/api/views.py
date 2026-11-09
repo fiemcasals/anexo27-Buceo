@@ -470,6 +470,18 @@ class MiFechaView(APIView):
         return Response({'window': profile.habilitation_window_id})
 
 
+class CursosView(APIView):
+    """La lista cerrada de cursos de buceo que el buzo puede declarar. Sale del
+    modelo para que el frontend no la redefina."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response([
+            {'valor': valor, 'etiqueta': etiqueta}
+            for valor, etiqueta in UserProfile.COURSE_CHOICES
+        ])
+
+
 class GradosView(APIView):
     """La lista cerrada de grados (§5), agrupada y en orden jerárquico.
 
@@ -880,6 +892,14 @@ class UsuarioAdminView(APIView):
         if _es_cuenta_de_administracion(objetivo):
             raise PermissionDenied(
                 'Una cuenta de administración se borra desde el admin de Django.')
+        # Los dictámenes son el registro médico: borrar a quien los firmó los
+        # borraría en cascada, y los estudios de otros buzos quedarían como si
+        # nadie los hubiera revisado. Una cuenta que ya dictaminó no se borra.
+        if Comment.objects.filter(doctor=objetivo).exists():
+            raise ValidationError({'detail': (
+                'Esta cuenta firmó dictámenes y no se puede borrar: se perdería '
+                'el registro de las revisiones. Cambiale la contraseña o el rol '
+                'si ya no debe usarla.')})
         objetivo.delete()
         return Response(status=204)
 

@@ -36,6 +36,27 @@ class UserProfile(models.Model):
         ]),
     ]
     RANK_VALUES = tuple(value for _, group in RANK_CHOICES for value, _ in group)
+    # Cursos de buceo que el buzo declara haber hecho. Lista cerrada; el valor
+    # `OTROS` pide escribir cuál (hasta OTHER_COURSE_MAX caracteres).
+    COURSE_CHOICES = [
+        ('BASICO', 'Curso Básico de Selección y Formación de Buzos de Ejército'),
+        ('CIRCUITO_CERRADO', 'Curso de Buceo con Equipo de Circuito Cerrado'),
+        ('MEZCLAS', 'Curso de Buceo con mezclas gaseosas'),
+        ('ALTURA', 'Curso de Buceo en Altura'),
+        ('ANTARTICO', 'Curso de Buceo Antártico'),
+        ('ERA', 'Exploración y Reconocimiento Anfibio'),
+        ('INSTRUCTOR', 'Curso de Instructor/Subinstructor de Buceo'),
+        ('BUSQUEDA_SALVAMENTO', 'Curso de Búsqueda y Salvamento (EA)'),
+        ('TIMONEL', 'Curso de Timonel'),
+        ('HIPERBARICA', 'Curso de Medicina Hiperbárica'),
+        ('SALVAMENTISTA', 'Curso de Buceo Salvamentista (Armada)'),
+        ('BUZO_BORDA', 'Curso de Buzo de Borda (Armada)'),
+        ('C9', 'C9 (Armada)'),
+        ('OTROS', 'Otros'),
+    ]
+    COURSE_VALUES = tuple(value for value, _ in COURSE_CHOICES)
+    OTHER_COURSE_MAX = 50
+
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='profile',
         verbose_name='Usuario',
@@ -80,6 +101,12 @@ class UserProfile(models.Model):
         null=True, blank=True, verbose_name='Condiciones aceptadas el',
     )
     height = models.FloatField(null=True, blank=True, verbose_name='Altura')
+    courses = models.JSONField(
+        default=list, blank=True, verbose_name='Cursos de buceo realizados',
+    )
+    other_course = models.CharField(
+        max_length=OTHER_COURSE_MAX, blank=True, verbose_name='Otro curso',
+    )
 
     class Meta:
         verbose_name = 'Perfil'

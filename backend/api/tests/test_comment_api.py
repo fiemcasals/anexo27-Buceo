@@ -537,3 +537,41 @@ class LasTransicionesLasHaceCumplirElServidorTests(APITestCase):
             f"/api/comments/{aprobacion['id']}/revertir/")
         self.assertEqual(r.status_code, 403, r.content)
         self.assertEqual(Comment.objects.filter(status="REVERTED").count(), 0)
+
+
+class ElBuzoNoVeQuienFirmoTests(APITestCase):
+    """§15.12: el buzo lee el motivo y el detalle de un rechazo, pero no el
+    nombre ni el rol de quien lo firmó, tampoco por la API de dictámenes ni por
+    la de estudios."""
+
+    CAMPOS = ("doctor", "doctor_name", "reviewer_role", "verified_signature")
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.doctor = _user("medico", "DOCTOR")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+        self.verdict = Comment.objects.create(
+            block=self.block, doctor=self.doctor, reviewer_role="DOCTOR",
+            status="REJECTED", rejection_reason="OTHER", content="Falta la firma.")
+
+    def test_el_buzo_lee_el_motivo_pero_no_quien_firmo_en_comments(self):
+        filas = _client(self.diver).get(URL).json()
+        self.assertEqual(len(filas), 1)
+        self.assertEqual(filas[0]["content"], "Falta la firma.")
+        for campo in self.CAMPOS:
+            self.assertNotIn(campo, filas[0])
+
+    def test_tampoco_lo_ve_dentro_de_sus_estudios(self):
+        cuerpo = _client(self.diver).get("/api/blocks/").json()
+        filas = cuerpo["results"] if isinstance(cuerpo, dict) else cuerpo
+        comentarios = [c for b in filas for c in b["comments"]]
+        self.assertEqual(len(comentarios), 1)
+        for campo in self.CAMPOS:
+            self.assertNotIn(campo, comentarios[0])
+
+    def test_el_revisor_si_lo_ve(self):
+        fila = _client(self.doctor).get(URL).json()[0]
+        for campo in self.CAMPOS:
+            self.assertIn(campo, fila)
+        self.assertEqual(fila["reviewer_role"], "DOCTOR")

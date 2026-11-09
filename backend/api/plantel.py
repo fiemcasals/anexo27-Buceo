@@ -16,7 +16,6 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from . import fitness
-from .fitness import REVIEW_STATES
 
 if TYPE_CHECKING:  # pragma: no cover - sólo para las anotaciones
     from users.models import UserProfile
@@ -80,14 +79,16 @@ def _subidos(resumen: fitness.DiverSummary) -> int:
 
 
 def _subida_mas_vieja(resumen: fitness.DiverSummary):
-    """Cuándo se cargó lo más viejo que espera al médico; None si no hay nada.
+    """Cuándo se cargó lo más viejo que nadie tocó; None si no hay nada.
 
-    Sólo mira lo que no tiene dictamen del médico (en revisión o pre-revisado):
-    un estudio viejo ya dictaminado no puede encabezar la pila cruda.
+    Es la pila cruda (spec, §8.1): sólo mira lo que no tiene ningún dictamen
+    (en revisión). Lo pre-revisado ya lo miró el enfermero y va en la pila
+    rápida del médico; un estudio viejo ya dictaminado tampoco encabeza la
+    pila cruda.
     """
     subidas = [
         slot.block.created_at for slot in resumen.slots
-        if slot.state in REVIEW_STATES and slot.block is not None
+        if slot.state is fitness.StudyState.IN_REVIEW and slot.block is not None
     ]
     return min(subidas) if subidas else None
 

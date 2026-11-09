@@ -119,3 +119,24 @@ class ClaveTests(_Base):
         self.assertEqual(res.status_code, 403)
         otro.refresh_from_db()
         self.assertEqual(otro.password, antes)
+
+
+class UnaCuentaQueDictaminoNoSeBorraTests(_Base):
+    def test_borrar_a_un_medico_con_dictamenes_se_rechaza_y_los_conserva(self):
+        from datetime import date
+        from api.models import Comment, StudyBlock
+        medico = _user('medicoreal', 'DOCTOR')
+        buzo = _user('buzoreal', 'USER')
+        bloque = StudyBlock.objects.create(
+            user=buzo, study_code='b', study_date=date(2026, 10, 1))
+        Comment.objects.create(block=bloque, doctor=medico, reviewer_role='DOCTOR',
+                               status='APPROVED')
+        r = _client(self.admin).delete(f'/api/admin/usuarios/{medico.pk}/')
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertTrue(User.objects.filter(pk=medico.pk).exists())
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_un_medico_sin_dictamenes_se_borra_igual(self):
+        medico = _user('medicolibre', 'DOCTOR')
+        r = _client(self.admin).delete(f'/api/admin/usuarios/{medico.pk}/')
+        self.assertEqual(r.status_code, 204, r.content)
