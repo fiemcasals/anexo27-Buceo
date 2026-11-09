@@ -299,3 +299,37 @@ class HabilitationWindow(models.Model):
         else:
             rango = f"{self.start_date:%d/%m/%Y} al {self.end_date:%d/%m/%Y}"
         return f"{label} {self.cycle}: {rango}"
+
+
+class HabilitationEnrollment(models.Model):
+    """A qué habilitaciones se anotó cada buzo: una fila por buzo y por ciclo.
+
+    Es el historial que va a mostrar el perfil. Guarda sólo la **última** fecha
+    que eligió en cada ciclo: si la cambia dentro del mismo ciclo, la fila se
+    actualiza y no queda la anterior. Desinscribirse (elegir `null`) no la borra:
+    sigue constando a qué fecha se había anotado.
+    """
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='habilitation_history',
+        verbose_name='Buzo',
+    )
+    cycle = models.PositiveIntegerField(verbose_name='Ciclo (año)')
+    # PROTECT, como en el perfil: borrar una fecha a la que alguien se anotó
+    # borraría en silencio ese tramo de su historial.
+    window = models.ForeignKey(
+        HabilitationWindow, on_delete=models.PROTECT, related_name='+',
+        verbose_name='Última fecha elegida',
+    )
+    chosen_at = models.DateTimeField(verbose_name='Elegida el')
+
+    class Meta:
+        verbose_name = 'Habilitación a la que se anotó'
+        verbose_name_plural = 'Habilitaciones a las que se anotó'
+        ordering = ['-cycle']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'cycle'], name='one_enrollment_per_user_cycle'),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · {self.cycle}: {self.window}'

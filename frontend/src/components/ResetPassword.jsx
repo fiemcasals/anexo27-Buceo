@@ -8,6 +8,7 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [verClave, setVerClave] = useState(false);
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: ''
@@ -43,7 +44,10 @@ const ResetPassword = () => {
       let errorMsg = 'Error al restablecer la contraseña. El enlace podría ser inválido o haber expirado.';
       if (err.response?.data) {
         const data = err.response.data;
-        if (typeof data === 'object') {
+        if (data.uid || data.token) {
+          // El servidor contesta "Invalid value" en inglés: se dice con palabras.
+          errorMsg = 'El enlace no sirve o ya se usó. Pedí uno nuevo desde "¿Olvidó la contraseña?".';
+        } else if (typeof data === 'object') {
           errorMsg = Object.values(data).map(v => Array.isArray(v) ? v.join(' ') : v).join(' ');
         }
       }
@@ -69,7 +73,7 @@ const ResetPassword = () => {
             <div className="mb-3">
               <label className="form-label small fw-bold">Nueva Contraseña</label>
               <input 
-                type="password" 
+                type={verClave ? 'text' : 'password'} 
                 name="password" 
                 className="form-control" 
                 placeholder="Ingresar la nueva contraseña"
@@ -78,10 +82,10 @@ const ResetPassword = () => {
                 required
               />
             </div>
-            <div className="mb-4">
+            <div className="mb-2">
               <label className="form-label small fw-bold">Confirmar Contraseña</label>
               <input 
-                type="password" 
+                type={verClave ? 'text' : 'password'} 
                 name="confirmPassword" 
                 className="form-control" 
                 placeholder="Repetir la contraseña"
@@ -90,7 +94,12 @@ const ResetPassword = () => {
                 required
               />
             </div>
-            
+            <button type="button" className="btn btn-link btn-sm p-0 mb-4 text-decoration-none"
+                    onClick={() => setVerClave(v => !v)} aria-pressed={verClave}>
+              <i className={`bi ${verClave ? 'bi-eye-slash' : 'bi-eye'} me-1`} aria-hidden="true"></i>
+              {verClave ? 'Ocultar las contraseñas' : 'Mostrar las contraseñas'}
+            </button>
+
             <button type="submit" className="btn btn-primary w-100 py-2 fw-bold" disabled={loading}>
               <span className={`spinner-border spinner-border-sm me-2 ${loading ? '' : 'd-none'}`} role="status" aria-hidden="true"></span>
               <span>Restablecer Contraseña</span>

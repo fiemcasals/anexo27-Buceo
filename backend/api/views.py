@@ -17,6 +17,7 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
+    HabilitationEnrollment,
 )
 from users.models import UserProfile, ProfileFieldTemplate
 from .serializers import (
@@ -465,8 +466,21 @@ class MiFechaView(APIView):
         serializer = InscripcionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        profile.habilitation_window = serializer.validated_data['window']
-        profile.save(update_fields=['habilitation_window'])
+        ventana = serializer.validated_data['window']
+        with transaction.atomic():
+            profile.habilitation_window = ventana
+            profile.save(update_fields=['habilitation_window'])
+            if ventana is not None:
+                # Historial: una fila por ciclo con la última fecha elegida.
+                # Volver a elegir la misma no cambia nada; desinscribirse
+                # (`null`) tampoco borra lo que ya constaba.
+                fila, creada = HabilitationEnrollment.objects.get_or_create(
+                    user=request.user, cycle=ventana.cycle,
+                    defaults={'window': ventana, 'chosen_at': timezone.now()})
+                if not creada and fila.window_id != ventana.pk:
+                    fila.window = ventana
+                    fila.chosen_at = timezone.now()
+                    fila.save(update_fields=['window', 'chosen_at'])
         return Response({'window': profile.habilitation_window_id})
 
 
