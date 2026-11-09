@@ -13,7 +13,7 @@ const ETIQUETAS = {
 };
 
 // Lo que escribe en "Otros" no pasa de esto (el backend lo exige igual).
-const MAX_OTRO_CURSO = 50;
+const MAX_OTRO_CURSO = 70;
 
 const Profile = ({ onLogout, perfil }) => {
   const [profile, setProfile] = useState({
@@ -100,6 +100,12 @@ const [grupos, setGrupos] = useState(null);
   const handleSave = async (e) => {
     e.preventDefault();
     
+    if (profile.courses.includes('OTROS') && !profile.other_course.trim()) {
+      alert('Si marcás "Otros", escribí cuál fue el curso.');
+      document.getElementById('other_course')?.focus();
+      return;
+    }
+
     // Clean data: convert empty strings to null for numeric and date fields
     const cleanedProfile = { ...profile };
     ['weight', 'height', 'birth_date'].forEach(field => {
@@ -244,8 +250,10 @@ const [grupos, setGrupos] = useState(null);
                   })()}
                   {profile.courses.includes('OTROS') && (
                     <div className="mt-3">
-                      <label htmlFor="other_course" className="form-label fw-medium text-muted small">¿Cuál?</label>
-                      <input id="other_course" type="text" name="other_course" maxLength={MAX_OTRO_CURSO}
+                      <label htmlFor="other_course" className="form-label fw-medium text-muted small">¿Cuál? (obligatorio)</label>
+                      <input id="other_course" type="text" name="other_course" maxLength={MAX_OTRO_CURSO} required
+                             onInvalid={(e) => e.target.setCustomValidity('Escribí cuál fue el curso.')}
+                             onInput={(e) => e.target.setCustomValidity('')}
                              className="form-control form-control-lg border-0 bg-light"
                              value={profile.other_course} onChange={handleChange}
                              placeholder="Nombre del curso" />

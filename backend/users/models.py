@@ -55,7 +55,7 @@ class UserProfile(models.Model):
         ('OTROS', 'Otros'),
     ]
     COURSE_VALUES = tuple(value for value, _ in COURSE_CHOICES)
-    OTHER_COURSE_MAX = 50
+    OTHER_COURSE_MAX = 70
 
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='profile',
