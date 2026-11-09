@@ -109,6 +109,27 @@ class ElPdfNoSeTocaTests(SimpleTestCase):
         self.assertEqual(comprimir(entrada).read(), esperado)
 
 
+class LaExtensionLaPoneElServidorTests(SimpleTestCase):
+    # El nombre lo manda el cliente y decide con qué tipo se sirve el archivo:
+    # un .html o .svg que empieza con %PDF correría como página en el origen de
+    # la app y leería el token del médico que lo abra.
+    def test_un_pdf_con_nombre_de_pagina_se_guarda_como_pdf(self):
+        for nombre in ('x.html', 'x.svg', 'x.HTM', 'x', '../../x.html', 'x.pdf.html'):
+            contenido = b'%PDF-1.4\n<script>alert(1)</script>\n'
+            salida = comprimir(_archivo(contenido, nombre))
+            self.assertTrue(salida.name.endswith('.pdf'), nombre)
+            self.assertNotIn('/', salida.name)
+            self.assertEqual(salida.read(), contenido)
+
+    def test_el_contenido_es_el_mismo_byte_a_byte(self):
+        entrada = _pdf()
+        esperado = entrada.read()
+        entrada.seek(0)
+        salida = comprimir(entrada)
+        self.assertEqual(salida.read(), esperado)
+        self.assertEqual(salida.content_type, 'application/pdf')
+
+
 class LoQueNoSeAceptaTests(SimpleTestCase):
     # El tipo se decide por el contenido, no por la extensión: por eso los
     # tests de abajo mandan bytes que no son imagen con nombre de imagen.

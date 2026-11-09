@@ -1,8 +1,8 @@
 """Compresión de los archivos que suben los buzos.
 
 Las fotos de celular (JPEG o HEIC) salen como JPEG de LADO_MAYOR píxeles en el
-lado mayor, sin metadatos EXIF. Los PDF no se tocan: recomprimirlos puede volver
-ilegible una radiografía escaneada.
+lado mayor, sin metadatos EXIF. Los PDF no se recomprimen (puede volver ilegible una
+radiografía escaneada), pero se guardan siempre con extensión `.pdf`.
 """
 
 import io
@@ -45,7 +45,13 @@ def comprimir(archivo: UploadedFile) -> UploadedFile:
     archivo.seek(0)
     if archivo.read(len(_CABECERA_PDF)) == _CABECERA_PDF:
         archivo.seek(0)
-        return archivo
+        # El nombre del archivo lo manda el cliente y decide con qué tipo lo
+        # sirve el servidor web: un `.html` o `.svg` que empiece con `%PDF` se
+        # serviría como página en el mismo origen que la app, y su script podría
+        # leer el token del médico que lo abra. La extensión la pone el servidor.
+        nombre = os.path.splitext(os.path.basename(archivo.name))[0] + '.pdf'
+        return SimpleUploadedFile(
+            nombre, archivo.read(), content_type='application/pdf')
 
     archivo.seek(0)
     try:

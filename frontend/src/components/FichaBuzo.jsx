@@ -111,7 +111,7 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
       <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
         {!espera && !noCorresponde && <Pastilla tono={estado.tono}>{estado.rotulo}</Pastilla>}
         {noCorresponde && <Pastilla tono="apagado">{estado.rotulo}</Pastilla>}
-        {espera && <Pastilla tono="aviso">{estado.rotulo}</Pastilla>}
+        {espera && <Pastilla tono={estado.tono === 'info' ? 'info' : 'aviso'}>{estado.rotulo}</Pastilla>}
 
         {estudio.archivo && (
           <a href={estudio.archivo} target="_blank" rel="noreferrer"

@@ -178,15 +178,29 @@ class CommentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'status': 'La pre-aprobación corresponde sólo al '
                                'enfermero auxiliar.'})
-        # Un estudio ya pre-aprobado (o aprobado) no se vuelve a pre-aprobar:
-        # la historia no se llena de dictámenes repetidos. Si el médico lo
-        # revierte, el último dictamen pasa a ser el REVERTED y se puede de nuevo.
-        if (self.instance is None and status == 'PRE_APPROVED'
-                and block is not None):
-            ultimo = block.comments.order_by('-created_at', '-pk').first()
-            if ultimo is not None and ultimo.status in ('PRE_APPROVED', 'APPROVED'):
+        # Transiciones (§6), que hasta acá sólo cumplía la pantalla: lo que
+        # manda es el último dictamen del estudio, y sólo se dictamina sobre la
+        # carga vigente. Un aprobado se deshace con `revertir`; un rechazado
+        # espera el reemplazo del buzo (que lo deja de ser vigente); y un
+        # pre-aprobado no se pre-aprueba de nuevo, aunque sí lo puede aprobar o
+        # rechazar el médico (o rechazar otro enfermero).
+        if self.instance is None and block is not None:
+            if not block.is_current:
                 raise serializers.ValidationError(
-                    {'status': 'Este estudio ya fue aprobado.'})
+                    {'block': 'Ese estudio fue reemplazado por una carga nueva.'})
+            ultimo = block.comments.order_by('-created_at', '-pk').first()
+            if ultimo is not None:
+                if ultimo.status == 'APPROVED':
+                    raise serializers.ValidationError(
+                        {'status': 'Este estudio ya fue aprobado. Para cambiarlo, '
+                                   'el médico tiene que revertir la aprobación.'})
+                if ultimo.status == 'REJECTED':
+                    raise serializers.ValidationError(
+                        {'status': 'Este estudio ya fue rechazado: falta que el '
+                                   'buzo suba el reemplazo.'})
+                if ultimo.status == 'PRE_APPROVED' and status == 'PRE_APPROVED':
+                    raise serializers.ValidationError(
+                        {'status': 'Este estudio ya fue pre-aprobado.'})
         # Todo rechazo lleva motivo y detalle, y nada más lleva motivo. La
         # CheckConstraint `rejection_has_reason_and_detail` lo atrapa igual,
         # pero como IntegrityError, o sea un 500, y es el POST exacto que manda

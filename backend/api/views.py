@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework.authtoken.models import Token
 from django.conf import settings
+from django.db import transaction
 from django.core.mail import EmailMessage
 from django.utils import timezone
 from .models import (
@@ -215,6 +216,11 @@ class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticated, SoloQuienDictamino]
+    # Un dictamen es parte del registro: se lee y se agrega, no se edita ni se
+    # borra. Con PATCH o DELETE su autor podía pasar un REVERTED a APPROVED o
+    # borrarlo y re-aprobar sin rastro. Deshacer una aprobación es `revertir`,
+    # que agrega un dictamen nuevo.
+    http_method_names = ['get', 'post', 'head', 'options']
 
     def get_queryset(self):
         # §5 sobre la misma base que los estudios, porque el dictamen es el
@@ -253,14 +259,6 @@ class CommentViewSet(viewsets.ModelViewSet):
             # el 201.
             correo.avisar_rechazo(comment)
 
-    def perform_update(self, serializer):
-        # Avisa sólo si el PATCH *convierte* el dictamen en rechazo. Uno que
-        # corrige el detalle de un rechazo ya avisado no repite el correo.
-        era_rechazo = serializer.instance.status == 'REJECTED'
-        comment = serializer.save()
-        if comment.status == 'REJECTED' and not era_rechazo:
-            correo.avisar_rechazo(comment)
-
     def create(self, request, *args, **kwargs):
         try:
             return super().create(request, *args, **kwargs)
@@ -284,16 +282,25 @@ class CommentViewSet(viewsets.ModelViewSet):
         un enfermero nunca es autor de una aprobación, y otro médico tampoco.
         """
         aprobacion = self.get_object()
-        if aprobacion.status != 'APPROVED':
-            raise ValidationError('Sólo se puede revertir una aprobación.')
-        ultimo = (aprobacion.block.comments.order_by('-created_at', '-pk')
-                  .first())
-        if ultimo.pk != aprobacion.pk:
-            raise ValidationError(
-                'Esa aprobación ya no es la vigente: hubo un dictamen después.')
-        reversion = Comment.objects.create(
-            block=aprobacion.block, doctor=request.user,
-            reviewer_role=request.user.profile.role, status='REVERTED')
+        # La reversión se firma como médico (la restricción de la base lo exige):
+        # quien firmó una aprobación y después dejó de ser médico no la revierte.
+        perfil = getattr(request.user, 'profile', None)
+        if perfil is None or perfil.role != 'DOCTOR':
+            raise PermissionDenied('Sólo el médico puede revertir una aprobación.')
+        # En una transacción, para que el control de "es la vigente" y la
+        # reversión no se separen: dos pedidos a la vez no dejan dos REVERTED.
+        with transaction.atomic():
+            ultimo = (Comment.objects.select_for_update()
+                      .filter(block=aprobacion.block)
+                      .order_by('-created_at', '-pk').first())
+            if aprobacion.status != 'APPROVED':
+                raise ValidationError('Sólo se puede revertir una aprobación.')
+            if ultimo.pk != aprobacion.pk:
+                raise ValidationError(
+                    'Esa aprobación ya no es la vigente: hubo un dictamen después.')
+            reversion = Comment.objects.create(
+                block=aprobacion.block, doctor=request.user,
+                reviewer_role=perfil.role, status='REVERTED')
         return Response(self.get_serializer(reversion).data)
 
 class PermissionViewSet(viewsets.ModelViewSet):

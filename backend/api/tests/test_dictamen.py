@@ -342,7 +342,7 @@ class RevertirAprobacionTests(APITestCase):
         self.assertEqual(r.status_code, 400, r.content)
 
     def test_no_se_fabrica_una_reversion_por_la_via_comun(self):
-        # REVERTED sólo sale de la acción: por POST o PATCH común deshacería una
+        # REVERTED sólo sale de la acción: por POST común (o un PATCH, que ya no existe) deshacería una
         # aprobación sin pasar por las reglas de arriba.
         cliente = APIClient()
         cliente.force_authenticate(self.medico)
@@ -351,5 +351,5 @@ class RevertirAprobacionTests(APITestCase):
         self.assertEqual(r.status_code, 400, r.content)
         r = cliente.patch(f"/api/comments/{self.aprobacion_del_medico.pk}/",
                           {"status": "REVERTED"}, format="json")
-        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(r.status_code, 405, r.content)
         self.assertEqual(self.estado_del_punto(), StudyState.APPROVED)

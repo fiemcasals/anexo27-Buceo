@@ -71,7 +71,7 @@ class DictamenNoSeFabricaTests(APITestCase):
         # alcanza siquiera a ver el dictamen.
         response = _client(self.stranger).patch(
             f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
-        self.assertEqual(response.status_code, 404, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self._assert_untouched()
 
     def test_a_nurse_who_does_see_the_verdict_still_cannot_rewrite_it(self):
@@ -79,21 +79,21 @@ class DictamenNoSeFabricaTests(APITestCase):
         # lo da la regla y no el queryset: el dictamen del médico no se toca.
         response = _client(self.nurse).patch(
             f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self._assert_untouched()
 
     def test_the_diver_cannot_delete_the_rejection_on_their_own_study(self):
         # No produce aptitud, pero destruye el motivo y el detalle que el §9
         # manda por correo y le permite al buzo ocultar que fue rechazado.
         response = _client(self.diver).delete(f"{URL}{self.verdict.pk}/")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self.assertTrue(Comment.objects.filter(pk=self.verdict.pk).exists())
         self._assert_untouched()
 
     def test_the_diver_cannot_rewrite_the_rejection_on_their_own_study(self):
         response = _client(self.diver).patch(
             f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self._assert_untouched()
 
     def test_a_verdict_cannot_be_re_pointed_at_another_divers_study(self):
@@ -107,23 +107,28 @@ class DictamenNoSeFabricaTests(APITestCase):
         response = _client(self.doctor).patch(
             f"{URL}{self.verdict.pk}/", {"block": other_block.pk},
             format="json")
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()["block"], self.block.pk)
+        self.assertEqual(response.status_code, 405, response.content)
         self.verdict.refresh_from_db()
         self.assertEqual(self.verdict.block_id, self.block.pk)
 
-    def test_whoever_ruled_can_correct_their_own_verdict(self):
+    def test_whoever_ruled_cannot_edit_their_own_verdict(self):
+        # Un dictamen es parte del registro: se agrega otro, no se reescribe.
         response = _client(self.doctor).patch(
             f"{URL}{self.verdict.pk}/", {"content": "Ilegible el renglón 4."},
             format="json")
-        self.assertEqual(response.status_code, 200, response.content)
-        self.verdict.refresh_from_db()
-        self.assertEqual(self.verdict.content, "Ilegible el renglón 4.")
+        self.assertEqual(response.status_code, 405, response.content)
+        self._assert_untouched()
 
-    def test_whoever_ruled_can_delete_their_own_verdict(self):
+    def test_whoever_ruled_cannot_delete_their_own_verdict(self):
         response = _client(self.doctor).delete(f"{URL}{self.verdict.pk}/")
-        self.assertEqual(response.status_code, 204, response.content)
-        self.assertFalse(Comment.objects.filter(pk=self.verdict.pk).exists())
+        self.assertEqual(response.status_code, 405, response.content)
+        self.assertTrue(Comment.objects.filter(pk=self.verdict.pk).exists())
+
+    def test_nobody_can_put_a_verdict_either(self):
+        response = _client(self.doctor).put(
+            f"{URL}{self.verdict.pk}/", self.FORGERY, format="json")
+        self.assertEqual(response.status_code, 405, response.content)
+        self._assert_untouched()
 
     def test_a_third_party_is_not_served_another_divers_verdicts(self):
         # El motivo y el detalle de un rechazo son la revisión médica: §5, nadie
@@ -193,12 +198,12 @@ class ExRevisorTests(APITestCase):
         response = self._undesignate().patch(
             f"{URL}{self.verdict.pk}/",
             {"status": "APPROVED", "reviewer_role": "DOCTOR"}, format="json")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self._assert_untouched()
 
     def test_an_ex_reviewer_cannot_delete_the_verdict_they_signed(self):
         response = self._undesignate().delete(f"{URL}{self.verdict.pk}/")
-        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.status_code, 405, response.content)
         self.assertTrue(Comment.objects.filter(pk=self.verdict.pk).exists())
 
     def test_an_ex_reviewer_is_still_shown_what_they_signed(self):
@@ -341,7 +346,7 @@ class UnRechazoExigeMotivoYDetalleTests(APITestCase):
             status="REJECTED", rejection_reason="ILLEGIBLE", content="Cortada.")
         r = _client(self.doctor).patch(
             f"{URL}{verdict.pk}/", {"content": ""}, format="json")
-        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.status_code, 405)
         verdict.refresh_from_db()
         self.assertEqual(verdict.content, "Cortada.")
 
@@ -443,8 +448,9 @@ class ElCorreoDeRechazoTests(APITestCase):
         self.assertEqual(r.status_code, 201)
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_un_patch_que_convierte_en_rechazo_avisa(self):
-        # Un enfermero pre-aprueba y después corrige: rechaza.
+    def test_un_patch_ya_no_existe_y_no_manda_correo(self):
+        # Un enfermero pre-aprueba y despues no puede "corregir" a rechazo por
+        # PATCH: el rechazo es un dictamen nuevo (POST), que es el que avisa.
         v = Comment.objects.create(
             block=self.block, doctor=self.nurse, reviewer_role="NURSE",
             status="PRE_APPROVED")
@@ -452,15 +458,82 @@ class ElCorreoDeRechazoTests(APITestCase):
             f"{URL}{v.pk}/",
             {"status": "REJECTED", "rejection_reason": "OTHER",
              "content": "Falta la firma."}, format="json")
-        self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("Falta la firma.", mail.outbox[0].body)
+        self.assertEqual(r.status_code, 405, r.content)
+        self.assertEqual(len(mail.outbox), 0)
+        v.refresh_from_db()
+        self.assertEqual(v.status, "PRE_APPROVED")
 
-    def test_un_patch_que_solo_corrige_el_detalle_no_vuelve_a_avisar(self):
-        self.rechazar()
-        v = self.dictamenes_del_punto().get()
-        r = _client(self.doctor).patch(
-            f"{URL}{v.pk}/", {"content": "Salió cortada arriba."},
-            format="json")
+
+
+class LasTransicionesLasHaceCumplirElServidorTests(APITestCase):
+    """§6: la ficha no ofrece ciertos botones, pero la API no puede depender de
+    eso. Manda el último dictamen, y sólo sobre la carga vigente."""
+
+    def setUp(self):
+        self.diver = _user("buzo1", "USER")
+        self.doctor = _user("medico", "DOCTOR")
+        self.nurse = _user("enfermero", "NURSE")
+        self.block = StudyBlock.objects.create(
+            user=self.diver, study_code="b", study_date=date(2026, 10, 1))
+
+    def _dictaminar(self, user, **payload):
+        payload.setdefault("block", self.block.pk)
+        return _client(user).post("/api/comments/", payload, format="json")
+
+    def _rechazo(self):
+        return {"status": "REJECTED", "rejection_reason": "OTHER",
+                "content": "Falta la firma."}
+
+    def test_the_nurse_cannot_reject_what_the_doctor_already_approved(self):
+        self._dictaminar(self.doctor, status="APPROVED")
+        r = self._dictaminar(self.nurse, **self._rechazo())
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_the_doctor_cannot_approve_twice(self):
+        self._dictaminar(self.doctor, status="APPROVED")
+        r = self._dictaminar(self.doctor, status="APPROVED")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_nobody_rules_on_a_rejected_study_until_the_diver_replaces_it(self):
+        self._dictaminar(self.doctor, **self._rechazo())
+        for quien, cuerpo in ((self.nurse, {"status": "PRE_APPROVED"}),
+                              (self.doctor, {"status": "APPROVED"})):
+            r = self._dictaminar(quien, **cuerpo)
+            self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_nobody_rules_on_a_block_that_is_no_longer_the_current_one(self):
+        StudyBlock.objects.filter(pk=self.block.pk).update(is_current=False)
+        r = self._dictaminar(self.doctor, status="APPROVED")
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_after_a_pre_approval_the_doctor_can_approve(self):
+        self._dictaminar(self.nurse, status="PRE_APPROVED")
+        r = self._dictaminar(self.doctor, status="APPROVED")
+        self.assertEqual(r.status_code, 201, r.content)
+
+    def test_after_a_pre_approval_a_nurse_can_still_reject(self):
+        self._dictaminar(self.nurse, status="PRE_APPROVED")
+        r = self._dictaminar(self.nurse, **self._rechazo())
+        self.assertEqual(r.status_code, 201, r.content)
+
+    def test_after_a_reversion_everything_is_possible_again(self):
+        aprobacion = self._dictaminar(self.doctor, status="APPROVED").json()
+        r = _client(self.doctor).post(
+            f"/api/comments/{aprobacion['id']}/revertir/")
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(
+            self._dictaminar(self.nurse, status="PRE_APPROVED").status_code, 201)
+
+    def test_a_doctor_turned_nurse_cannot_revert_and_gets_403_not_500(self):
+        aprobacion = self._dictaminar(self.doctor, status="APPROVED").json()
+        perfil = self.doctor.profile
+        perfil.role = "NURSE"
+        perfil.save()
+        r = _client(User.objects.get(pk=self.doctor.pk)).post(
+            f"/api/comments/{aprobacion['id']}/revertir/")
+        self.assertEqual(r.status_code, 403, r.content)
+        self.assertEqual(Comment.objects.filter(status="REVERTED").count(), 0)
