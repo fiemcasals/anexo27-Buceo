@@ -190,14 +190,25 @@ const [grupos, setGrupos] = useState(null);
                   <label className="form-label fw-medium text-muted small">Cursos de buceo realizados</label>
                   {cursos === null && <div className="text-muted small">Cargando…</div>}
                   <div className="d-flex flex-column gap-2">
-                    {(cursos || []).map(curso => (
-                      <div key={curso.valor} className="form-check">
-                        <input id={`curso-${curso.valor}`} type="checkbox" className="form-check-input"
-                               checked={profile.courses.includes(curso.valor)}
-                               onChange={() => alternarCurso(curso.valor)} />
-                        <label htmlFor={`curso-${curso.valor}`} className="form-check-label">{curso.etiqueta}</label>
-                      </div>
-                    ))}
+                    {(cursos || []).map(curso => {
+                      const hecho = profile.courses.includes(curso.valor);
+                      return (
+                        <label key={curso.valor} htmlFor={`curso-${curso.valor}`}
+                               className="d-flex align-items-center gap-2 rounded-3 px-3 py-2"
+                               style={{
+                                 cursor: 'pointer',
+                                 background: hecho ? 'var(--ok-fondo)' : 'transparent',
+                                 border: `1px solid ${hecho ? 'var(--ok-borde)' : 'var(--borde)'}`,
+                                 color: hecho ? 'var(--texto-fuerte)' : 'var(--texto-suave)',
+                                 fontWeight: hecho ? 600 : 400,
+                               }}>
+                          <input id={`curso-${curso.valor}`} type="checkbox" className="form-check-input mt-0"
+                                 checked={hecho} onChange={() => alternarCurso(curso.valor)} />
+                          <span style={{ flex: '1 1 0', minWidth: 0 }}>{curso.etiqueta}</span>
+                          {hecho && <span style={{ color: 'var(--ok)', fontSize: '12px', whiteSpace: 'nowrap' }}>✓ Realizado</span>}
+                        </label>
+                      );
+                    })}
                   </div>
                   {profile.courses.includes('OTROS') && (
                     <div className="mt-3">
