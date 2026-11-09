@@ -591,7 +591,7 @@ class RolesAdminView(APIView):
         for perfil in perfiles:
             designados[perfil.role].append({
                 'email': perfil.user.email,
-                'nombre': _serializers.nombre_para_mostrar(perfil.user),
+                'nombre': _serializers.nombre_para_mostrar(perfil.user, perfil),
                 'rank': perfil.rank or '',
             })
         return Response(designados)
@@ -602,7 +602,7 @@ class RolesAdminView(APIView):
         perfil = serializer.save()
         return Response({
             'email': perfil.user.email,
-            'nombre': _serializers.nombre_para_mostrar(perfil.user),
+            'nombre': _serializers.nombre_para_mostrar(perfil.user, perfil),
             'role': perfil.role,
         })
 
@@ -836,7 +836,7 @@ class FichaView(APIView):
                   .prefetch_related(Prefetch(
                       'user__study_blocks',
                       queryset=StudyBlock.objects.filter(is_current=True)
-                      .prefetch_related('comments__doctor'),
+                      .prefetch_related('comments__doctor__profile'),
                   ))
                   .first())
         if perfil is None:
@@ -871,7 +871,7 @@ class UsuariosAdminView(APIView):
             {
                 'id': u.pk,
                 'email': u.email,
-                'nombre': _serializers.nombre_para_mostrar(u),
+                'nombre': _serializers.nombre_para_mostrar(u, getattr(u, 'profile', None)),
                 'dni': getattr(getattr(u, 'profile', None), 'dni', None) or '',
                 'role': getattr(getattr(u, 'profile', None), 'role', None),
                 'protegido': _es_cuenta_de_administracion(u),

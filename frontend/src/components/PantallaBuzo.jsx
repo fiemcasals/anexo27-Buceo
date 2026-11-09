@@ -8,6 +8,7 @@ import {
 } from '../lib/decisiones-de-la-pantalla'
 import { enCastellano } from '../lib/fecha-castellano'
 import { rangoEnCastellano } from '../lib/rango-de-fechas'
+import { nombreConGrado } from '../lib/nombre-con-grado'
 import CargarEstudio from './CargarEstudio'
 import BarraLateral from './BarraLateral'
 
@@ -579,12 +580,9 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
   }
 
 
-  // "grado Nombre APELLIDO": el grado primero, y el apellido en mayúsculas.
-  const nombre = [
-    perfil?.rank,
-    perfil?.first_name,
-    perfil?.last_name?.toLocaleUpperCase('es-AR'),
-  ].filter(Boolean).join(' ')
+  const nombre = nombreConGrado({
+    grado: perfil?.rank, nombre: perfil?.first_name, apellido: perfil?.last_name,
+  })
   // Con fecha elegida y sin estudios exigidos, lo que falta es la fecha de
   // nacimiento: el motor no puede saber qué puntos corresponden sin la edad.
   const faltaElNacimiento = !!estado?.fecha_elegida && estado.total_exigidos === 0

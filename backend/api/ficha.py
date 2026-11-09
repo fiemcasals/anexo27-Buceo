@@ -14,10 +14,11 @@ from datetime import date
 from . import fitness, plantel
 from .estado import armar_estado
 from .fitness import REVIEW_STATES, StudyState
+from .serializers import nombre_para_mostrar
 
 
 def _quien(usuario) -> str:
-    return usuario.get_full_name().strip() or usuario.username
+    return nombre_para_mostrar(usuario)
 
 
 def _dictamen(comment) -> dict:

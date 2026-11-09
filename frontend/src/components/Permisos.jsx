@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { nombreConGrado } from '../lib/nombre-con-grado';
 import Soporte from './Soporte';
 import BarraLateral from './BarraLateral';
 import CampoFecha from './CampoFecha';
@@ -80,7 +81,7 @@ function Revisores({ designados, onDesignar, guardando, errores }) {
                 {fila.gente.map((p) => (
                   <li key={p.email} className="d-flex flex-wrap align-items-baseline gap-2 py-1">
                     <span className="fw-medium" style={{ fontSize: '15px' }}>
-                      {p.rank ? `${p.rank} ` : ''}{p.nombre}
+                      {p.nombre}
                     </span>
                     <span className="text-muted" style={{ fontSize: '13px' }}>{p.email}</span>
                   </li>
@@ -273,7 +274,9 @@ const Permisos = ({ onLogout, perfil }) => {
       .finally(() => setGuardando(null));
   };
 
-  const nombre = [perfil?.last_name, perfil?.first_name].filter(Boolean).join(', ');
+  const nombre = nombreConGrado({
+    grado: perfil?.rank, nombre: perfil?.first_name, apellido: perfil?.last_name,
+  });
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>

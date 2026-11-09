@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import api from '../api';
+import { nombreConGrado } from '../lib/nombre-con-grado';
 import BarraLateral from './BarraLateral';
 import Pastilla from './Pastilla';
 import {
@@ -352,9 +353,7 @@ const FichaBuzo = ({ onLogout, perfil }) => {
   const cerrarElDialogo = useCallback(() => setRechazando(null), []);
 
   const turno = ficha ? celdaTurno(ficha.turno) : null;
-  const nombre = ficha
-    ? [ficha.apellido, ficha.nombre].filter(Boolean).join(', ') || 'Sin nombre'
-    : '';
+  const nombre = ficha ? nombreConGrado(ficha) || 'Sin nombre' : '';
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh' }}>
@@ -392,7 +391,7 @@ const FichaBuzo = ({ onLogout, perfil }) => {
                 <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
                   <div>
                     <h1 className="fw-bold m-0" style={{ fontSize: '20px', color: 'var(--texto-fuerte)' }}>
-                      {[ficha.grado, nombre].filter(Boolean).join(' ')}
+                      {nombre}
                     </h1>
                     <div style={{ fontSize: '13px', color: 'var(--texto-suave)', marginTop: '4px' }}>
                       {renglonDelEncabezado(ficha)}

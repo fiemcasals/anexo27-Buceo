@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
+import { nombreConGrado } from '../lib/nombre-con-grado';
 import BarraLateral from './BarraLateral';
 import Pastilla from './Pastilla';
 import { leerFiltros, escribirFiltros } from '../lib/plantel';
@@ -86,9 +87,7 @@ function Fila({ fila, desde, onAbrir }) {
   const presentados = celdaPresentados(fila);
   const turno = celdaTurno(fila.turno);
   const estado = estadoDeLaFila(fila);
-  // "grado Nombre APELLIDO", igual que en la pantalla del buzo.
-  const nombre = [fila.grado, fila.nombre, fila.apellido?.toLocaleUpperCase('es-AR')]
-    .filter(Boolean).join(' ') || 'Sin nombre';
+  const nombre = nombreConGrado(fila) || 'Sin nombre';
   const subtitulo = fila.unidad || '';
   return (
     <tr style={{ cursor: 'pointer', borderBottom: '1px solid var(--superficie-2)' }}
@@ -239,7 +238,9 @@ const ListadoPlantel = ({ onLogout, perfil }) => {
 
   const hayFiltros = escribirFiltros({ ...filtros, orden: null }) !== '';
   const ajustaLosNumeros = filtros.buscar !== '' || filtros.turno !== null;
-  const nombre = [perfil?.last_name, perfil?.first_name].filter(Boolean).join(', ');
+  const nombre = nombreConGrado({
+    grado: perfil?.rank, nombre: perfil?.first_name, apellido: perfil?.last_name,
+  });
   const forbidden = fallo?.response?.status === 403;
 
   return (

@@ -391,17 +391,19 @@ class DiveLogSerializer(serializers.ModelSerializer):
 ROLES_QUE_EL_ADMIN_ASIGNA = ('DOCTOR', 'NURSE', 'USER')
 
 
-def nombre_para_mostrar(user):
-    """Como se nombra a una persona en una lista de 150.
+def nombre_para_mostrar(user, perfil=None):
+    """Como se nombra a una persona en todas las pantallas: "grado Nombre
+    APELLIDO" (el mismo formato que `lib/nombre-con-grado.js` del frontend).
 
-    Por correo no se reconoce a nadie, asi que la pantalla muestra el apellido
-    primero. Sin nombre cargado cae al usuario, que siempre existe.
+    Sin grado se omite; sin nombre ni apellido cae al usuario, que siempre
+    existe. `perfil` se pasa cuando ya se tiene, para no hacer una consulta más.
     """
-    apellido = (user.last_name or '').strip()
+    if perfil is None:
+        perfil = getattr(user, 'profile', None)
+    grado = (getattr(perfil, 'rank', '') or '').strip()
     nombre = (user.first_name or '').strip()
-    if apellido and nombre:
-        return f'{apellido}, {nombre}'
-    return apellido or nombre or user.username
+    apellido = (user.last_name or '').strip().upper()
+    return ' '.join(p for p in (grado, nombre, apellido) if p) or user.username
 
 
 class DesignarRevisorSerializer(serializers.Serializer):

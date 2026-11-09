@@ -145,6 +145,16 @@ class FichaTests(APITestCase):
         self.assertEqual(dictamen['en_calidad_de'], 'NURSE')
         self.assertEqual(dictamen['por'], 'revisor-nurse')
 
+    def test_quien_dictamino_se_nombra_con_grado_nombre_y_apellido(self):
+        User.objects.filter(pk=self.enfermero.pk).update(
+            first_name='Vera', last_name='Gómez')
+        UserProfile.objects.filter(user=self.enfermero).update(rank='CB')
+        bloque = _upload(self.buzo, 'b', VALID_FOR_EVERY_POINT)
+        Comment.objects.create(block=bloque, doctor=self.enfermero,
+                               reviewer_role='NURSE', status='PRE_APPROVED')
+        dictamen = self.estudio(self.pedir(), 'b')['dictamenes'][0]
+        self.assertEqual(dictamen['por'], 'CB Vera GÓMEZ')
+
     def test_el_rechazo_trae_motivo_y_detalle(self):
         _upload(self.buzo, 'b', VALID_FOR_EVERY_POINT,
                 dictamenes=[('REJECTED', 'DOCTOR')])

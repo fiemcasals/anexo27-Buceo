@@ -140,7 +140,15 @@ class DesignarRevisoresTests(_ConAdmin):
         self.medico.first_name, self.medico.last_name = 'Elena', 'Ferreyra'
         self.medico.save()
         datos = _client(self.admin).get('/api/admin/roles/').data
-        self.assertEqual(datos['DOCTOR'][0]['nombre'], 'Ferreyra, Elena')
+        self.assertEqual(datos['DOCTOR'][0]['nombre'], 'Elena FERREYRA')
+
+    def test_el_nombre_para_mostrar_lleva_el_grado_primero(self):
+        self.medico.first_name, self.medico.last_name = 'Elena', 'Ferreyra'
+        self.medico.save()
+        self.medico.profile.rank = 'CT'
+        self.medico.profile.save()
+        datos = _client(self.admin).get('/api/admin/roles/').data
+        self.assertEqual(datos['DOCTOR'][0]['nombre'], 'CT Elena FERREYRA')
 
     def test_designar_medico_cambia_el_rol(self):
         r = _client(self.admin).post(
