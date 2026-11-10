@@ -9,6 +9,14 @@
   --transition: all 0.3s ease;
 }
 
+/* En el celular, un solo hijo mas ancho que la pantalla agranda el viewport y toda
+   la pagina se ve achicada, sin llenar el ancho. `overflow-x: hidden` en el body
+   no alcanza para el navegador movil: tiene que estar tambien en html. */
+html {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -192,6 +200,12 @@ body {
     width: 100vw;
     overflow-x: hidden;
   }
+
+  /* Un flex item no baja de su contenido (min-width: auto): un select o un campo
+     con texto largo lo ensanchaba mas alla de la pantalla. */
+  .flex-grow-1, .card, .card form { min-width: 0; }
+  .form-select, .form-control { max-width: 100%; }
+  .card.p-4 { padding: 1rem !important; }
 
   .modal-dialog {
     margin: 0.5rem;
