@@ -990,3 +990,62 @@ class DirectivaView(generics.DestroyAPIView):
         archivo = instance.file
         instance.delete()
         archivo.delete(save=False)
+
+
+class BuzoAdminView(APIView):
+    """`GET /api/admin/buzos/<id del usuario>/`: el perfil de un buzo para el
+    administrador. Solo datos personales y cursos: los estudios medicos son del
+    buzo y del plantel (§5), el administrador no los ve."""
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def get(self, request, pk):
+        perfil = (UserProfile.objects.select_related('user')
+                  .filter(role='USER', user_id=pk).first())
+        if perfil is None:
+            raise NotFound('No hay ningún buzo con ese número.')
+        etiquetas = dict(UserProfile.COURSE_CHOICES)
+        hechos = set(perfil.courses or [])
+        return Response({
+            'id': perfil.user_id,
+            'nombre': _serializers.nombre_para_mostrar(perfil.user, perfil),
+            'email': perfil.user.email,
+            'dni': perfil.dni or '',
+            'fecha_nacimiento': perfil.birth_date,
+            'telefono': perfil.phone,
+            'grado': perfil.rank,
+            'destino': perfil.destination,
+            'peso': perfil.weight,
+            'altura': perfil.height,
+            # Solo los que marco, en el orden de la lista.
+            'cursos': [{'valor': v, 'etiqueta': e}
+                       for v, e in UserProfile.COURSE_CHOICES if v in hechos],
+            'otro_curso': perfil.other_course if 'OTROS' in hechos else '',
+            'cursos_desconocidos': sorted(c for c in hechos if c not in etiquetas),
+        })
+
+
+class ResumenCursosAdminView(APIView):
+    """`GET /api/admin/cursos/resumen/`: cuantos buzos tienen cada curso, para
+    el grafico del administrador, con quienes son."""
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def get(self, request):
+        perfiles = list(UserProfile.objects.filter(role='USER')
+                        .select_related('user')
+                        .order_by('user__last_name', 'user__first_name'))
+        cursos = []
+        for valor, etiqueta in UserProfile.COURSE_CHOICES:
+            quienes = [p for p in perfiles if valor in (p.courses or [])]
+            cursos.append({
+                'valor': valor, 'etiqueta': etiqueta, 'cantidad': len(quienes),
+                'buzos': [{'id': p.user_id,
+                           'nombre': _serializers.nombre_para_mostrar(p.user, p)}
+                          for p in quienes],
+            })
+        return Response({
+            'total_buzos': len(perfiles),
+            'sin_cursos': sum(1 for p in perfiles if not (p.courses or [])),
+            'cursos': cursos,
+        })

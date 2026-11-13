@@ -181,3 +181,18 @@ body {
 @media (min-width: 992px) {
   .cuadricula-estudios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Usuarios: la fila de un buzo se toca para desplegar sus cursos. El hover la
+   marca como tocable; abierta, se separa del resto con un filo dorado, un fondo
+   un poco mas claro y una sombra suave. */
+.list-group-item.fila-tocable { transition: background-color .15s ease, box-shadow .15s ease; }
+.list-group-item.fila-tocable:hover { background-color: var(--superficie-2); }
+.list-group-item.fila-abierta {
+  background-color: var(--superficie-2);
+  box-shadow: inset 3px 0 0 var(--oro), 0 4px 14px rgba(0,0,0,0.35);
+  position: relative;
+  z-index: 1;
+}
+
+/* Cursos (panel del administrador): el detalle se abre debajo de su barra. */
+.barra-curso:hover { background-color: var(--superficie-2) !important; }

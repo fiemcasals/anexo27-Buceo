@@ -9,6 +9,7 @@ import Permisos from './components/Permisos';
 import Usuarios from './components/Usuarios';
 import Profile from './components/Profile';
 import Directivas from './components/Directivas';
+import PanelCursos from './components/PanelCursos';
 import Login from './components/Login';
 import Registro from './components/Registro';
 import ResetPassword from './components/ResetPassword';
@@ -161,6 +162,12 @@ function App() {
               path="/usuarios"
               element={protegida(perfil && perfil.role === 'ADMIN'
                 ? <Usuarios onLogout={logout} perfil={perfil} />
+                : <Navigate to="/dashboard" replace />)}
+            />
+            <Route
+              path="/cursos"
+              element={protegida(perfil && perfil.role === 'ADMIN'
+                ? <PanelCursos onLogout={logout} perfil={perfil} />
                 : <Navigate to="/dashboard" replace />)}
             />
             <Route

@@ -7,7 +7,7 @@ from .views import (
     FechasView, MiFechaView, MiEstadoView, GradosView, CursosView, MiCorreoView,
     RolesAdminView, FechasAdminView, SupportViewSet, PlantelView, FichaView,
     UsuariosAdminView, UsuarioAdminView, ClaveUsuarioAdminView,
-    DirectivasView, DirectivaView,
+    DirectivasView, DirectivaView, BuzoAdminView, ResumenCursosAdminView,
 )
 
 router = DefaultRouter()
@@ -39,6 +39,9 @@ urlpatterns = [
     # El plantel del médico. Antes del router por la misma razón que arriba.
     path('plantel/', PlantelView.as_view(), name='plantel'),
     path('plantel/<int:pk>/', FichaView.as_view(), name='ficha'),
+    path('admin/buzos/<int:pk>/', BuzoAdminView.as_view(), name='admin-buzo'),
+    path('admin/cursos/resumen/', ResumenCursosAdminView.as_view(),
+         name='admin-cursos-resumen'),
     path('directivas/', DirectivasView.as_view(), name='directivas'),
     path('directivas/<int:pk>/', DirectivaView.as_view(), name='directiva'),
     path('', include(router.urls)),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import BarraLateral from './BarraLateral';
 
@@ -41,6 +42,22 @@ const Usuarios = ({ onLogout, perfil }) => {
     .catch(() => setFallo('No se pudo cargar la lista de usuarios.')), [orden]);
 
   useEffect(() => { traer(); }, [traer]);
+
+  // Los cursos que marco cada buzo, al tocar su fila. Se piden la primera vez.
+  const [params] = useSearchParams();
+  const [desplegado, setDesplegado] = useState(() => Number(params.get('abrir')) || null);
+  const [detalles, setDetalles] = useState({});
+
+  useEffect(() => {
+    if (!desplegado || detalles[desplegado]) return;
+    api.get(`admin/buzos/${desplegado}/`)
+      .then((res) => setDetalles((d) => ({ ...d, [desplegado]: res.data })))
+      .catch(() => setDetalles((d) => ({ ...d, [desplegado]: { error: true } })));
+  }, [desplegado, detalles]);
+
+  const alternar = (u) => {
+    if (u.role === 'USER') setDesplegado((actual) => (actual === u.id ? null : u.id));
+  };
 
   const abrir = (id, tipo) => {
     setAccion({ id, tipo }); setClave(''); setError(null); setAviso(null);
@@ -102,26 +119,38 @@ const Usuarios = ({ onLogout, perfil }) => {
               </div>
               <div className="list-group">
                 {visibles.map((u) => (
-                  <div key={u.id} className="list-group-item">
-                    <div className="d-flex flex-wrap align-items-center gap-2">
-                      <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                  <div key={u.id}
+                       className={`list-group-item${u.role === 'USER' ? ' fila-tocable' : ''}${desplegado === u.id && u.role === 'USER' ? ' fila-abierta' : ''}`}>
+                    <div className="d-flex flex-wrap align-items-center gap-2"
+                         style={u.role === 'USER' ? { cursor: 'pointer' } : undefined}
+                         onClick={() => alternar(u)}>
+                      <div style={{ flex: '1 1 0', minWidth: 0 }}
+                           {...(u.role === 'USER' ? {
+                             role: 'button', tabIndex: 0, 'aria-expanded': desplegado === u.id,
+                             onKeyDown: (e) => {
+                               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(u); }
+                             },
+                           } : {})}>
                         <div className="fw-semibold">{u.nombre}</div>
                         <div className="text-muted" style={{ fontSize: '13px' }}>
                           {u.email}{u.dni ? ` · DNI ${u.dni}` : ''}
                         </div>
                       </div>
-                      <div style={{ minWidth: '150px' }}>
+                      <div style={{ flex: '0 0 150px', width: '150px' }}>
                         <span className={`badge ${COLOR[u.role] || 'text-bg-light border'}`}
                               aria-label={`Tipo de usuario: ${ROL[u.role] || 'Sin perfil'}`}>
                           {ROL[u.role] || 'Sin perfil'}
                         </span>
                       </div>
                       {u.protegido ? (
-                        <span className="text-muted" style={{ fontSize: '12px' }}>
+                        <span className="text-muted text-end"
+                              style={{ fontSize: '12px', flex: '0 0 auto', minWidth: '270px' }}>
                           Cuenta de administración
                         </span>
                       ) : (
-                        <div className="d-flex gap-2">
+                        <div className="d-flex flex-wrap gap-2 justify-content-end"
+                             style={{ flex: '0 0 auto', minWidth: '270px' }}
+                             onClick={(e) => e.stopPropagation()}>
                           <button type="button" className="btn btn-sm btn-outline-secondary"
                                   onClick={() => abrir(u.id, 'clave')}>
                             Cambiar contraseña
@@ -133,6 +162,37 @@ const Usuarios = ({ onLogout, perfil }) => {
                         </div>
                       )}
                     </div>
+
+                    {desplegado === u.id && u.role === 'USER' && (
+                      <div className="mt-3 pt-2 border-top">
+                        {!detalles[u.id] && <div className="text-muted">Cargando…</div>}
+                        {detalles[u.id]?.error && (
+                          <div className="text-danger">No se pudieron traer los cursos.</div>
+                        )}
+                        {detalles[u.id]?.cursos && (
+                          <>
+                            <div className="fw-semibold mb-1" style={{ fontSize: '14px' }}>
+                              Cursos realizados
+                            </div>
+                            {detalles[u.id].cursos.length === 0
+                              ? <div className="text-muted" style={{ fontSize: '14px' }}>
+                                  No marcó ningún curso.
+                                </div>
+                              : (
+                                <ul className="mb-0 ps-3" style={{ fontSize: '14px' }}>
+                                  {detalles[u.id].cursos.map((c) => (
+                                    <li key={c.valor}>
+                                      {c.etiqueta}
+                                      {c.valor === 'OTROS' && detalles[u.id].otro_curso
+                                        ? `: ${detalles[u.id].otro_curso}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {accion?.id === u.id && accion.tipo === 'clave' && (
                       <form className="mt-3 d-flex flex-wrap gap-2"
