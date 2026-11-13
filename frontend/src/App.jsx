@@ -8,6 +8,7 @@ import PantallaBuzo from './components/PantallaBuzo';
 import Permisos from './components/Permisos';
 import Usuarios from './components/Usuarios';
 import Profile from './components/Profile';
+import Directivas from './components/Directivas';
 import Login from './components/Login';
 import Registro from './components/Registro';
 import ResetPassword from './components/ResetPassword';
@@ -161,6 +162,10 @@ function App() {
               element={protegida(perfil && perfil.role === 'ADMIN'
                 ? <Usuarios onLogout={logout} perfil={perfil} />
                 : <Navigate to="/dashboard" replace />)}
+            />
+            <Route
+              path="/directivas"
+              element={protegida(<Directivas onLogout={logout} perfil={perfil} />)}
             />
             <Route
               path="/profile"

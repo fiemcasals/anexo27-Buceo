@@ -66,6 +66,10 @@ const BarraLateral = ({ role, onLogout }) => {
             <span>Usuarios</span>
           </Link>
         )}
+        <Link to="/directivas" className={clase('/directivas')} onClick={cerrarElMenu}>
+          <i className="bi bi-file-earmark-pdf me-3"></i>
+          <span>Directivas</span>
+        </Link>
         <Link to="/profile" className={clase('/profile')} onClick={cerrarElMenu}>
           <i className="bi bi-person-circle me-3"></i>
           <span>Mi Perfil</span>

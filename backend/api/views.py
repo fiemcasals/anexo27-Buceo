@@ -17,14 +17,14 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
-    HabilitationEnrollment,
+    HabilitationEnrollment, Directiva,
 )
 from users.models import UserProfile, ProfileFieldTemplate
 from .serializers import (
     StudyBlockSerializer, CommentSerializer, PermissionSerializer,
     UserProfileSerializer, ProfileFieldTemplateSerializer,
     DiveActivitySerializer, DiveLogSerializer,
-    HabilitationWindowSerializer, InscripcionSerializer,
+    HabilitationWindowSerializer, InscripcionSerializer, DirectivaSerializer,
 )
 from users.serializers import CorregirCorreoSerializer
 from . import correo
@@ -967,3 +967,26 @@ class ClaveUsuarioAdminView(APIView):
         # cambiar la clave tiene que sacarlo, no solo cambiarle el login.
         Token.objects.filter(user=objetivo).delete()
         return Response({'detail': 'Contraseña cambiada.'})
+
+
+class DirectivasView(generics.ListCreateAPIView):
+    """Las directivas en PDF: todos las ven y las bajan; solo el administrador
+    las carga."""
+    queryset = Directiva.objects.all()
+    serializer_class = DirectivaSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated(), EsElAdministrador()]
+        return [permissions.IsAuthenticated()]
+
+
+class DirectivaView(generics.DestroyAPIView):
+    """Borrar una directiva (solo el administrador)."""
+    queryset = Directiva.objects.all()
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def perform_destroy(self, instance):
+        archivo = instance.file
+        instance.delete()
+        archivo.delete(save=False)

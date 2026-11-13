@@ -333,3 +333,22 @@ class HabilitationEnrollment(models.Model):
 
     def __str__(self):
         return f'{self.user} · {self.cycle}: {self.window}'
+
+
+class Directiva(models.Model):
+    """Una directiva (de habilitacion, de inmersion, de un curso) en PDF.
+
+    La carga el administrador; todos los usuarios la ven como titulo y enlace de
+    descarga. Siempre es un PDF: lo exige el serializador.
+    """
+    title = models.CharField(max_length=200, verbose_name='Título')
+    file = models.FileField(upload_to='directivas/%Y/%m/', verbose_name='Archivo PDF')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Cargada el')
+
+    class Meta:
+        verbose_name = 'Directiva'
+        verbose_name_plural = 'Directivas'
+        ordering = ['title', 'id']
+
+    def __str__(self):
+        return self.title

@@ -3,6 +3,7 @@ from rest_framework.validators import UniqueValidator
 from django.contrib.auth.models import User
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
+    Directiva,
 )
 from django.utils import timezone
 from .fitness import puede_reemplazarse
@@ -508,3 +509,40 @@ class CargarFechasSerializer(serializers.Serializer):
                     cycle=ciclo, slot=lugar,
                     defaults={'start_date': fecha, 'end_date': fecha})
         return ciclo
+
+
+MAX_DIRECTIVA_BYTES = 20 * 1024 * 1024
+
+
+class DirectivaSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(max_length=200)
+    file = serializers.FileField(write_only=True)
+    # Ruta relativa (/media/...): nginx sirve el archivo, y una URL absoluta
+    # armada detras del proxy saldria con http en vez de https.
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Directiva
+        fields = ['id', 'title', 'file', 'url', 'created_at']
+        read_only_fields = ['created_at']
+
+    def get_url(self, obj):
+        return obj.file.url
+
+    def validate_title(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Escribí el título de la directiva.')
+        return value
+
+    def validate_file(self, f):
+        # Siempre PDF: se mira la extension y los primeros bytes, no solo el nombre.
+        if not f.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError('El archivo tiene que ser un PDF.')
+        if f.size > MAX_DIRECTIVA_BYTES:
+            raise serializers.ValidationError('El PDF no puede pasar de 20 MB.')
+        cabecera = f.read(5)
+        f.seek(0)
+        if cabecera != b'%PDF-':
+            raise serializers.ValidationError('El archivo no es un PDF válido.')
+        return f
