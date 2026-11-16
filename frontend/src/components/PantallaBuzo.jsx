@@ -264,6 +264,21 @@ function Rechazo({ rechazo }) {
   )
 }
 
+// Lo que el médico o el enfermero anotaron sobre el estudio, aunque esté
+// aprobado. Sin autor: la respuesta no lo trae (§15.12).
+function Observaciones({ observaciones }) {
+  if (!observaciones || observaciones.length === 0) return null
+  return (
+    <div className="rounded-3 mt-2 px-3 py-2"
+         style={{ background: 'var(--info-fondo)', fontSize: '12.5px', color: 'var(--texto-fuerte)', lineHeight: 1.5 }}>
+      <strong>Observación{observaciones.length > 1 ? 'es' : ''}</strong>
+      {observaciones.map((o, i) => (
+        <div key={i} style={{ whiteSpace: 'pre-wrap' }}>{o.texto}</div>
+      ))}
+    </div>
+  )
+}
+
 const ESTADOS_CONOCIDOS_EN_FALTA_SUBIR = [
   'MISSING', 'REJECTED', 'EXPIRED', 'DATE_INVALID', 'BEFORE_WINDOW',
 ]
@@ -317,6 +332,7 @@ function TarjetaPorSubir({ estudio, onSubir }) {
       )}
 
       {estudio.estado === 'REJECTED' && estudio.rechazo && <Rechazo rechazo={estudio.rechazo} />}
+      <Observaciones observaciones={estudio.observaciones} />
 
       {estudio.upload_hint && conBoton && (
         <div className="mt-2" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
@@ -340,6 +356,7 @@ function TarjetaEnRevision({ estudio, onSubir }) {
       <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)' }}>
         Presentado. Pendiente de revisión.
       </div>
+      <Observaciones observaciones={estudio.observaciones} />
       {/* Acá sí manda `puede_reemplazarse`, que es la pregunta que ese campo
           responde: si el servidor dejaría pisar la carga que ya existe (§15.10). */}
       {estudio.puede_reemplazarse && (
@@ -358,7 +375,7 @@ function TarjetaRevisada({ estudio }) {
     <div className="bg-white rounded-4 p-3 mb-2 d-flex align-items-center gap-3"
          style={{ border: `1.5px solid ${BORDE_REVISADO}` }}>
       <span className="fw-bold" style={{ color: VERDE, fontSize: '19px' }}>&#10003;</span>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div className="fw-semibold" style={{ fontSize: '13.5px', color: 'var(--texto-fuerte)' }}>
           {estudio.texto}
         </div>
@@ -367,6 +384,7 @@ function TarjetaRevisada({ estudio }) {
             Vence el {enCastellano(estudio.vence_el)}
           </div>
         )}
+        <Observaciones observaciones={estudio.observaciones} />
       </div>
     </div>
   )

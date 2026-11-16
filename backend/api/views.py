@@ -574,7 +574,7 @@ class MiEstadoView(APIView):
             Prefetch(
                 'user__study_blocks',
                 queryset=StudyBlock.objects.filter(is_current=True)
-                .prefetch_related('comments'),
+                .prefetch_related('comments', 'observaciones'),
             ),
         ).get(user=request.user)
         # La fecha sale de la costura de `serializers`, que los tests congelan.
@@ -872,7 +872,7 @@ class FichaView(APIView):
                   .prefetch_related(Prefetch(
                       'user__study_blocks',
                       queryset=StudyBlock.objects.filter(is_current=True)
-                      .prefetch_related('comments__doctor__profile'),
+                      .prefetch_related('comments__doctor__profile', 'observaciones'),
                   ))
                   .first())
         if perfil is None:

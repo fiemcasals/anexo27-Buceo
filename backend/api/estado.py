@@ -63,6 +63,15 @@ def _rechazo(slot) -> dict | None:
     }
 
 
+def _observaciones(slot) -> list[dict]:
+    """Las observaciones del estudio vigente, la más nueva primero. Sin autor ni
+    rol (§15.12): el buzo necesita saber qué dice, no quién lo escribió."""
+    if slot.block is None:
+        return []
+    return [{'texto': o.content, 'fecha': o.created_at}
+            for o in slot.block.observaciones.all()]
+
+
 def _archivo(slot, request) -> str | None:
     if slot.block is None:
         return None
@@ -108,6 +117,7 @@ def armar_estado(profile, today: date, request=None) -> dict:
             'puede_reemplazarse': puede_reemplazarse(
                 slot.code, slot.block, ventana, today),
             'archivo': _archivo(slot, request),
+            'observaciones': _observaciones(slot),
         })
 
     return {

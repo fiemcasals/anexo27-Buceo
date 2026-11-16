@@ -146,7 +146,7 @@ class ElEstadoDelBuzoTests(_ConBuzo):
         self.assertEqual(set(_punto(cuerpo, 'c')), {
             'code', 'texto', 'estado', 'corresponde', 'motivo_no_corresponde',
             'vence_el', 'desde_cuando', 'rechazo', 'puede_reemplazarse', 'archivo',
-            'upload_hint'})
+            'upload_hint', 'observaciones'})
 
     def test_los_puntos_d_y_f_traen_el_aviso_del_catalogo(self):
         cuerpo = _get(self.buzo)
@@ -431,6 +431,23 @@ class ElAnexo27AntesDeSuVentanaTests(_ConBuzo):
         self.assertIsNone(punto_h['desde_cuando'])
 
 
+class LasObservacionesSeMuestranAlBuzoTests(_ConBuzo):
+    def test_la_observacion_sobre_un_estudio_aprobado_viaja_al_buzo_sin_autor(self):
+        from api.models import Observacion
+        _dictamen(self.estudio_c, self.medico, 'APPROVED')
+        Observacion.objects.create(
+            block=self.estudio_c, autor=self.medico, reviewer_role='DOCTOR',
+            content='Repetir en seis meses.')
+        punto = _punto(_get(self.buzo), 'c')
+        self.assertEqual(punto['estado'], 'APPROVED')
+        self.assertEqual([o['texto'] for o in punto['observaciones']],
+                         ['Repetir en seis meses.'])
+        self.assertEqual(set(punto['observaciones'][0]), {'texto', 'fecha'})
+
+    def test_sin_observaciones_la_lista_viene_vacia(self):
+        self.assertEqual(_punto(_get(self.buzo), 'c')['observaciones'], [])
+
+
 class ElRechazoSeMuestraTextualTests(_ConBuzo):
     def test_el_motivo_y_el_detalle_viajan_al_buzo(self):
         _dictamen(self.estudio_c, self.medico, 'REJECTED',
@@ -537,6 +554,6 @@ class SinConsultasDeMasTests(_ConBuzo):
             _dictamen(_estudio(self.mayor, code), self.medico, 'APPROVED')
         con_ocho = self._consultas(self.mayor)
         self.assertEqual(con_ocho, con_uno)
-        # Perfil con usuario y ventana, bloques vigentes, dictamenes, y la
-        # consulta de si hay fechas para elegir: cinco, no una por punto.
-        self.assertLessEqual(con_ocho, 5)
+        # Perfil con usuario y ventana, bloques vigentes, dictamenes, observaciones,
+        # y la consulta de si hay fechas para elegir: seis, no una por punto.
+        self.assertLessEqual(con_ocho, 6)
