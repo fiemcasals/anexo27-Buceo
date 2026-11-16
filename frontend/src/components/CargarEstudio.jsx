@@ -28,11 +28,13 @@ function CargarEstudio({ code, onSubido }) {
     setErrorGeneral('')
     setEnviando(true)
     try {
-      const archivo = await comprimirEnElNavegador(valores.archivo[0])
+      // Varias fotos viajan como varios `pdf_attachment`: el servidor las junta
+      // en un solo PDF, una por página, en el orden en que se eligieron.
+      const archivos = await Promise.all(Array.from(valores.archivo).map(comprimirEnElNavegador))
       const datos = new FormData()
       datos.append('study_code', code)
       datos.append('study_date', valores.fecha)
-      datos.append('pdf_attachment', archivo)
+      archivos.forEach(a => datos.append('pdf_attachment', a))
       await api.post('blocks/', datos)
       onSubido()
     } catch (e) {
@@ -90,18 +92,21 @@ function CargarEstudio({ code, onSubido }) {
 
       <div className="mb-3">
         <label htmlFor="carga-archivo" className="form-label fw-bold mb-1" style={estilo}>
-          Archivo
+          Archivo o fotos
         </label>
         {/* Sin `capture`: ese atributo le dice al celular "abrí la cámara" y se salta su menú,
             así que solo dejaba sacar foto. Sin él, el sistema ofrece sacar la foto, elegir de la
             galería o elegir un archivo (el PDF de un estudio ya hecho). */}
-        <input id="carga-archivo" type="file" accept="image/*,.pdf,.heic"
+        <input id="carga-archivo" type="file" accept="image/*,.pdf,.heic" multiple
                className={`form-control${errors.archivo ? ' is-invalid' : ''}`}
                aria-invalid={!!errors.archivo}
                {...register('archivo', {
                  validate: f => (f && f.length > 0) || 'Falta elegir el archivo del estudio.',
                  onChange: alCambiar('archivo'),
                })} />
+        <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)' }}>
+          Se pueden elegir varias fotos (hasta 10): se juntan en un solo documento.
+        </div>
         {errors.archivo && <div className="invalid-feedback d-block">{errors.archivo.message}</div>}
       </div>
 

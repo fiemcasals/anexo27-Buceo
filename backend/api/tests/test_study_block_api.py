@@ -13,6 +13,7 @@ Dos reglas distintas conviven acá y conviene no confundirlas:
   con cualquier usuario registrado. `Permission` sigue en pie (§5) y no rige.
 """
 
+import re
 from datetime import date
 
 from django.contrib.auth.models import User
@@ -433,6 +434,26 @@ class LaFotoSeComprimeAlRecibirlaTests(_ConBuzoYRevisores):
         self.addCleanup(bloque.pdf_attachment.delete, save=False)
         with Image.open(bloque.pdf_attachment) as guardada:
             self.assertEqual(max(guardada.size), 2000)
+
+    def test_varias_fotos_quedan_juntas_en_un_solo_pdf_con_una_pagina_cada_una(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "pdf_attachment": [_imagen(800, 600, "JPEG"), _imagen(600, 800, "JPEG"),
+                               _imagen(500, 500, "JPEG")]}, format="multipart")
+        self.assertEqual(r.status_code, 201, r.content)
+        bloque = StudyBlock.objects.get(pk=r.data["id"])
+        self.addCleanup(bloque.pdf_attachment.delete, save=False)
+        self.assertTrue(bloque.pdf_attachment.name.endswith(".pdf"))
+        contenido = bloque.pdf_attachment.read()
+        self.assertTrue(contenido.startswith(b"%PDF"))
+        self.assertEqual(len(re.findall(rb"/Type\s*/Page(?!s)", contenido)), 3)
+
+    def test_un_pdf_mezclado_con_fotos_se_rechaza(self):
+        r = _client(self.buzo).post(URL, {
+            "study_code": "c", "study_date": "2026-10-01",
+            "pdf_attachment": [_imagen(800, 600, "JPEG"), _pdf()]}, format="multipart")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(StudyBlock.objects.count(), 0)
 
     def test_un_archivo_rechazado_sale_como_400_y_no_como_500(self):
         r = _client(self.buzo).post(URL, {

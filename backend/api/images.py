@@ -20,6 +20,8 @@ CALIDAD = 75
 # Una foto de 48 MP (8000x6000) entra. Una imagen que se expande a cientos de MiB
 # no: el tope de bytes no la ve, porque el archivo comprimido puede pesar poco.
 MAX_PIXELES = 60_000_000
+# Fotos que se pueden juntar en un solo estudio.
+MAX_FOTOS = 10
 
 _CABECERA_PDF = b'%PDF'
 _MENSAJE_NO_IMAGEN = (
@@ -32,6 +34,55 @@ class ArchivoRechazado(Exception):
     def __init__(self, mensaje: str):
         super().__init__(mensaje)
         self.mensaje = mensaje
+
+
+def _imagen_limpia(archivo: UploadedFile) -> Image.Image:
+    """Abre una foto, la endereza, la reduce y la devuelve sin metadatos."""
+    archivo.seek(0)
+    try:
+        imagen = Image.open(archivo)
+        # Pillow lee el encabezado al abrir, así que el tamaño ya se conoce. Se
+        # chequea antes de transponer o convertir, que es donde se reserva la memoria.
+        if imagen.width * imagen.height > MAX_PIXELES:
+            raise ArchivoRechazado(_MENSAJE_DEMASIADOS_PIXELES)
+        # Antes de descartar el EXIF: la rotación de la foto vive ahí.
+        imagen = ImageOps.exif_transpose(imagen)
+        imagen = imagen.convert('RGB')
+    except (OSError, Image.DecompressionBombError):
+        raise ArchivoRechazado(_MENSAJE_NO_IMAGEN)
+
+    imagen.thumbnail((LADO_MAYOR, LADO_MAYOR))
+
+    # Se pegan los píxeles en una imagen nueva para no arrastrar los metadatos
+    # de la original, en vez de depender de que save() los omita.
+    limpia = Image.new('RGB', imagen.size)
+    limpia.paste(imagen)
+    return limpia
+
+
+def combinar_en_pdf(archivos: list) -> UploadedFile:
+    """Junta varias fotos en un único PDF, una por página, en el orden recibido.
+
+    Un estudio guarda un solo archivo: varias fotos de un mismo documento (las
+    páginas de un informe) viajan como un PDF. Los PDF no se mezclan con fotos.
+    """
+    if len(archivos) > MAX_FOTOS:
+        raise ArchivoRechazado(f'Se pueden subir hasta {MAX_FOTOS} fotos por estudio.')
+    if sum(a.size for a in archivos) > MAX_UPLOAD_BYTES * 2:
+        raise ArchivoRechazado('Las fotos juntas superan el tamaño máximo permitido.')
+    paginas = []
+    for archivo in archivos:
+        archivo.seek(0)
+        if archivo.read(len(_CABECERA_PDF)) == _CABECERA_PDF:
+            raise ArchivoRechazado(
+                'Para subir varias fotos todas deben ser imágenes; un PDF se sube solo.')
+        paginas.append(_imagen_limpia(archivo))
+    salida = io.BytesIO()
+    paginas[0].save(salida, 'PDF', save_all=True, append_images=paginas[1:],
+                    resolution=150.0)
+    nombre = os.path.splitext(os.path.basename(archivos[0].name))[0] + '.pdf'
+    return SimpleUploadedFile(
+        nombre, salida.getvalue(), content_type='application/pdf')
 
 
 def comprimir(archivo: UploadedFile) -> UploadedFile:
@@ -53,25 +104,7 @@ def comprimir(archivo: UploadedFile) -> UploadedFile:
         return SimpleUploadedFile(
             nombre, archivo.read(), content_type='application/pdf')
 
-    archivo.seek(0)
-    try:
-        imagen = Image.open(archivo)
-        # Pillow lee el encabezado al abrir, así que el tamaño ya se conoce. Se
-        # chequea antes de transponer o convertir, que es donde se reserva la memoria.
-        if imagen.width * imagen.height > MAX_PIXELES:
-            raise ArchivoRechazado(_MENSAJE_DEMASIADOS_PIXELES)
-        # Antes de descartar el EXIF: la rotación de la foto vive ahí.
-        imagen = ImageOps.exif_transpose(imagen)
-        imagen = imagen.convert('RGB')
-    except (OSError, Image.DecompressionBombError):
-        raise ArchivoRechazado(_MENSAJE_NO_IMAGEN)
-
-    imagen.thumbnail((LADO_MAYOR, LADO_MAYOR))
-
-    # Se pegan los píxeles en una imagen nueva para no arrastrar los metadatos
-    # de la original, en vez de depender de que save() los omita.
-    limpia = Image.new('RGB', imagen.size)
-    limpia.paste(imagen)
+    limpia = _imagen_limpia(archivo)
 
     salida = io.BytesIO()
     limpia.save(salida, 'JPEG', quality=CALIDAD)

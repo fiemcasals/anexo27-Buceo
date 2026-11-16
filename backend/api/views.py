@@ -32,7 +32,7 @@ from . import plantel
 from .ficha import armar_ficha
 from . import serializers as _serializers
 from .estado import armar_estado
-from .images import ArchivoRechazado, comprimir
+from .images import ArchivoRechazado, combinar_en_pdf, comprimir
 # §5, en su propio modulo porque tambien lo consultan los serializadores.
 from .roles import REVIEWER_ROLES, es_revisor  # noqa: F401  (re-export)
 
@@ -175,7 +175,11 @@ class StudyBlockViewSet(viewsets.ModelViewSet):
         # Las fotos se reducen en el servidor, antes de guardarlas: un rechazo
         # del archivo es un 400 con el mensaje ya redactado, no un 500.
         try:
-            archivo = comprimir(serializer.validated_data['pdf_attachment'])
+            subidos = self.request.FILES.getlist('pdf_attachment')
+            if len(subidos) > 1:
+                archivo = combinar_en_pdf(subidos)
+            else:
+                archivo = comprimir(serializer.validated_data['pdf_attachment'])
         except ArchivoRechazado as e:
             raise ValidationError({'pdf_attachment': e.mensaje})
         serializer.save(user=self.request.user, pdf_attachment=archivo)
