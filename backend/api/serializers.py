@@ -3,7 +3,7 @@ from rest_framework.validators import UniqueValidator
 from django.contrib.auth.models import User
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
-    Directiva,
+    Directiva, Observacion,
 )
 from django.utils import timezone
 from .fitness import puede_reemplazarse
@@ -546,3 +546,23 @@ class DirectivaSerializer(serializers.ModelSerializer):
         if cabecera != b'%PDF-':
             raise serializers.ValidationError('El archivo no es un PDF válido.')
         return f
+
+
+class ObservacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Observacion
+        fields = ['id', 'block', 'content', 'reviewer_role', 'created_at']
+        read_only_fields = ['reviewer_role', 'created_at']
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('La observación no puede estar vacía.')
+        return value.strip()
+
+    def validate_block(self, block):
+        # §15.9: nadie opina sobre sus propios estudios.
+        request = self.context.get('request')
+        if request is not None and block.user_id == request.user.pk:
+            raise serializers.ValidationError(
+                'Nadie puede opinar sobre sus propios estudios.')
+        return block

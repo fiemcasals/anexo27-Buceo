@@ -1,6 +1,6 @@
 import logging
 
-from rest_framework import generics, viewsets, permissions
+from rest_framework import generics, mixins, viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,11 +17,11 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
-    HabilitationEnrollment, Directiva,
+    HabilitationEnrollment, Directiva, Observacion,
 )
 from users.models import UserProfile, ProfileFieldTemplate
 from .serializers import (
-    StudyBlockSerializer, CommentSerializer, PermissionSerializer,
+    StudyBlockSerializer, CommentSerializer, PermissionSerializer, ObservacionSerializer,
     UserProfileSerializer, ProfileFieldTemplateSerializer,
     DiveActivitySerializer, DiveLogSerializer,
     HabilitationWindowSerializer, InscripcionSerializer, DirectivaSerializer,
@@ -307,6 +307,24 @@ class CommentViewSet(viewsets.ModelViewSet):
                 block=aprobacion.block, doctor=request.user,
                 reviewer_role=perfil.role, status='REVERTED')
         return Response(self.get_serializer(reversion).data)
+
+class ObservacionViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """El médico o el enfermero dejan una observación sobre un estudio, apto o
+    no, y le llega por correo al buzo. Sólo se crea: no cambia ningún estado."""
+    queryset = Observacion.objects.all()
+    serializer_class = ObservacionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        if not es_revisor(self.request.user):
+            raise PermissionDenied(
+                'Sólo el médico o un enfermero auxiliar designados pueden '
+                'dejar una observación.')
+        observacion = serializer.save(
+            autor=self.request.user,
+            reviewer_role=self.request.user.profile.role)
+        correo.avisar_observacion(observacion)
+
 
 class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all()

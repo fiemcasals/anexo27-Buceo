@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserProfileViewSet, ProfileFieldTemplateViewSet,
-    StudyBlockViewSet, CommentViewSet, PermissionViewSet,
+    StudyBlockViewSet, CommentViewSet, ObservacionViewSet, PermissionViewSet,
     DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
     FechasView, MiFechaView, MiEstadoView, GradosView, CursosView, MiCorreoView,
     RolesAdminView, FechasAdminView, SupportViewSet, PlantelView, FichaView,
@@ -15,6 +15,7 @@ router.register(r'profiles', UserProfileViewSet, basename='profile')
 router.register(r'templates', ProfileFieldTemplateViewSet, basename='template')
 router.register(r'blocks', StudyBlockViewSet, basename='block')
 router.register(r'comments', CommentViewSet, basename='comment')
+router.register(r'observaciones', ObservacionViewSet, basename='observacion')
 router.register(r'permissions', PermissionViewSet, basename='permission')
 router.register(r'dive-activities', DiveActivityViewSet, basename='diveactivity')
 router.register(r'dive-logs', DiveLogViewSet, basename='divelog')

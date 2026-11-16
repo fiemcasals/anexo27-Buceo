@@ -70,7 +70,7 @@ function Dictamen({ dictamen }) {
   );
 }
 
-function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir }) {
+function Punto({ estudio, rol, ocupado, error, aviso, onAprobar, onRechazar, onRevertir, onObservar }) {
   const [confirmando, setConfirmando] = useState(false);
   const estado = estadoDelPunto(estudio.estado);
   const noCorresponde = estudio.estado === 'NOT_REQUIRED';
@@ -107,6 +107,11 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
             {error}
           </div>
         )}
+        {aviso && (
+          <div className="alert alert-success py-1 px-2 mt-2 mb-0" role="status" style={{ fontSize: '12.5px' }}>
+            {aviso}
+          </div>
+        )}
       </div>
 
       <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
@@ -119,6 +124,13 @@ function Punto({ estudio, rol, ocupado, error, onAprobar, onRechazar, onRevertir
              className="btn btn-sm btn-outline-secondary">
             Ver
           </a>
+        )}
+
+        {estudio.bloque && (
+          <button type="button" className="btn btn-sm btn-outline-primary" disabled={enCurso}
+                  onClick={() => onObservar(estudio)}>
+            Observación
+          </button>
         )}
 
         {espera && (
@@ -277,6 +289,80 @@ function DialogoDeRechazo({ estudio, correo, onCancelar, onConfirmar }) {
   );
 }
 
+// El diálogo de observación: una nota sobre el estudio que no cambia su estado,
+// ni aunque esté aprobado. Dice, con la dirección a la vista, que le llega al buzo
+// por correo.
+function DialogoDeObservacion({ estudio, correo, onCancelar, onConfirmar }) {
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const alTeclear = (e) => { if (e.key === 'Escape') onCancelar(); };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [onCancelar]);
+
+  const confirmar = async (e) => {
+    e.preventDefault();
+    setEnviando(true);
+    setError('');
+    try {
+      await onConfirmar(texto);
+    } catch (fallo) {
+      setError(mensajeDelFallo(fallo, 'No se pudo guardar la observación.'));
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="modal-backdrop fade show"></div>
+      <div className="modal fade show d-block" role="dialog" aria-modal="true"
+           aria-labelledby="titulo-observacion" tabIndex={-1}>
+        <div className="modal-dialog modal-dialog-centered">
+          <form className="modal-content" onSubmit={confirmar} noValidate>
+            <div className="modal-header">
+              <h2 className="modal-title fs-5" id="titulo-observacion">Agregar observación</h2>
+            </div>
+            <div className="modal-body">
+              <div className="fw-semibold mb-3">{estudio.code}. {estudio.texto}</div>
+              <label className="form-label fw-semibold" htmlFor="texto-observacion" style={{ fontSize: '14px' }}>
+                Observación para el buzo
+              </label>
+              <textarea id="texto-observacion" rows={4} className="form-control mb-3"
+                        placeholder="Lo que el buzo tiene que saber de este estudio…"
+                        value={texto} onChange={(e) => setTexto(e.target.value)} />
+              <div style={{
+                background: 'var(--info-fondo)', border: '1px solid var(--info-borde)', borderRadius: '10px',
+                padding: '10px 12px', fontSize: '13px', color: 'var(--texto-fuerte)',
+              }}>
+                <i className="bi bi-envelope me-2"></i>
+                {correo
+                  ? <>Al confirmar, se le manda un correo a <strong>{correo}</strong> con la observación. El estado del estudio no cambia.</>
+                  : <>El buzo no tiene un correo cargado: la observación se guarda, pero no se envía ningún aviso.</>}
+              </div>
+              {error && (
+                <div className="alert alert-danger mt-3 mb-0 py-2" role="alert" style={{ fontSize: '13px' }}>
+                  {error}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline-secondary" onClick={onCancelar} disabled={enviando}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={enviando}>
+                {enviando ? 'Guardando…' : 'Guardar y notificar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
 const FichaBuzo = ({ onLogout, perfil }) => {
   const { id } = useParams();
   const location = useLocation();
@@ -292,6 +378,8 @@ const FichaBuzo = ({ onLogout, perfil }) => {
   const [ocupado, setOcupado] = useState(null);
   const [errorDelPunto, setErrorDelPunto] = useState({});
   const [rechazando, setRechazando] = useState(null);
+  const [observando, setObservando] = useState(null);
+  const [avisoDelPunto, setAvisoDelPunto] = useState({});
 
   const clave = `${id}#${intento}`;
 
@@ -351,6 +439,13 @@ const FichaBuzo = ({ onLogout, perfil }) => {
   };
 
   const cerrarElDialogo = useCallback(() => setRechazando(null), []);
+  const cerrarObservacion = useCallback(() => setObservando(null), []);
+
+  const confirmarObservacion = async (contenido) => {
+    await api.post('observaciones/', { block: observando.bloque, content: contenido });
+    setAvisoDelPunto((a) => ({ ...a, [observando.code]: 'Observación guardada y enviada al buzo.' }));
+    setObservando(null);
+  };
 
   const turno = ficha ? celdaTurno(ficha.turno) : null;
   const nombre = ficha ? nombreConGrado(ficha) || 'Sin nombre' : '';
@@ -416,9 +511,11 @@ const FichaBuzo = ({ onLogout, perfil }) => {
                     rol={role}
                     ocupado={ocupado}
                     error={errorDelPunto[estudio.code]}
+                    aviso={avisoDelPunto[estudio.code]}
                     onAprobar={aprobar}
                     onRechazar={setRechazando}
                     onRevertir={revertir}
+                    onObservar={setObservando}
                   />
                 ))}
               </div>
@@ -433,6 +530,15 @@ const FichaBuzo = ({ onLogout, perfil }) => {
           correo={ficha?.correo}
           onCancelar={cerrarElDialogo}
           onConfirmar={confirmarRechazo}
+        />
+      )}
+
+      {observando && (
+        <DialogoDeObservacion
+          estudio={observando}
+          correo={ficha?.correo}
+          onCancelar={cerrarObservacion}
+          onConfirmar={confirmarObservacion}
         />
       )}
     </div>

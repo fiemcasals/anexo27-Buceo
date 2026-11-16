@@ -26,7 +26,7 @@ ALL: tuple[RequiredStudy, ...] = (
     ),
     RequiredStudy(
         code="b",
-        text="Ecocardiograma con informe (sin excepción)",
+        text="Ecocardiograma con informe",
         validity_days=365,
         min_age=None,
         upload_hint="",

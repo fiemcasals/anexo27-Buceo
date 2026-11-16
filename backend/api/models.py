@@ -352,3 +352,30 @@ class Directiva(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Observacion(models.Model):
+    """Nota del médico o del enfermero sobre un estudio, aunque esté apto.
+
+    No es un dictamen: no cambia el estado del punto ni la aptitud del buzo
+    (`fitness` y `estado` sólo leen `Comment`). Por eso vive en su propia tabla:
+    como `Comment` entraría en "el último dictamen manda" y taparía una aprobación.
+    """
+    block = models.ForeignKey(
+        StudyBlock, on_delete=models.CASCADE, related_name='observaciones',
+        verbose_name='Estudio médico',
+    )
+    autor = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Escrita por')
+    reviewer_role = models.CharField(
+        max_length=10, choices=Comment.REVIEWER_ROLES, verbose_name='En calidad de',
+    )
+    content = models.TextField(verbose_name='Observación')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Registrada el')
+
+    class Meta:
+        verbose_name = 'Observación'
+        verbose_name_plural = 'Observaciones'
+        ordering = ['-created_at', '-pk']
+
+    def __str__(self):
+        return f'Observación de {self.autor.username} sobre {self.block.title}'

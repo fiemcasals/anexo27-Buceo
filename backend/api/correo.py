@@ -56,3 +56,34 @@ def avisar_rechazo(comment) -> bool:
         logger.exception(
             'Rechazo %s: no se pudo enviar el correo.', comment.pk)
         return False
+
+
+def avisar_observacion(observacion) -> bool:
+    """Le manda al buzo la observación que dejó el médico o el enfermero.
+
+    Mismo contrato que `avisar_rechazo`: nunca propaga y devuelve si salió.
+    """
+    try:
+        destino = observacion.block.user.email
+        if not destino:
+            logger.warning(
+                'Observación %s: el buzo no tiene correo, no se avisa.', observacion.pk)
+            return False
+        texto = (
+            f'Hay una observación sobre tu estudio "{observacion.block.title}".\n'
+            f'\n'
+            f'{observacion.content}\n'
+            f'\n'
+            f'Podés verlo ingresando al sistema: {settings.FRONTEND_URL}\n'
+        )
+        enviados = send_mail(
+            subject='Observación sobre tu estudio médico',
+            message=texto,
+            from_email=settings.DEFAULT_FROM_EMAIL or None,
+            recipient_list=[destino],
+        )
+        return enviados > 0
+    except Exception:
+        logger.exception(
+            'Observación %s: no se pudo enviar el correo.', observacion.pk)
+        return False
