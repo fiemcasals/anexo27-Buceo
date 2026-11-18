@@ -26,8 +26,8 @@ from .serializers import (
     DiveActivitySerializer, DiveLogSerializer,
     HabilitationWindowSerializer, InscripcionSerializer, DirectivaSerializer,
 )
-from users.serializers import CorregirCorreoSerializer
 from . import correo
+from . import fitness
 from . import plantel
 from .ficha import armar_ficha
 from . import serializers as _serializers
@@ -217,6 +217,16 @@ class SoloQuienDictamino(permissions.BasePermission):
             return True
         return es_revisor(request.user) and obj.doctor_id == request.user.pk
 
+def _esta_apto(user) -> bool:
+    """Si el buzo está apto hoy, leído de la base (sin cachés de una consulta previa)."""
+    perfil = UserProfile.objects.filter(user=user).select_related(
+        'user', 'habilitation_window').prefetch_related(
+        Prefetch('user__study_blocks',
+                 queryset=StudyBlock.objects.filter(is_current=True)
+                 .prefetch_related('comments'))).first()
+    return perfil is not None and fitness.diver_summary(perfil, _serializers.hoy()).is_apto
+
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
@@ -255,9 +265,16 @@ class CommentViewSet(viewsets.ModelViewSet):
         # calidad de qué firma, y el §6 dice que "lo único que el médico no
         # puede delegar es decir que alguien está apto". `es_revisor` de arriba
         # ya garantizó que el perfil existe y que el rol es uno de los dos.
+        buzo = serializer.validated_data['block'].user
+        era_apto = _esta_apto(buzo)
         comment = serializer.save(
             doctor=self.request.user,
             reviewer_role=self.request.user.profile.role)
+        if comment.status == 'APPROVED' and not era_apto and _esta_apto(buzo):
+            # Esta aprobación fue la que completó el último estudio exigido.
+            # Sólo avisa en el cambio a apto: aprobar un punto más estando ya
+            # apto no repite el correo.
+            correo.avisar_apto(buzo)
         if comment.status == 'REJECTED':
             # El dictamen ya está guardado: el correo es un aviso, no parte de
             # él. `avisar_rechazo` no propaga, así que un fallo acá no tumba
@@ -539,22 +556,6 @@ class GradosView(APIView):
             }
             for grupo, grados in UserProfile.RANK_CHOICES
         ])
-
-
-class MiCorreoView(APIView):
-    """Corrige el correo del que llama (§15.11).
-
-    Es lo único que repara un correo mal tipeado en el registro, que no verifica
-    la dirección. Actúa siempre sobre `request.user`: no recibe ningún id.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def put(self, request):
-        serializer = CorregirCorreoSerializer(
-            data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response({'email': user.email})
 
 
 class MiEstadoView(APIView):

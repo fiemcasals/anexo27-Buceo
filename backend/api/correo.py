@@ -1,4 +1,4 @@
-"""Aviso por correo al buzo cuando se le rechaza un estudio.
+"""Avisos por correo al buzo: estudio rechazado, observación y apto.
 
 Se invoca desde la vista de dictámenes y no desde una señal ni desde
 `Model.save()`: una señal también dispararía desde el admin de Django y desde
@@ -86,4 +86,31 @@ def avisar_observacion(observacion) -> bool:
     except Exception:
         logger.exception(
             'Observación %s: no se pudo enviar el correo.', observacion.pk)
+        return False
+
+
+def avisar_apto(user) -> bool:
+    """Le avisa al buzo que todos sus estudios están aprobados: está apto.
+
+    Mismo contrato que `avisar_rechazo`: nunca propaga y devuelve si salió.
+    """
+    try:
+        destino = user.email
+        if not destino:
+            logger.warning('Apto %s: el buzo no tiene correo, no se avisa.', user.pk)
+            return False
+        texto = (
+            'Todos tus estudios médicos fueron aprobados: estás apto.\n'
+            '\n'
+            f'Podés verlo ingresando al sistema: {settings.FRONTEND_URL}\n'
+        )
+        enviados = send_mail(
+            subject='Estudios médicos aprobados: estás apto',
+            message=texto,
+            from_email=settings.DEFAULT_FROM_EMAIL or None,
+            recipient_list=[destino],
+        )
+        return enviados > 0
+    except Exception:
+        logger.exception('Apto %s: no se pudo enviar el correo.', user.pk)
         return False

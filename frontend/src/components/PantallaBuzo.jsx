@@ -447,69 +447,19 @@ function Grupo({ grupo, onSubir }) {
   )
 }
 
-// --- El correo al que van los avisos (§15.11) -------------------------------
+// --- El correo al que van los avisos ----------------------------------------
 
-function BloqueDeCorreo({ correo, onGuardado }) {
-  const [editando, setEditando] = useState(false)
-  const [valor, setValor] = useState(correo)
-  const [error, setError] = useState('')
-  const [guardando, setGuardando] = useState(false)
-
-  const abrir = () => {
-    setValor(correo)
-    setError('')
-    setEditando(true)
-  }
-
-  const guardar = async e => {
-    e.preventDefault()
-    setGuardando(true)
-    setError('')
-    try {
-      const res = await api.put('mi-correo/', { email: valor })
-      setEditando(false)
-      onGuardado(res.data.email)
-    } catch (err) {
-      const datos = err.response?.data
-      setError(datos?.email?.[0] || datos?.detail || 'No se pudo guardar el correo.')
-    } finally {
-      setGuardando(false)
-    }
-  }
-
+// Solo informa: el correo es el de la cuenta (con él se entra al sistema), así
+// que no se cambia desde acá.
+function BloqueDeCorreo({ correo }) {
   return (
     <div className="bg-white rounded-4 p-3 mb-3" style={{ border: `1.5px solid ${BORDE_NEUTRO}` }}>
       <Titulo>Avisos por correo</Titulo>
-      {editando ? (
-        <form onSubmit={guardar}>
-          <label className="form-label" style={{ fontSize: '12.5px', color: 'var(--texto-suave)' }}>
-            Dirección a la que se envían los avisos
-          </label>
-          <input type="email" required className="form-control" value={valor}
-                 autoComplete="email" onChange={e => setValor(e.target.value)} />
-          {error && <div className="text-danger mt-2" style={{ fontSize: '12.5px' }}>{error}</div>}
-          <div className="d-flex gap-2 mt-3">
-            <button type="submit" className="btn btn-primary btn-sm" disabled={guardando}>
-              {guardando ? 'Guardando…' : 'Guardar el correo'}
-            </button>
-            <button type="button" className="btn btn-outline-secondary btn-sm"
-                    disabled={guardando} onClick={() => setEditando(false)}>
-              Cancelar
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
-          <div style={{ fontSize: '13px', color: 'var(--texto-fuerte)', wordBreak: 'break-all' }}>{correo}</div>
-          <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
-            Los avisos de esta aplicación se envían a esa dirección. Si está mal escrita,
-            puede corregirse acá.
-          </div>
-          <button type="button" className="btn btn-outline-secondary btn-sm mt-2" onClick={abrir}>
-            Corregir el correo
-          </button>
-        </>
-      )}
+      <div style={{ fontSize: '13px', color: 'var(--texto-fuerte)', wordBreak: 'break-all' }}>{correo}</div>
+      <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)', lineHeight: 1.5 }}>
+        A esta dirección te llegan los avisos de estudios rechazados, las observaciones
+        del médico o del enfermero y el aviso de que estás apto.
+      </div>
     </div>
   )
 }
@@ -674,8 +624,7 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
                   <Grupo key={grupo.titulo} grupo={grupo} onSubir={abrirCarga} />
                 ))}
 
-                <BloqueDeCorreo correo={estado.correo}
-                                onGuardado={correo => setEstado({ ...estado, correo })} />
+                <BloqueDeCorreo correo={estado.correo} />
 
                 <Soporte />
               </>

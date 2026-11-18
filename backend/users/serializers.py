@@ -132,27 +132,3 @@ class RegistroSerializer(RegisterSerializer):
                 raise serializers.ValidationError({'dni': [DNI_REPETIDO]})
             raise
         return user
-
-
-class CorregirCorreoSerializer(serializers.Serializer):
-    """El correo del que llama, nunca el de otro: el usuario sale de la sesión."""
-    email = serializers.EmailField(error_messages=ERRORES_DE_CORREO)
-
-    def validate_email(self, email):
-        email = email.strip()
-        if _correo_en_uso(email, excluyendo=self.context['request'].user):
-            raise serializers.ValidationError(CORREO_EN_USO)
-        return email
-
-    def save(self):
-        user = self.context['request'].user
-        correo = self.validated_data['email']
-        # El correo vive en `User` y allauth guarda su propia copia: con una sola
-        # actualizada, el login por correo deja afuera al usuario.
-        with transaction.atomic():
-            user.email = correo
-            user.save(update_fields=['email'])
-            EmailAddress.objects.filter(user=user).delete()
-            EmailAddress.objects.create(
-                user=user, email=correo, primary=True, verified=False)
-        return user
