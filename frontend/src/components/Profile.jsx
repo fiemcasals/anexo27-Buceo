@@ -135,17 +135,18 @@ const [grupos, setGrupos] = useState(null);
       {/* Sidebar */}
       <BarraLateral role={perfil?.role} onLogout={onLogout} />
 
-      <div className="flex-grow-1 p-5 bg-light overflow-auto">
-        <div className="d-flex justify-content-between align-items-center mb-5">
-          <div>
-            <h2 className="fw-bold mb-1">Configuración del Perfil</h2>
-            <p className="text-muted">Los datos personales tienen que estar actualizados.</p>
+      <div className="flex-grow-1 bg-light overflow-auto">
+        <div className="mx-auto px-3 py-4 perfil-pantalla" style={{ maxWidth: '1040px' }}>
+        <div className="mb-3 mb-md-4">
+          <h1 className="fw-bold mb-0" style={{ fontSize: '20px', color: 'var(--texto-fuerte)' }}>Mi perfil</h1>
+          <div style={{ fontSize: '13px', color: 'var(--texto-suave)' }}>
+            Los datos personales tienen que estar actualizados.
           </div>
         </div>
 
-        <div className="card shadow-sm border-0 p-4 profile-bg animate-hover">
+        <div className="card shadow-sm border-0 p-4 perfil-form">
           <form onSubmit={handleSave}>
-            <div className="row g-4">
+            <div className="row g-3 g-md-4">
                 <div className="col-md-12">
                   <label htmlFor="profile-email" className="form-label fw-medium text-muted small">Correo electrónico</label>
                   <input id="profile-email" type="email" className="form-control form-control-lg border-0 bg-light" value={profile.user?.email || ''} readOnly disabled />
@@ -186,11 +187,11 @@ const [grupos, setGrupos] = useState(null);
                 <label className="form-label fw-medium text-muted small">Destino</label>
                 <input type="text" name="destination" className="form-control form-control-lg border-0 bg-light" value={profile.destination} onChange={handleChange} placeholder="Base de operaciones / Destino actual" />
               </div>
-              <div className="col-md-6">
+              <div className="col-6">
                 <label className="form-label fw-medium text-muted small">Peso (kg)</label>
                 <input type="number" name="weight" className="form-control form-control-lg border-0 bg-light" value={profile.weight} onChange={handleChange} placeholder="75" />
               </div>
-              <div className="col-md-6">
+              <div className="col-6">
                 <label className="form-label fw-medium text-muted small">Altura (cm)</label>
                 <input type="number" name="height" className="form-control form-control-lg border-0 bg-light" value={profile.height} onChange={handleChange} placeholder="175" />
               </div>
@@ -264,7 +265,7 @@ const [grupos, setGrupos] = useState(null);
               )}
             </div>
 
-            <div className="mt-5 d-grid gap-2 d-md-flex justify-content-md-start">
+            <div className="mt-4 d-grid gap-2 d-md-flex justify-content-md-start">
               <button type="submit" className="btn btn-primary px-5 py-2 shadow-sm rounded-pill">
                 Guardar Cambios
               </button>
@@ -273,6 +274,7 @@ const [grupos, setGrupos] = useState(null);
               </button>
             </div>
           </form>
+        </div>
         </div>
       </div>
     </div>

@@ -196,3 +196,18 @@ body {
 
 /* Cursos (panel del administrador): el detalle se abre debajo de su barra. */
 .barra-curso:hover { background-color: var(--superficie-2) !important; }
+
+/* Perfil en el celular: sin tarjeta dentro de la pantalla, campos de tamaño normal
+   y menos aire entre filas. En escritorio queda como estaba. */
+@media (max-width: 768px) {
+  .perfil-form.card { background: transparent; box-shadow: none; padding: 0 !important; }
+  .perfil-form.card:hover { transform: none; box-shadow: none; }
+  .perfil-form .form-control-lg, .perfil-form .form-select-lg {
+    min-height: calc(1.5em + 0.75rem + 2px);
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid var(--borde) !important;
+  }
+  .perfil-form .form-label { margin-bottom: 0.25rem; }
+  .perfil-form .btn.rounded-pill { padding: 0.6rem 1rem !important; }
+}
