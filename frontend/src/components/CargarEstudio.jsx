@@ -20,21 +20,27 @@ function mensajeDe(valor) {
 }
 
 function CargarEstudio({ code, onSubido }) {
-  const { register, control, handleSubmit, setError, clearErrors, formState: { errors } } = useForm()
+  const { control, handleSubmit, setError, clearErrors, formState: { errors } } = useForm()
+  const [archivos, setArchivos] = useState([])
+  const [claveInput, setClaveInput] = useState(0)
   const [enviando, setEnviando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState('')
 
   const enviar = async valores => {
     setErrorGeneral('')
+    if (archivos.length === 0) {
+      setError('archivo', { type: 'manual', message: 'Falta elegir el archivo del estudio.' })
+      return
+    }
     setEnviando(true)
     try {
       // Varias fotos viajan como varios `pdf_attachment`: el servidor las junta
       // en un solo PDF, una por página, en el orden en que se eligieron.
-      const archivos = await Promise.all(Array.from(valores.archivo).map(comprimirEnElNavegador))
+      const comprimidos = await Promise.all(archivos.map(comprimirEnElNavegador))
       const datos = new FormData()
       datos.append('study_code', code)
       datos.append('study_date', valores.fecha)
-      archivos.forEach(a => datos.append('pdf_attachment', a))
+      comprimidos.forEach(a => datos.append('pdf_attachment', a))
       await api.post('blocks/', datos)
       onSubido()
     } catch (e) {
@@ -62,7 +68,6 @@ function CargarEstudio({ code, onSubido }) {
     }
   }
 
-  const alCambiar = campo => () => clearErrors(campo)
   const estilo = { fontSize: '13px' }
 
   return (
@@ -97,15 +102,35 @@ function CargarEstudio({ code, onSubido }) {
         {/* Sin `capture`: ese atributo le dice al celular "abrí la cámara" y se salta su menú,
             así que solo dejaba sacar foto. Sin él, el sistema ofrece sacar la foto, elegir de la
             galería o elegir un archivo (el PDF de un estudio ya hecho). */}
-        <input id="carga-archivo" type="file" accept="image/*,.pdf,.heic" multiple
+        {/* Cada vez que se elige o se saca algo se SUMA a la lista (y el input se vacía): en el
+            celular la cámara devuelve una sola foto por vez y, si reemplazara, solo quedaría la última. */}
+        <input id="carga-archivo" key={claveInput} type="file" accept="image/*,.pdf,.heic" multiple
                className={`form-control${errors.archivo ? ' is-invalid' : ''}`}
                aria-invalid={!!errors.archivo}
-               {...register('archivo', {
-                 validate: f => (f && f.length > 0) || 'Falta elegir el archivo del estudio.',
-                 onChange: alCambiar('archivo'),
-               })} />
+               onChange={e => {
+                 const nuevos = Array.from(e.target.files || [])
+                 if (nuevos.length) {
+                   setArchivos(prev => [...prev, ...nuevos])
+                   clearErrors('archivo')
+                 }
+                 setClaveInput(k => k + 1)
+               }} />
+        {archivos.length > 0 && (
+          <ul className="list-unstyled mt-2 mb-0" style={estilo}>
+            {archivos.map((a, i) => (
+              <li key={`${a.name}-${a.lastModified}-${i}`}
+                  className="d-flex align-items-center justify-content-between py-1">
+                <span className="text-truncate me-2">{i + 1}. {a.name}</span>
+                <button type="button" className="btn btn-sm btn-outline-danger"
+                        onClick={() => setArchivos(prev => prev.filter((_, j) => j !== i))}>
+                  Quitar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="mt-1" style={{ fontSize: '12px', color: 'var(--texto-suave)' }}>
-          Se pueden elegir varias fotos (hasta 10): se juntan en un solo documento.
+          Se pueden sumar varias fotos (hasta 10), una por una o de a muchas: se juntan en un solo documento.
         </div>
         {errors.archivo && <div className="invalid-feedback d-block">{errors.archivo.message}</div>}
       </div>
