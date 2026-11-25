@@ -597,6 +597,13 @@ const PantallaBuzo = ({ onLogout, perfil, onSubir }) => {
                   }} />
                 )}
 
+                {!eligiendoFecha && (
+                  <div className="mb-3 px-1"
+                       style={{ fontSize: '12px', lineHeight: 1.4, color: 'var(--texto-suave)' }}>
+                    <i className="bi bi-info-circle me-1"></i>
+                    Los estudios médicos se reciben hasta 24 horas antes de presentarte a habilitar.
+                  </div>
+                )}
 
                 {faltaElNacimiento && (
                   <div className="rounded-4 p-3 mb-3"

@@ -1,10 +1,10 @@
 # Autodeploy de buceo.nuestrocamino.cloud.
 #
-# Dispara con el push a `produccion`, no a `main`: main es una linea de
-# desarrollo paralela que se separo de esta en 8d3f8d3 (junio 2026) y tiene
-# migraciones que chocan de numero con contenido distinto. Desplegar main sobre
-# esta base rompe el esquema. Mientras las dos lineas no se reconcilien, el sitio
-# en vivo sale de `produccion`.
+# Dispara con el push a `produccion`. Hoy `main` y `produccion` estan en el mismo
+# commit y sus migraciones son una sola linea; antes eran lineas paralelas con
+# migraciones que chocaban de numero, y ya no. Se sigue desplegando solo desde
+# `produccion` para que publicar sea una decision explicita: se empuja primero a
+# `main` y despues a `produccion`.
 name: Desplegar produccion
 
 on:

@@ -426,3 +426,42 @@ class ElSuperusuarioNoSeDaPorLaApiTests(_ConAdmin):
         self.buzo.refresh_from_db()
         self.assertFalse(self.buzo.is_superuser)
         self.assertFalse(self.buzo.is_staff)
+
+
+class FechasAdicionalesTests(_ConAdmin):
+    URL = '/api/admin/fechas/adicionales/'
+
+    def setUp(self):
+        super().setUp()
+        self.c = _client(self.admin)
+
+    def test_agrega_y_lista_varias_en_el_mismo_ciclo(self):
+        for f in ('2026-12-10', '2026-12-20'):
+            r = self.c.post(self.URL, {'cycle': 2026, 'fecha': f}, format='json')
+            self.assertEqual(r.status_code, 201)
+        r = self.c.get('/api/admin/fechas/?cycle=2026')
+        self.assertEqual([a['fecha'] for a in r.data['adicionales']],
+                         ['2026-12-10', '2026-12-20'])
+        self.assertEqual(len(r.data['fechas']), 3)
+
+    def test_la_misma_fecha_dos_veces_se_rechaza(self):
+        cuerpo = {'cycle': 2026, 'fecha': '2026-12-10'}
+        self.c.post(self.URL, cuerpo, format='json')
+        self.assertEqual(self.c.post(self.URL, cuerpo, format='json').status_code, 400)
+
+    def test_quita_una_sin_inscriptos(self):
+        r = self.c.post(self.URL, {'cycle': 2026, 'fecha': '2026-12-10'}, format='json')
+        self.assertEqual(self.c.delete(f"{self.URL}{r.data['id']}/").status_code, 204)
+
+    def test_no_quita_una_con_inscriptos(self):
+        v = HabilitationWindow.objects.create(
+            cycle=2026, slot='EXTRA', start_date='2026-12-10', end_date='2026-12-10')
+        perfil = self.buzo.profile
+        perfil.habilitation_window = v
+        perfil.save()
+        self.assertEqual(self.c.delete(f'{self.URL}{v.pk}/').status_code, 409)
+
+    def test_un_buzo_no_puede(self):
+        r = _client(self.buzo).post(
+            self.URL, {'cycle': 2026, 'fecha': '2026-12-10'}, format='json')
+        self.assertEqual(r.status_code, 403)

@@ -254,11 +254,17 @@ class HabilitationWindow(models.Model):
     FIRST = 'FIRST'
     SECOND = 'SECOND'
     COMPLEMENTARY = 'COMPLEMENTARY'
+    # A diferencia de las tres anteriores, de EXTRA puede haber todas las que el
+    # administrador agregue en un mismo ciclo.
+    EXTRA = 'EXTRA'
     SLOT_CHOICES = [
         (FIRST, '1.ª fecha'),
         (SECOND, '2.ª fecha'),
         (COMPLEMENTARY, 'Complementaria'),
+        (EXTRA, 'Fecha adicional'),
     ]
+    # Los lugares fijos: uno por ciclo. Los que ve el formulario de tres campos.
+    SLOTS_FIJOS = SLOT_CHOICES[:3]
 
     cycle = models.PositiveIntegerField(verbose_name='Ciclo (año)')
     slot = models.CharField(
@@ -274,6 +280,7 @@ class HabilitationWindow(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['cycle', 'slot'], name='unique_window_slot_per_cycle',
+                condition=~models.Q(slot='EXTRA'),
                 violation_error_message='Ya existe una fecha con ese lugar en el ciclo.',
             ),
             models.CheckConstraint(

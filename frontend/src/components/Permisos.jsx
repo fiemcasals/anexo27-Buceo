@@ -200,10 +200,52 @@ function Fechas({ ciclo, fechas, editado, onEditar, onGuardar, guardando, errore
   );
 }
 
+function Adicionales({ adicionales, onAgregar, onQuitar, ocupado, errores }) {
+  const [nueva, setNueva] = useState('');
+  const error = errorDe(errores, 'fecha');
+  return (
+    <section className="bg-white rounded-4 shadow-sm p-4 mt-4">
+      <h2 className="fw-bold mb-1" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
+        Fechas adicionales
+      </h2>
+      <p className="text-muted mb-3" style={{ fontSize: '13px' }}>
+        Otras fechas de habilitación, además de las tres del ciclo. Los buzos
+        también pueden elegirlas.
+      </p>
+      {adicionales.length === 0 && (
+        <div className="text-muted mb-3" style={{ fontSize: '13px' }}>
+          Todavía no hay fechas adicionales.
+        </div>
+      )}
+      {adicionales.map((a) => (
+        <div key={a.id} className="d-flex align-items-center gap-3 mb-2">
+          <span style={{ fontSize: '14px' }}>{textoDeFecha(a.fecha)}</span>
+          <button type="button" className="btn btn-outline-secondary btn-sm"
+                  disabled={ocupado} onClick={() => onQuitar(a.id)}>
+            Quitar
+          </button>
+        </div>
+      ))}
+      <div className="d-flex flex-wrap align-items-start gap-3 mt-3">
+        <div style={{ minWidth: '200px' }}>
+          <CampoFecha id="fecha-adicional" value={nueva}
+                      onChange={setNueva} error={error} />
+        </div>
+        <button type="button" className="btn btn-primary"
+                disabled={!nueva || ocupado}
+                onClick={() => { onAgregar(nueva); setNueva(''); }}>
+          Agregar fecha
+        </button>
+      </div>
+    </section>
+  );
+}
+
 const Permisos = ({ onLogout, perfil }) => {
   const [designados, setDesignados] = useState(null);
   const [ciclo, setCiclo] = useState(null);
   const [fechas, setFechas] = useState([]);
+  const [adicionales, setAdicionales] = useState([]);
   const [editado, setEditado] = useState({});
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState(null);
@@ -221,6 +263,7 @@ const Permisos = ({ onLogout, perfil }) => {
       setDesignados(rs.data);
       setCiclo(fs.data.cycle);
       setFechas(fs.data.fechas);
+      setAdicionales(fs.data.adicionales || []);
       // Los inputs arrancan con lo guardado, así que el administrador ve lo
       // que hay y no tres campos vacíos sobre un ciclo ya cargado.
       const inicial = {};
@@ -264,6 +307,7 @@ const Permisos = ({ onLogout, perfil }) => {
       .then((res) => {
         setCiclo(res.data.cycle);
         setFechas(res.data.fechas);
+        setAdicionales(res.data.adicionales || []);
         const vuelta = {};
         for (const f of res.data.fechas) vuelta[f.slot] = f.fecha || '';
         setEditado(vuelta);
@@ -271,6 +315,28 @@ const Permisos = ({ onLogout, perfil }) => {
       })
       .catch((err) => setErroresFecha(
         err.response?.data || { cycle: 'No se pudieron guardar las fechas.' }))
+      .finally(() => setGuardando(null));
+  };
+
+  const agregarAdicional = (fecha) => {
+    setGuardando('adicional');
+    setErroresFecha(null);
+    setAviso(null);
+    api.post('admin/fechas/adicionales/', { cycle: ciclo, fecha })
+      .then(() => { setAviso('Fecha adicional agregada.'); return traer(); })
+      .catch((err) => setErroresFecha(
+        err.response?.data || { cycle: 'No se pudo agregar la fecha.' }))
+      .finally(() => setGuardando(null));
+  };
+
+  const quitarAdicional = (id) => {
+    setGuardando('adicional');
+    setErroresFecha(null);
+    setAviso(null);
+    api.delete(`admin/fechas/adicionales/${id}/`)
+      .then(() => { setAviso('Fecha adicional quitada.'); return traer(); })
+      .catch((err) => setErroresFecha({
+        cycle: err.response?.data?.detail || 'No se pudo quitar la fecha.' }))
       .finally(() => setGuardando(null));
   };
 
@@ -322,6 +388,13 @@ const Permisos = ({ onLogout, perfil }) => {
                   setEditado((previo) => ({ ...previo, [slot]: valor }))}
                 onGuardar={guardarFechas}
                 guardando={guardando === 'fechas'}
+                errores={erroresFecha}
+              />
+              <Adicionales
+                adicionales={adicionales}
+                onAgregar={agregarAdicional}
+                onQuitar={quitarAdicional}
+                ocupado={guardando === 'adicional'}
                 errores={erroresFecha}
               />
             </>

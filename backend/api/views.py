@@ -9,6 +9,7 @@ from django.db.models import Prefetch, Q
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404
 from rest_framework.authtoken.models import Token
 from django.conf import settings
@@ -667,9 +668,8 @@ class FechasAdminView(APIView):
         return Response(self._ciclo_completo(self._ciclo_pedido(request)))
 
     def _ciclo_completo(self, ciclo):
-        cargadas = {
-            v.slot: v for v in HabilitationWindow.objects.filter(cycle=ciclo)
-        }
+        ventanas = HabilitationWindow.objects.filter(cycle=ciclo)
+        cargadas = {v.slot: v for v in ventanas if v.slot != HabilitationWindow.EXTRA}
         return {
             'cycle': ciclo,
             'fechas': [
@@ -680,7 +680,13 @@ class FechasAdminView(APIView):
                               if slot in cargadas else None),
                     'id': cargadas[slot].pk if slot in cargadas else None,
                 }
-                for slot, etiqueta in HabilitationWindow.SLOT_CHOICES
+                for slot, etiqueta in HabilitationWindow.SLOTS_FIJOS
+            ],
+            # Las adicionales no tienen lugar fijo: las que haya, por fecha.
+            'adicionales': [
+                {'id': v.pk, 'fecha': v.start_date.isoformat()}
+                for v in ventanas.filter(slot=HabilitationWindow.EXTRA)
+                                 .order_by('start_date')
             ],
         }
 
@@ -692,6 +698,34 @@ class FechasAdminView(APIView):
         # el cuerpo: la pantalla se repinta con lo que quedó guardado, que es lo
         # único que delata un guardado que no ocurrió.
         return Response(self._ciclo_completo(ciclo))
+
+
+class FechasAdicionalesView(APIView):
+    """Agrega una fecha adicional al ciclo (`POST`) o la quita (`DELETE <id>`).
+
+    Quitar una fecha a la que ya se anotó algún buzo se rechaza con 409: borrarla
+    lo desinscribiría y borraría ese tramo de su historial.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def post(self, request):
+        serializer = _serializers.FechaAdicionalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ventana = serializer.save()
+        return Response({'id': ventana.pk, 'fecha': ventana.start_date.isoformat()},
+                        status=201)
+
+    def delete(self, request, pk):
+        ventana = get_object_or_404(
+            HabilitationWindow, pk=pk, slot=HabilitationWindow.EXTRA)
+        try:
+            ventana.delete()
+        except ProtectedError:
+            return Response(
+                {'detail': 'Hay buzos anotados en esa fecha. No se puede quitar.'},
+                status=409)
+        return Response(status=204)
 
 
 class SupportViewSet(viewsets.ViewSet):

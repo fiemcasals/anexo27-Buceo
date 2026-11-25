@@ -71,9 +71,10 @@ class HabilitationWindowTests(TestCase):
 
     def test_the_three_slots_of_a_cycle(self):
         self.assertEqual(
-            list(dict(HabilitationWindow.SLOT_CHOICES)),
+            list(dict(HabilitationWindow.SLOTS_FIJOS)),
             ["FIRST", "SECOND", "COMPLEMENTARY"],
         )
+        self.assertIn("EXTRA", dict(HabilitationWindow.SLOT_CHOICES))
 
     def test_window_is_registered_in_the_django_admin(self):
         from django.contrib import admin

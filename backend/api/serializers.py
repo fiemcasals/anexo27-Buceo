@@ -511,6 +511,26 @@ class CargarFechasSerializer(serializers.Serializer):
         return ciclo
 
 
+class FechaAdicionalSerializer(serializers.Serializer):
+    """Una fecha de habilitación más en el ciclo (un día solo)."""
+    cycle = serializers.IntegerField(min_value=2000, max_value=2100)
+    fecha = serializers.DateField()
+
+    def validate(self, datos):
+        if HabilitationWindow.objects.filter(
+                cycle=datos['cycle'], slot=HabilitationWindow.EXTRA,
+                start_date=datos['fecha']).exists():
+            raise serializers.ValidationError(
+                {'fecha': 'Esa fecha adicional ya está cargada.'})
+        return datos
+
+    def save(self):
+        fecha = self.validated_data['fecha']
+        return HabilitationWindow.objects.create(
+            cycle=self.validated_data['cycle'], slot=HabilitationWindow.EXTRA,
+            start_date=fecha, end_date=fecha)
+
+
 MAX_DIRECTIVA_BYTES = 20 * 1024 * 1024
 
 
