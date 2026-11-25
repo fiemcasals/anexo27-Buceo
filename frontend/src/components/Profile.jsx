@@ -3,13 +3,15 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import BarraLateral from './BarraLateral';
 import CampoFecha from './CampoFecha';
+import BannerDeGrupo from './BannerDeGrupo';
+import { nombreConGrado } from '../lib/nombre-con-grado';
 
 // Los nombres que se leen en la pantalla, para que un error diga QUE campo falla
 // y no solo "este campo no puede estar en blanco".
 const ETIQUETAS = {
   first_name: 'Nombre', last_name: 'Apellido', dni: 'DNI', birth_date: 'Fecha de nacimiento',
   phone: 'Teléfono', rank: 'Grado', destination: 'Destino', weight: 'Peso', height: 'Altura',
-  courses: 'Cursos', other_course: 'Otro curso',
+  courses: 'Cursos', other_course: 'Otro curso', basic_course_year: 'Año del CBSFBE',
 };
 
 // Lo que escribe en "Otros" no pasa de esto (el backend lo exige igual).
@@ -28,6 +30,7 @@ const Profile = ({ onLogout, perfil }) => {
     height: '',
     courses: [],
     other_course: '',
+    basic_course_year: '',
     profile_data: {}
   });
   const [loading, setLoading] = useState(true);
@@ -76,6 +79,7 @@ const [grupos, setGrupos] = useState(null);
         height: res.data.height || '',
         courses: res.data.courses || [],
         other_course: res.data.other_course || '',
+        basic_course_year: res.data.basic_course_year || '',
       });
       setGuardados(res.data.courses || []);
     } catch (err) {
@@ -108,7 +112,7 @@ const [grupos, setGrupos] = useState(null);
 
     // Clean data: convert empty strings to null for numeric and date fields
     const cleanedProfile = { ...profile };
-    ['weight', 'height', 'birth_date'].forEach(field => {
+    ['weight', 'height', 'birth_date', 'basic_course_year'].forEach(field => {
       if (cleanedProfile[field] === '') {
         cleanedProfile[field] = null;
       }
@@ -143,6 +147,13 @@ const [grupos, setGrupos] = useState(null);
             Los datos personales tienen que estar actualizados.
           </div>
         </div>
+
+        {nombreConGrado({ grado: profile.rank, nombre: profile.first_name, apellido: profile.last_name }) && (
+          <div className="fw-bold mb-2" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
+            {nombreConGrado({ grado: profile.rank, nombre: profile.first_name, apellido: profile.last_name })}
+          </div>
+        )}
+        <BannerDeGrupo grupo={profile.grupo} campeon={profile.grupo_campeon} />
 
         <div className="card shadow-sm border-0 p-4 perfil-form">
           <form onSubmit={handleSave}>
@@ -183,7 +194,14 @@ const [grupos, setGrupos] = useState(null);
                     ))}
                   </select>
               </div>
-              <div className="col-md-12">
+              <div className="col-md-6">
+                <label className="form-label fw-medium text-muted small">Año del CBSFBE</label>
+                <input type="number" name="basic_course_year" min="1974" max={new Date().getFullYear()}
+                       className="form-control form-control-lg border-0 bg-light"
+                       value={profile.basic_course_year} onChange={handleChange} placeholder="Año en que hizo el curso" />
+                <div className="form-text">De este año depende el grupo al que pertenece.</div>
+              </div>
+              <div className="col-md-6">
                 <label className="form-label fw-medium text-muted small">Destino</label>
                 <input type="text" name="destination" className="form-control form-control-lg border-0 bg-light" value={profile.destination} onChange={handleChange} placeholder="Base de operaciones / Destino actual" />
               </div>

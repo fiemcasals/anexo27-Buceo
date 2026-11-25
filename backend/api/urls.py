@@ -5,7 +5,7 @@ from .views import (
     StudyBlockViewSet, CommentViewSet, ObservacionViewSet, PermissionViewSet,
     DiveActivityViewSet, DiveLogViewSet, SuperUserViewSet,
     FechasView, MiFechaView, MiEstadoView, GradosView, CursosView,
-    RolesAdminView, FechasAdminView, FechasAdicionalesView, SupportViewSet, PlantelView, FichaView,
+    RolesAdminView, FechasAdminView, FechasAdicionalesView, CampeonesAdminView, SupportViewSet, PlantelView, FichaView,
     UsuariosAdminView, UsuarioAdminView, ClaveUsuarioAdminView,
     DirectivasView, DirectivaView, BuzoAdminView, ResumenCursosAdminView,
 )
@@ -32,6 +32,7 @@ urlpatterns = [
     # router para que `admin/` no la agarre ninguna ruta generada.
     path('admin/roles/', RolesAdminView.as_view(), name='admin-roles'),
     path('admin/fechas/', FechasAdminView.as_view(), name='admin-fechas'),
+    path('admin/campeones/', CampeonesAdminView.as_view(), name='admin-campeones'),
     path('admin/fechas/adicionales/', FechasAdicionalesView.as_view(), name='admin-fechas-adicionales'),
     path('admin/fechas/adicionales/<int:pk>/', FechasAdicionalesView.as_view(), name='admin-fechas-adicional'),
     path('admin/usuarios/', UsuariosAdminView.as_view(), name='admin-usuarios'),

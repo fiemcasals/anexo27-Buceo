@@ -3,12 +3,13 @@ from rest_framework.validators import UniqueValidator
 from django.contrib.auth.models import User
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
-    Directiva, Observacion,
+    Directiva, Observacion, GrupoCampeon,
 )
 from django.utils import timezone
 from .fitness import puede_reemplazarse
 from .roles import es_revisor
 from users.dni import CampoDni, DNI_REPETIDO
+from users import grupos
 from users.models import UserProfile, ProfileFieldTemplate
 
 
@@ -73,9 +74,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
         validators=[UniqueValidator(
             queryset=UserProfile.objects.all(), message=DNI_REPETIDO)])
 
+    # El grupo sale del año del curso; el campeón es el vigente de toda la unidad.
+    grupo = serializers.SerializerMethodField()
+    grupo_campeon = serializers.SerializerMethodField()
+
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'courses', 'other_course', 'first_name', 'last_name', 'terms_accepted_at']
+        fields = ['id', 'user', 'role', 'is_instructor', 'profile_data', 'dni', 'birth_date', 'phone', 'rank', 'destination', 'weight', 'height', 'courses', 'other_course', 'basic_course_year', 'grupo', 'grupo_campeon', 'first_name', 'last_name', 'terms_accepted_at']
         # §5: "Cuatro roles. El admin los designa." El rol no es un dato que el
         # usuario edite de su propio perfil, y desde que el acceso sale del rol
         # (D-5) es la única credencial de autorización del sistema: escribible
@@ -94,6 +99,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'invalid': 'La fecha de nacimiento debe indicarse como AAAA-MM-DD.',
             }},
         }
+
+    def get_grupo(self, obj):
+        return grupos.descripcion(grupos.grupo_de(obj.basic_course_year))
+
+    def get_grupo_campeon(self, obj):
+        # Sólo si el buzo es del grupo campeón: lo que se muestra es su badge.
+        vigente = GrupoCampeon.objects.first()
+        if vigente is None or vigente.group != grupos.grupo_de(obj.basic_course_year):
+            return None
+        return {'anio': vigente.year}
+
+    def validate_basic_course_year(self, valor):
+        if valor is not None and not (1974 <= valor <= hoy().year):
+            raise serializers.ValidationError(
+                f'El año del curso tiene que estar entre 1974 y {hoy().year}.')
+        return valor
 
     def validate_courses(self, valor):
         # Sin repetidos y en el orden en que se eligieron.
@@ -509,6 +530,18 @@ class CargarFechasSerializer(serializers.Serializer):
                     cycle=ciclo, slot=lugar,
                     defaults={'start_date': fecha, 'end_date': fecha})
         return ciclo
+
+
+class CampeonSerializer(serializers.Serializer):
+    """El grupo que ganó en un año."""
+    year = serializers.IntegerField(min_value=1974, max_value=2100)
+    group = serializers.ChoiceField(choices=grupos.CHOICES)
+
+    def save(self):
+        fila, _ = GrupoCampeon.objects.update_or_create(
+            year=self.validated_data['year'],
+            defaults={'group': self.validated_data['group']})
+        return fila
 
 
 class FechaAdicionalSerializer(serializers.Serializer):

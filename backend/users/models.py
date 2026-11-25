@@ -109,6 +109,10 @@ class UserProfile(models.Model):
     other_course = models.CharField(
         max_length=OTHER_COURSE_MAX, blank=True, verbose_name='Otro curso',
     )
+    # Año del Curso Básico (CBSFBE): de él sale el grupo del buzo.
+    basic_course_year = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Año del curso básico (CBSFBE)',
+    )
 
     class Meta:
         verbose_name = 'Perfil'

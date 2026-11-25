@@ -18,8 +18,9 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 from .models import (
     StudyBlock, Comment, Permission, DiveActivity, DiveLog, HabilitationWindow,
-    HabilitationEnrollment, Directiva, Observacion,
+    HabilitationEnrollment, Directiva, Observacion, GrupoCampeon,
 )
+from users import grupos
 from users.models import UserProfile, ProfileFieldTemplate
 from .serializers import (
     StudyBlockSerializer, CommentSerializer, PermissionSerializer, ObservacionSerializer,
@@ -726,6 +727,33 @@ class FechasAdicionalesView(APIView):
                 {'detail': 'Hay buzos anotados en esa fecha. No se puede quitar.'},
                 status=409)
         return Response(status=204)
+
+
+class CampeonesAdminView(APIView):
+    """Los grupos campeones: el historial (`GET`) y cargar el de un año (`PUT`).
+
+    Cargar un año que ya tiene campeón lo corrige. El vigente es el del año más
+    reciente.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, EsElAdministrador]
+
+    def _lista(self):
+        return {
+            'grupos': [{'codigo': c, 'nombre': g['nombre'], 'color': g['color']}
+                       for c, g in grupos.GRUPOS.items()],
+            'campeones': [{'year': f.year, 'group': f.group}
+                          for f in GrupoCampeon.objects.all()],
+        }
+
+    def get(self, request):
+        return Response(self._lista())
+
+    def put(self, request):
+        serializer = _serializers.CampeonSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(self._lista())
 
 
 class SupportViewSet(viewsets.ViewSet):

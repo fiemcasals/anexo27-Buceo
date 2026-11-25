@@ -200,6 +200,54 @@ function Fechas({ ciclo, fechas, editado, onEditar, onGuardar, guardando, errore
   );
 }
 
+function Campeones({ datos, onGuardar, ocupado }) {
+  const anioActual = new Date().getFullYear();
+  const [anio, setAnio] = useState(anioActual);
+  const [grupo, setGrupo] = useState('');
+  if (!datos) return null;
+  const nombreDe = (codigo) => datos.grupos.find((g) => g.codigo === codigo)?.nombre || codigo;
+  return (
+    <section className="bg-white rounded-4 shadow-sm p-4 mt-4">
+      <h2 className="fw-bold mb-1" style={{ fontSize: '17px', color: 'var(--texto-fuerte)' }}>
+        Grupo campeón
+      </h2>
+      <p className="text-muted mb-3" style={{ fontSize: '13px' }}>
+        El grupo que ganó la competencia del último día de la habilitación. Se
+        muestra en el perfil de sus integrantes hasta que se cargue otro año.
+      </p>
+      {datos.campeones.length > 0 && (
+        <ul className="list-unstyled mb-3" style={{ fontSize: '14px' }}>
+          {datos.campeones.map((c, i) => (
+            <li key={c.year}>
+              <strong>{c.year}</strong> · {nombreDe(c.group)}
+              {i === 0 && <span className="text-muted"> (vigente)</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="d-flex flex-wrap align-items-end gap-3">
+        <div>
+          <label htmlFor="campeon-anio" className="form-label fw-semibold" style={{ fontSize: '13px' }}>Año</label>
+          <input id="campeon-anio" type="number" className="form-control" style={{ width: '110px' }}
+                 value={anio} onChange={(e) => setAnio(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="campeon-grupo" className="form-label fw-semibold" style={{ fontSize: '13px' }}>Grupo</label>
+          <select id="campeon-grupo" className="form-select" value={grupo}
+                  onChange={(e) => setGrupo(e.target.value)}>
+            <option value="">Elegir el grupo</option>
+            {datos.grupos.map((g) => <option key={g.codigo} value={g.codigo}>{g.nombre}</option>)}
+          </select>
+        </div>
+        <button type="button" className="btn btn-primary" disabled={!grupo || !anio || ocupado}
+                onClick={() => onGuardar({ year: Number(anio), group: grupo })}>
+          Guardar campeón
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function Adicionales({ adicionales, onAgregar, onQuitar, ocupado, errores }) {
   const [nueva, setNueva] = useState('');
   const error = errorDe(errores, 'fecha');
@@ -246,6 +294,7 @@ const Permisos = ({ onLogout, perfil }) => {
   const [ciclo, setCiclo] = useState(null);
   const [fechas, setFechas] = useState([]);
   const [adicionales, setAdicionales] = useState([]);
+  const [campeones, setCampeones] = useState(null);
   const [editado, setEditado] = useState({});
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState(null);
@@ -259,8 +308,10 @@ const Permisos = ({ onLogout, perfil }) => {
     return Promise.all([
       api.get('admin/roles/'),
       api.get('admin/fechas/'),
-    ]).then(([rs, fs]) => {
+      api.get('admin/campeones/'),
+    ]).then(([rs, fs, cs]) => {
       setDesignados(rs.data);
+      setCampeones(cs.data);
       setCiclo(fs.data.cycle);
       setFechas(fs.data.fechas);
       setAdicionales(fs.data.adicionales || []);
@@ -315,6 +366,17 @@ const Permisos = ({ onLogout, perfil }) => {
       })
       .catch((err) => setErroresFecha(
         err.response?.data || { cycle: 'No se pudieron guardar las fechas.' }))
+      .finally(() => setGuardando(null));
+  };
+
+  const guardarCampeon = (cuerpo) => {
+    setGuardando('campeon');
+    setErroresFecha(null);
+    setAviso(null);
+    api.put('admin/campeones/', cuerpo)
+      .then((res) => { setCampeones(res.data); setAviso('Grupo campeón guardado.'); })
+      .catch((err) => setErroresFecha(
+        err.response?.data || { cycle: 'No se pudo guardar el campeón.' }))
       .finally(() => setGuardando(null));
   };
 
@@ -397,6 +459,8 @@ const Permisos = ({ onLogout, perfil }) => {
                 ocupado={guardando === 'adicional'}
                 errores={erroresFecha}
               />
+              <Campeones datos={campeones} onGuardar={guardarCampeon}
+                         ocupado={guardando === 'campeon'} />
             </>
           )}
           <Soporte />

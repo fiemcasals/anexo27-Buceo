@@ -386,3 +386,21 @@ class Observacion(models.Model):
 
     def __str__(self):
         return f'Observación de {self.autor.username} sobre {self.block.title}'
+
+
+class GrupoCampeon(models.Model):
+    """El grupo que ganó la competencia del último día de la habilitación.
+
+    Una fila por año. El grupo campeón vigente es el del año más reciente: se
+    mantiene hasta que se carga otro.
+    """
+    year = models.PositiveSmallIntegerField(unique=True, verbose_name='Año')
+    group = models.CharField(max_length=11, verbose_name='Grupo campeón')
+
+    class Meta:
+        verbose_name = 'Grupo campeón'
+        verbose_name_plural = 'Grupos campeones'
+        ordering = ['-year']
+
+    def __str__(self):
+        return f'{self.year}: {self.group}'
