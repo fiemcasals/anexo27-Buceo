@@ -225,13 +225,13 @@ function Campeones({ datos, onGuardar, ocupado }) {
           ))}
         </ul>
       )}
-      <div className="d-flex flex-wrap align-items-end gap-3">
-        <div>
+      <div className="row g-2 align-items-end">
+        <div className="col-4 col-sm-auto">
           <label htmlFor="campeon-anio" className="form-label fw-semibold" style={{ fontSize: '13px' }}>Año</label>
-          <input id="campeon-anio" type="number" className="form-control" style={{ width: '110px' }}
+          <input id="campeon-anio" type="number" className="form-control"
                  value={anio} onChange={(e) => setAnio(e.target.value)} />
         </div>
-        <div>
+        <div className="col-8 col-sm-auto">
           <label htmlFor="campeon-grupo" className="form-label fw-semibold" style={{ fontSize: '13px' }}>Grupo</label>
           <select id="campeon-grupo" className="form-select" value={grupo}
                   onChange={(e) => setGrupo(e.target.value)}>
@@ -239,10 +239,12 @@ function Campeones({ datos, onGuardar, ocupado }) {
             {datos.grupos.map((g) => <option key={g.codigo} value={g.codigo}>{g.nombre}</option>)}
           </select>
         </div>
-        <button type="button" className="btn btn-primary" disabled={!grupo || !anio || ocupado}
-                onClick={() => onGuardar({ year: Number(anio), group: grupo })}>
-          Guardar campeón
-        </button>
+        <div className="col-12 col-sm-auto">
+          <button type="button" className="btn btn-primary w-100" disabled={!grupo || !anio || ocupado}
+                  onClick={() => onGuardar({ year: Number(anio), group: grupo })}>
+            Guardar campeón
+          </button>
+        </div>
       </div>
     </section>
   );

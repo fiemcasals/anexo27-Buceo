@@ -18,12 +18,12 @@ function Emblema({ codigo }) {
 export default function BannerDeGrupo({ grupo, campeon }) {
   if (!grupo) return null;
   return (
-    <div className="d-flex align-items-center gap-3 rounded-3 px-3 py-2 mb-3"
-         style={{ background: grupo.color, color: ORO }}
+    <div className="d-flex align-items-center gap-2 gap-sm-3 rounded-3 px-3 py-2 mb-3"
+         style={{ background: grupo.color, color: ORO, maxWidth: '100%', overflow: 'hidden' }}
          role="img" aria-label={`Grupo ${grupo.nombre}${campeon ? `, campeón ${campeon.anio}` : ''}`}>
       <Emblema codigo={grupo.codigo} />
-      <div className="fw-bold text-uppercase flex-grow-1"
-           style={{ fontSize: '17px', letterSpacing: '3px' }}>
+      <div className="fw-bold text-uppercase flex-grow-1 text-truncate"
+           style={{ minWidth: 0, fontSize: 'clamp(13px, 4.4vw, 17px)', letterSpacing: 'clamp(1px, 0.7vw, 3px)' }}>
         {grupo.nombre}
       </div>
       {campeon && (
